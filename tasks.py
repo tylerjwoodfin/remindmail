@@ -136,8 +136,9 @@ def rm(s=None):
 					secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
 					print(f"Removed {arg}.")
 					secureData.log("Removed a Task. Good job!")
-                    
-			print(f"'{arg}' isn't in {secureData.notesDir}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+                    			continue
+
+				print(f"'{arg}' isn't in {secureData.notesDir}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
 	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
 	print("New Tasks:\n")
