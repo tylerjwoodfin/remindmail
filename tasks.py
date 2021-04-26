@@ -99,8 +99,16 @@ def add(s=None):
 
 	dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
 
-	secureData.appendUnique("Tasks.txt", f"{dayOfWeekEnclosed} {sys.argv[2]}", "notes")
-	print(f"Added {sys.argv[2]} to {secureData.notesDir}Tasks.txt")
+	tasks = secureData.array("Tasks.txt", "notes")
+
+	for arg in sys.argv[2:]:
+		tasks.append(f"{dayOfWeekEnclosed} {arg}")
+		print(f"Added {arg} to {secureData.notesDir}Tasks.txt")
+	
+	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
+
+	print("\nNew Tasks:")	
+	ls()
 	
 def rm(s=None):
 	if(s == "help"):
@@ -112,7 +120,10 @@ def rm(s=None):
 	# convert list and query to lowercase to avoid false negatives
 	tasks = __toLower(secureData.array("Tasks.txt", "notes"))
 	
-	for arg in sys.argv[2:]:
+	args = sys.argv[2:]
+	args.sort(reverse=True)
+
+	for arg in args:
 		arg = arg.lower()
 
 		try:
@@ -124,6 +135,7 @@ def rm(s=None):
 					del tasks[i]
 					secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
 					print(f"Removed {arg}.")
+					secureData.log("Removed a Task. Good job!")
                     
 			print(f"'{arg}' isn't in {secureData.notesDir}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
