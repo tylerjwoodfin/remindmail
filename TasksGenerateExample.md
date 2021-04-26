@@ -1,4 +1,4 @@
-This is an example of your TextGenerate.md:
+This is an example of your TasksGenerate.md:
 ```
 [mon] This task is added if today is Monday.
 [thu] This task is added if today is Thursday.
