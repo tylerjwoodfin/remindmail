@@ -9,6 +9,7 @@ from datetime import datetime as date
 import time
 
 sys.path.insert(0, '/home/pi/Git/google-reminders-cli')
+sys.path.insert(0, '/home/pi/Git/SecureData')
 import secureData
 from remind import tasks
 
@@ -110,23 +111,25 @@ def rm(s=None):
 
 	# convert list and query to lowercase to avoid false negatives
 	tasks = __toLower(secureData.array("Tasks.txt", "notes"))
-	sys.argv[2] = sys.argv[2].lower()
+	
+	for arg in sys.argv[2:]:
+		arg = arg.lower()
 
-	try:
-		del tasks[int(sys.argv[2])-1]
-		secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
-		print(f"Removed {sys.argv[2]}. New Tasks:\n")
-		ls()
-	except:
-		for i, task in enumerate(tasks):
-			if(sys.argv[2] == task or (task.startswith("[") and "] " in task and sys.argv[2] == task.split("] ")[1])):
-				del tasks[i]
-				secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
-				print(f"Removed {sys.argv[2]}. New Tasks:\n")
-				ls()
-				quit()
-				
-		print(f"'{sys.argv[2]}' isn't in {secureData.notesDir}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+		try:
+			del tasks[int(arg)-1]
+			print(f"Removed {arg}.")
+		except:
+			for i, task in enumerate(tasks):
+				if(arg == task or (task.startswith("[") and "] " in task and arg == task.split("] ")[1])):
+					del tasks[i]
+					secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
+					print(f"Removed {arg}.")
+                    
+			print(f"'{arg}' isn't in {secureData.notesDir}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+
+	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
+	print("New Tasks:\n")
+	ls()
 
 def rename(s=None):
 	if(s == "help"):
