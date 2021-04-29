@@ -55,7 +55,7 @@ def generate():
 	epochWeek = int(time.time()/60/60/24/7)
 	epochMonth = int(date.today().month)
 
-	if(timeSinceTasksGenerated < 43200):
+	if(timeSinceTasksGenerated > 43200):
 		secureData.log("Generating tasks")
 		dayOfMonthEnclosed = "[D{:02d}]".format(today.day)
 		dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
@@ -106,8 +106,6 @@ def add(s=None):
 		print(f"Added {arg} to {secureData.notesDir}Tasks.txt")
 	
 	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
-
-	print("\nNew Tasks:")	
 	ls()
 	
 def rm(s=None):
@@ -136,12 +134,11 @@ def rm(s=None):
 					secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
 					print(f"Removed {arg}.")
 					secureData.log("Removed a Task. Good job!")
-                    			continue
+					continue
 
 				print(f"'{arg}' isn't in {secureData.notesDir}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
 	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
-	print("New Tasks:\n")
 	ls()
 
 def rename(s=None):
@@ -176,6 +173,7 @@ def ls(s=None):
 	if(s == "help"):
 		return f"Displays the latest Tasks.txt in secureData.notesDir (currently {secureData.notesDir}), formatted with line numbers\n\nUsage: rp t ls"
 	
+	print("\n")
 	os.system(f"rclone copyto Dropbox:Notes/Tasks.txt {secureData.notesDir}Tasks.txt; cat -n {secureData.notesDir}Tasks.txt")
 	print("\n")
 	
