@@ -48,15 +48,16 @@ def __toLower(arr):
 
 # generates tasks from the TasksGenerate.txt file in {notesDir}. Not intended to be run directly (try 'crontab -e')
 def generate():
-	tasksGeneratedTime = secureData.variable("tasksGenerated")
-	tasksGeneratedTime = tasksGeneratedTime if tasksGeneratedTime != '' else 0
-	timeSinceTasksGenerated = int(time.time()) - float(tasksGeneratedTime)
-	epochDay = int(time.time()/60/60/24)
-	epochWeek = int(time.time()/60/60/24/7)
-	epochMonth = int(date.today().month)
+	dayOfMonthTasksGenerated = secureData.variable("tasksGenerated")
+	dayOfMonthTasksGenerated = dayOfMonthTasksGenerated if dayOfMonthTasksGenerated != '' else 0
 
-	if(timeSinceTasksGenerated > 43200):
+	if(str(date.today().day) != dayOfMonthTasksGenerated):
 		secureData.log("Generating tasks")
+
+		epochDay = int(time.time()/60/60/24)
+		epochWeek = int(time.time()/60/60/24/7)
+		epochMonth = int(date.today().month)
+
 		dayOfMonthEnclosed = "[D{:02d}]".format(today.day)
 		dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
 		dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
@@ -84,10 +85,10 @@ def generate():
 					if(date.today().day == 1 and epochMonth % splitFactor == splitOffset):
 						secureData.appendUnique("Tasks.txt", item, "notes")
 
-		secureData.write("tasksGenerated", str(time.time()))
+		secureData.write("tasksGenerated", str(date.today().day))
 		secureData.log("Generated tasks")
 	else:
-		print(f"Tasks have already been generated in the past 12 hours (most recently at {tasksGeneratedTime}).")
+		print(f"Tasks have already been generated in the past 12 hours (most recently on Day {dayOfMonthTasksGenerated} of this month).")
 
 
 def add(s=None):
