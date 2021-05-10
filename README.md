@@ -25,36 +25,48 @@ Manages my To Do list with support for Google Assistant integration and automati
 - Note: if `PiTasksCloudProviderPath` or `PiTasksCloudProvider` are missing or incorrect, tasks will not sync.
 
 # TasksGenerate.md
-Files in `TasksGenerate.md` (to be placed in the same folder as Tasks.txt), will be added to Tasks.txt depending on the syntax below. This is very useful for automatically scheduling tasks.
+Files in `TasksGenerate.md` (to be placed in the same folder as Tasks.txt), will be added to Tasks.txt according to the syntax below. This is very useful for automatically scheduling tasks.
+
+## Some Important Notes:
+- capitalization doesn't matter anywhere. Feel free to use "[d01]" or "[12-31]D" or "[wEd]".
+- % operators are based on Epoch Time, not a specific year/month. If you use "[M%5]", it adds *every 5 months*, not necessarily May or October. This is why offsets are necessary to "align" it properly.
+- See the other sections below to further understand the + operator
 
 # TasksGenerate.md example:
 ```
-[mon]   This task is added if today is Monday.
-[thu]   This task is added if today is Thursday.
-[D01]   This task is added if today is the 1st of the month.
-[D31]   This task is added if today is the 31st of the month.
-[12-31] This task is added if today is December 31.
-[1-5]   This task is added if today is January 5. (not tested on non-US systems)
-[M%2]   This task is added if today is the first day of an even-numbered month (try other modulo examples: https://www.wolframalpha.com/input/?i=6%252)
-[W%3]   This task is added if today is a Sunday of every third week, based on Epoch Time. See instructions below...
-[D%4]   This task is added every 4 days.
-[W%3+1] This task is added if today is a Sunday of every third week, _with an offset of 1_, meaning if [W%3] would normally be added last week, it will be added this week instead.
-[M%2]d  This task is added at the next even-numbered month, then deleted from TasksGenerate.md. 
+[mon]     This task is added if today is Monday.
+[thu]     This task is added if today is Thursday.
+[D01]     This task is added if today is the 1st of the month.
+[D31]     This task is added if today is the 31st of the month.
+[12-31]   This task is added if today is December 31.
+[1-5]     This task is added if today is January 5. (not tested on non-US systems)
+[M%5]     This task is generated every 5 months (*not necessarily May and October! pay attention to offsets*)
+[W%3]     This task is added if today is a Sunday of every third week, based on Epoch Time. See instructions below...
+[D%4]     This task is added every 4 days.
+[W%3+1]   This task is added if today is a Sunday of every third week, _with an offset of 1_, meaning if [W%3] would normally be added last week, it will be added this week instead.
+[M%2]d    This task is added at the next even-numbered month, then deleted from TasksGenerate.md. 
+
+[M%6+3]d  Schedule a doctor's appointment
+[W%1+5]   Take the trash out
+[D%1]     Go to bed
+[12-31]d  Celebrate New Year's Eve 2021
+[M%4]     Spend 15 minutes away from your computer
 ```
 
 ## Bad Examples:
 ```
-[Monday] You must use sun, mon, tue, wed, thu, fri, or sat. Capitalization doesn't matter.
-[D50] Months only have up to 31 days.
-[Y%5] Year is unsupported.
-(thu) You must use brackets.
-{thu} You must use brackets.
-  [W%3] You must start tasks on the first column.
-[W%3-1] This is invalid. To add an offset, you MUST use +.
-[W%3+4] This is also invalid and mathematically impossible. An offset of 4 makes no sense because [W%3+1] offsets 1 week, [W%3+2] offsets 2 weeks, and [W%3+3] is the same thing as [W%3]. [W%3+4] is the same as [W%3+1]- you should use this instead.
+[Monday]  You must use sun, mon, tue, wed, thu, fri, or sat. Capitalization doesn't matter.
+[D50]     Months only have up to 31 days.
+[D%3] d   The 'd' operator must be immediately next to the ] symbol. 
+[Y%5]     Year is unsupported.
+(thu)     You must use brackets.
+{thu}     You must use brackets.
+  [W%3]   You must start tasks on the first column.
+[W%3-1]   This is invalid. To add an offset, you MUST use +.
+[W%3+4]   An offset of 4 makes no sense because [W%3+3] is the same thing as [W%3]. Use [W%3+1] instead.
 ```
 
-# How to use, assuming Linux:
+# How to schedule Task Generation in Linux:
 - type "crontab -e" in the terminal
 
 - Add the line below (without the >, without the #, replacing the path with your real path):
@@ -69,7 +81,36 @@ Files in `TasksGenerate.md` (to be placed in the same folder as Tasks.txt), will
     - 1619394350 /60/60/24/7 ~= 2677
     - 2677 % 3 == 1, meaning scheduling a task for [W%3] would be added last week, but not this week (or next week or the week after).
 
-## How to calculate
+## How to calculate and schedule the offset task
+- `tasks offset <type> <date (YYYY-MM-DD, optional)> <n>`
+- (`type` is day, week, month)
+- (`n` is 'every `n` days')
 
-# using "d" to set one-time tasks:
-- [D%5]d will add the task if 
+- Take the results of this function and use it to add an offset to a function.
+  - If you want something to happen every 3 days starting tomorrow, use:
+  - tasks offset day <tomorrow's date YYYY-MM-DD> 3
+
+  - If the answer is 2, then you can add this to TasksGenerate.txt:
+  - [D%3+2] Task here
+  
+  - e.g. `tasks offset day 2022-12-31 12`
+  - (find offset for every 12 days intersecting 2022-12-31)
+
+  - e.g. `tasks offset week 2022-12-31 3`
+  - (every 3 weeks intersecting 2022-12-31)
+
+  - e.g. `tasks offset month 2022-12-31 4`
+  - (every 4 months intersecting 2022-12-31)
+
+  - e.g. `tasks offset day 5`
+    - (every 5 days intersecting today)
+
+  - e.g. `tasks offset week 6`
+    - (every 6 weeks intersecting today)
+
+  - e.g. `tasks offset month 7`
+    - (every 7 months intersecting today)"""
+
+# Using "d" to set one-time tasks:
+- [D%5]d will add the task and remove it from TasksGenerate.md, meaning it will only generate once until you add it again.
+  - This is useful for scheduling a task in the future that you don't need to repeat.
