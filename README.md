@@ -70,7 +70,7 @@ Files in `TasksGenerate.md` (to be placed in the same folder as Tasks.txt), will
 - type "crontab -e" in the terminal
 
 - Add the line below (without the >, without the #, replacing the path with your real path):
-> 0 * * * * python3 path/to/tasks.py generate
+  - `0 * * * * python3 path/to/tasks.py generate`
 
 
 # Using % to set "every n weeks", "every n days", "every n months":
