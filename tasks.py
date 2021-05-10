@@ -102,6 +102,9 @@ def generate():
 			if("]d" in item):
 				tasksGenerateFile.remove(item)
 
+		# filter to unique items
+		tasksFile = list(dict.fromkeys(tasksFile))
+		
 		secureData.write("Tasks.txt", '\n'.join(tasksFile), "notes")
 		secureData.write("TasksGenerate.txt", '\n'.join(tasksGenerateFile), "notes")
 		secureData.write("tasksGenerated", str(date.today().day))
