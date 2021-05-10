@@ -23,6 +23,7 @@ helpText = f"""\nUsage: tasks <command>\n\n<command>:
 	config notespath <notesPath>
 	config cloud
 	config cloudpath
+	offset
 	
 	For help with a specific command: tasks help <command>
 	
@@ -48,6 +49,10 @@ def __toLower(arr):
 	
 	return arr
 
+def __monthsSinceEpoch(epoch):
+	epochTime = time.localtime(epoch)
+	return ((epochTime.tm_year - 1970) * 12) + epochTime.tm_mon
+
 # generates tasks from the TasksGenerate.txt file in {notesPath}. Not intended to be run directly (try 'crontab -e')
 def generate():
 	dayOfMonthTasksGenerated = secureData.variable("tasksGenerated")
@@ -60,12 +65,17 @@ def generate():
 		epochWeek = int(time.time()/60/60/24/7)
 		epochMonth = int(date.today().month)
 
-		dayOfMonthEnclosed = "[D{:02d}]".format(today.day)
+		dayOfMonthEnclosed = "[d{:02d}]".format(today.day)
 		dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
 		dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
-		for item in secureData.array("TasksGenerate.txt", "notes"):
-			if(item.startswith(dayOfMonthEnclosed) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed)):
-				secureData.appendUnique("Tasks.txt", item, "notes")
+
+		# read files
+		tasksFile = secureData.array("Tasks.txt", "notes")
+		tasksGenerateFile = secureData.array("TasksGenerate.txt", "notes")
+
+		for item in tasksGenerateFile:
+			if(item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed)):
+				tasksFile.append(item)
 			elif(item.startswith("[") and ("%" in item) and ("]" in item)):
 				splitType = item[1].lower() # d, w, m
 				splitFactor = item.split("%")[1].split("]")[0]
@@ -80,18 +90,24 @@ def generate():
 
 				if(splitType == "d"):
 					if(epochDay % splitFactor == splitOffset):
-						secureData.appendUnique("Tasks.txt", item, "notes")
+						tasksFile.append(item)
 				elif(splitType == "w"):
 					if(date.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset):
-						secureData.appendUnique("Tasks.txt", item, "notes")
+						tasksFile.append(item)
 				elif(splitType == "m"):
 					if(date.today().day == 1 and epochMonth % splitFactor == splitOffset):
-						secureData.appendUnique("Tasks.txt", item, "notes")
+						tasksFile.append(item)
 
+			# handle deletion
+			if("]d" in item):
+				tasksGenerateFile.remove(item)
+
+		secureData.write("Tasks.txt", '\n'.join(tasksFile), "notes")
+		secureData.write("TasksGenerate.txt", '\n'.join(tasksGenerateFile), "notes")
 		secureData.write("tasksGenerated", str(date.today().day))
 		secureData.log("Generated tasks")
 	else:
-		print(f"Tasks have already been generated in the past 12 hours (most recently on Day {dayOfMonthTasksGenerated} of this month).")
+		print(f"Tasks have already been generated in the past 12 hours.")
 
 
 def add(s=None):
@@ -235,6 +251,71 @@ def config(s=None):
 		newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
 		secureData.write("PiTasksCloudProvider", newDir)
 		print(f"Tasks.txt and TasksGenerate.txt should now be stored in {newDir}.")
+
+def offset(s=None):
+	if(s == "help"):
+		return f"""Calculates the offset for a certain date (today by default)
+
+		tasks offset <type> <date (YYYY-MM-DD, optional)> <n>
+		(type is day, week, month)
+		(n is 'every n days')
+
+		Take the results of this function and use it to add an offset to a function.
+		If you want something to happen every 3 days starting tomorrow, use:
+		tasks offset day <tomorrow's date YYYY-MM-DD> 3
+
+		If the answer is 2, then you can add this to TasksGenerate.txt:
+		[D%3+2] Task here
+		
+		e.g. tasks offset day 2022-12-31 12
+		(find offset for every 12 days intersecting 2022-12-31)
+
+		e.g. tasks offset week 2022-12-31 3
+		(every 3 weeks intersecting 2022-12-31)
+
+		e.g. tasks offset month 2022-12-31 4
+		(every 4 months intersecting 2022-12-31)
+
+		e.g. tasks offset day 2022-12-31 5
+		e.g. tasks offset week 2022-12-31 6
+		e.g. tasks offset month 2022-12-31 7"""
+
+	if(len(sys.argv) < 4):
+		print("Usage: tasks offset <type (day,week,month)> <date (optional, YYYY-MM-DD)> <n, as in 'every n <type>'>\nFor help: 'tasks help offset'")
+		return
+
+	if(len(sys.argv) > 4):
+		epochTime = int(date.strptime(sys.argv[3], '%Y-%m-%d').timestamp())
+		offsetN = sys.argv[4]
+	else:
+		offsetN = sys.argv[-1]
+		epochTime = int(time.time())
+	
+	try:
+		offsetN = int(offsetN)
+		if(sys.argv[2] == "month"):
+			returnVal = __monthsSinceEpoch(epochTime) % offsetN
+		elif(sys.argv[2] == "week"):
+			returnVal = int(epochTime/60/60/24/7) % offsetN
+		elif(sys.argv[2] == "day"):
+			returnVal = int(epochTime/60/60/24) % offsetN
+		else:
+			print(f"'{sys.argv[2]}' must be 'day', 'week', or 'month'.")
+			return
+
+		print(returnVal)
+
+		if(offsetN == 1):
+			print(f"Note: Anything % 1 is always 0. This is saying 'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run for a given {sys.argv[2]}. '%1' means it will always run, so no need for an offset.\nPlease see the README for details, or just run 'tasks help offset'.")
+		elif(returnVal == 0):
+			print("Note: The offset is 0, so you don't need to add an offset to intersect with this date.")
+
+	except ValueError:
+		print(sys.argv[3])
+		print("Date must be YYYY-MM-DD.")
+	except IndexError:
+		print(f"Missing <n>, as in 'every n {sys.argv[2]}s'\nUsage: tasks offset {sys.argv[2]} {sys.argv[3]} n\nFor help: 'tasks help offset'")
+		return
 		
 	
 params = {
@@ -245,7 +326,8 @@ params = {
 	"help": help,
 	"pull": pull,
 	"config": config,
-	"generate": generate
+	"generate": generate,
+	"offset": offset
 }
 
 if(len(sys.argv)) == 1:
