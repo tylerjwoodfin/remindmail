@@ -58,7 +58,7 @@ def generate():
 	dayOfMonthTasksGenerated = secureData.variable("tasksGenerated")
 	dayOfMonthTasksGenerated = dayOfMonthTasksGenerated if dayOfMonthTasksGenerated != '' else 0
 
-	if(str(date.today().day) != dayOfMonthTasksGenerated):
+	if(str(date.today().day) != dayOfMonthTasksGenerated and date.today().hour > 0):
 		secureData.log("Generating tasks")
 
 		epochDay = int(time.time()/60/60/24)
