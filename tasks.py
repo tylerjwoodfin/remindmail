@@ -142,11 +142,17 @@ def rm(s=None):
 	tasks = __toLower(secureData.array("Tasks.txt", "notes"))
 	
 	args = sys.argv[2:]
+	
+	# convert numeric parameters to integers for proper sorting
+	for i, arg in enumerate(args):
+		if(arg.isnumeric()):
+			args[i] = int(arg)
+		else:
+			args[i] = arg.lower()
+	
 	args.sort(reverse=True)
 
 	for arg in args:
-		arg = arg.lower()
-
 		try:
 			del tasks[int(arg)-1]
 			print(f"Removed {arg}.")
