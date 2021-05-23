@@ -293,17 +293,20 @@ def offset(s=None):
 		e.g. tasks offset month 2022-12-31 7"""
 
 	if(len(sys.argv) < 4):
-		print("Usage: tasks offset <type (day,week,month)> <date (optional, YYYY-MM-DD)> <n, as in 'every n <type>'>\nFor help: 'tasks help offset'")
+		print("Usage: tasks offset <type (day,week,month)> <date (optional, YYYY-MM-DD)> <n, as in 'every n <type>'>\nExample: tasks offset week 2021-05-20 2\nFor help: 'tasks help offset'")
 		return
 
 	if(len(sys.argv) > 4):
-		epochTime = int(date.strptime(sys.argv[3], '%Y-%m-%d').timestamp())
+		epochTime = int(date.strptime(sys.argv[3], "%Y-%m-%d").timestamp())
 		offsetN = sys.argv[4]
 	else:
 		offsetN = sys.argv[-1]
 		epochTime = int(time.time())
 	
 	try:
+		if(not offsetN.isnumeric()):
+			raise IndexError
+
 		offsetN = int(offsetN)
 		if(sys.argv[2] == "month"):
 			returnVal = __monthsSinceEpoch(epochTime) % offsetN
@@ -320,13 +323,13 @@ def offset(s=None):
 		if(offsetN == 1):
 			print(f"Note: Anything % 1 is always 0. This is saying 'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run for a given {sys.argv[2]}. '%1' means it will always run, so no need for an offset.\nPlease see the README for details, or just run 'tasks help offset'.")
 		elif(returnVal == 0):
-			print("Note: The offset is 0, so you don't need to add an offset to intersect with this date.")
+			print("Note: The offset is 0, so a task for this date in TasksGenerate.md will be added without an offset.")
 
 	except ValueError:
 		print(sys.argv[3])
 		print("Date must be YYYY-MM-DD.")
 	except IndexError:
-		print(f"Missing <n>, as in 'every n {sys.argv[2]}s'\nUsage: tasks offset {sys.argv[2]} {sys.argv[3]} n\nFor help: 'tasks help offset'")
+		print(f"Missing <n>, as in 'every n {sys.argv[2]}s'\nUsage: tasks offset {sys.argv[2]} {sys.argv[3]} nExample:\nFor help: 'tasks help offset'")
 		return
 		
 	
