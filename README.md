@@ -25,14 +25,17 @@ Manages my To Do list with support for Google Assistant integration and automati
 - Note: if `PiTasksCloudProviderPath` or `PiTasksCloudProvider` are missing or incorrect, tasks will not sync.
 
 # TasksGenerate.md
-Files in `TasksGenerate.md` (to be placed in the same folder as Tasks.txt), will be added to Tasks.txt according to the syntax below. This is very useful for automatically scheduling tasks.
+- Place the "good" example in the `TasksGenerate.md example` section below in a file named `TasksGenerate.md`, to be placed in the same folder as Tasks.txt. 
+- Tasks from the `TasksGenerate.md` file will be added to Tasks.txt according to the syntax below. This is very useful for automatically scheduling tasks.
 
-## Some Important Notes:
+## Some Important Notes
 - capitalization doesn't matter anywhere. Feel free to use "[d01]" or "[12-31]D" or "[wEd]".
 - % operators are based on Epoch Time, not a specific year/month. If you use "[M%5]", it adds *every 5 months*, not necessarily May or October. This is why offsets are necessary to "align" it properly.
 - See the other sections below to further understand the + operator
 
-# TasksGenerate.md example:
+# TasksGenerate.md examples
+
+## Good Example file
 ```
 [mon]     This task is added if today is Monday.
 [thu]     This task is added if today is Thursday.
@@ -43,6 +46,8 @@ Files in `TasksGenerate.md` (to be placed in the same folder as Tasks.txt), will
 [M%5]     This task is generated every 5 months (*not necessarily May and October! pay attention to offsets*)
 [W%3]     This task is added if today is a Sunday of every third week, based on Epoch Time. See instructions below...
 [D%4]     This task is added every 4 days.
+[thu%2]   This task is added every other Thursday.
+[thu%2+1] This task is added every *other* other Thursday.
 [W%3+1]   This task is added if today is a Sunday of every third week, _with an offset of 1_, meaning if [W%3] would normally be added last week, it will be added this week instead.
 [M%2]d    This task is added at the next even-numbered month, then deleted from TasksGenerate.md. 
 
@@ -53,7 +58,7 @@ Files in `TasksGenerate.md` (to be placed in the same folder as Tasks.txt), will
 [M%4]     Spend 15 minutes away from your computer
 ```
 
-## Bad Examples:
+## Bad Example tasks
 ```
 [Monday]  You must use sun, mon, tue, wed, thu, fri, or sat. Capitalization doesn't matter.
 [D50]     Months only have up to 31 days.
@@ -63,7 +68,7 @@ Files in `TasksGenerate.md` (to be placed in the same folder as Tasks.txt), will
 {thu}     You must use brackets.
   [W%3]   You must start tasks on the first column.
 [W%3-1]   This is invalid. To add an offset, you MUST use +.
-[W%3+4]   An offset of 4 makes no sense because [W%3+3] is the same thing as [W%3]. Use [W%3+1] instead.
+[W%3+4]   An offset of 4 makes no sense because [W%3+3] is the same thing as [W%3+0], so [W%3+4] is the same as [W%3+1]. Use [W%3+1] instead.
 ```
 
 # How to schedule Task Generation in Linux:
