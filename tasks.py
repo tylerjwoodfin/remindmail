@@ -97,6 +97,9 @@ def generate():
 				elif(splitType == "m"):
 					if(date.today().day == 1 and epochMonth % splitFactor == splitOffset):
 						tasksFile.append(item)
+				elif(splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']):
+					if(date.today().strftime("%a") == splitType and epochWeek % splitFactor == splitOffset):
+						tasksFile.append(item)
 
 			# handle deletion
 			if("]d" in item):
