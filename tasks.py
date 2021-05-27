@@ -5,7 +5,9 @@ import os
 import sys
 import subprocess
 import json
+import tempfile
 from datetime import datetime as date
+from subprocess import call
 import time
 
 sys.path.insert(0, '/home/pi/Git/google-reminders-cli')
@@ -16,6 +18,7 @@ from remind import tasks
 helpText = f"""\nUsage: tasks <command>\n\n<command>:
 	add <taskInfo>
 	add <taskInfo> <line number>
+	edit
 	rm  <taskInfo>
 	rm  <line number>
 	ls
@@ -118,7 +121,7 @@ def generate():
 
 def add(s=None):
 	if(s == "help"):
-		return "Add something"
+		return "Pulls latest Tasks.txt in secureData.piTasksNotesPath (currently {secureData.piTasksNotesPath}), then adds the string to the file.\n\ne.g. 'tasks add \"buy milk\"'"
 	if(len(sys.argv) < 3):
 		print(rm("help"))
 		return
@@ -133,10 +136,32 @@ def add(s=None):
 	
 	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
 	ls()
+
+def edit(s=None):
+	if(s == "help"):
+		return ""
+
+	EDITOR = os.environ.get('EDITOR','vim')
+
+	tasks = secureData.file("Tasks.txt", "notes") # if you want to set up the file somehow
+
+	with tempfile.NamedTemporaryFile(mode='w+', suffix=".tmp") as tf:
+		tf.write(tasks)
+		tf.flush()
+		call([EDITOR, tf.name])
+		tf.seek(0)
+		new_tasks = tf.read()
+
+		if(tasks != new_tasks):
+			print("Saving...")
+			secureData.write("Tasks.txt", new_tasks, "notes")
+			print(f"Saved to {secureData.piTasksNotesPath}Tasks.txt.")
+		else:
+			print("No changes made.")
 	
 def rm(s=None):
 	if(s == "help"):
-		return f"Pulls latest Tasks.txt in secureData.piTasksNotesPath (currently {secureData.piTasksNotesPath}), then removes the selected string or index in the file.\n\ne.g. 'tasks rm 3' removes the third line.\n\nUsage: tasks rm '<string matching task title, or integer of a line to remove>'"
+		return f"Pulls latest Tasks.txt in secureData.piTasksNotesPath (currently {secureData.piTasksNotesPath}), then removes the selected string or index from the file.\n\ne.g. 'tasks rm 3' removes the third line.\n\nUsage: tasks rm '<string matching task title, or integer of a line to remove>'"
 	if(len(sys.argv) < 3):
 		print(rm("help"))
 		return
@@ -335,6 +360,7 @@ def offset(s=None):
 	
 params = {
 	"add": add,
+	"edit": edit,
 	"rm": rm,
 	"rename": rename,
 	"ls": ls,
@@ -346,7 +372,8 @@ params = {
 }
 
 if(len(sys.argv)) == 1:
-	print(helpText)
+	print(f"Opening {secureData.piTasksNotesPath}Tasks.txt. Run 'tasks help' for help...")
+	edit()
 	quit()
 	
 if __name__ == '__main__':
