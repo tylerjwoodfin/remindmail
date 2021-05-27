@@ -61,7 +61,7 @@ def generate():
 	dayOfMonthTasksGenerated = secureData.variable("tasksGenerated")
 	dayOfMonthTasksGenerated = dayOfMonthTasksGenerated if dayOfMonthTasksGenerated != '' else 0
 
-	if(str(date.today().day) != dayOfMonthTasksGenerated and date.today().hour > 0):
+	if((str(date.today().day) != dayOfMonthTasksGenerated and date.today().hour > 0) or sys.argv[2] == "force"):
 		secureData.log("Generating tasks")
 
 		epochDay = int(time.time()/60/60/24)
@@ -80,7 +80,11 @@ def generate():
 			if(item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed)):
 				tasksFile.append(item)
 			elif(item.startswith("[") and ("%" in item) and ("]" in item)):
-				splitType = item[1].lower() # d, w, m
+
+				if(item[1:4] in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']):
+					splitType = item[1:4]
+				else:
+					splitType = item[1].lower() # d, w, m
 				splitFactor = item.split("%")[1].split("]")[0]
 				splitOffset = 0
 
@@ -93,15 +97,19 @@ def generate():
 
 				if(splitType == "d"):
 					if(epochDay % splitFactor == splitOffset):
+						print(f"Adding: {item}")
 						tasksFile.append(item)
 				elif(splitType == "w"):
 					if(date.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset):
+						print(f"Adding: {item}")
 						tasksFile.append(item)
 				elif(splitType == "m"):
 					if(date.today().day == 1 and epochMonth % splitFactor == splitOffset):
+						print(f"Adding: {item}")
 						tasksFile.append(item)
 				elif(splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']):
-					if(date.today().strftime("%a") == splitType and epochWeek % splitFactor == splitOffset):
+					if(date.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset):
+						print(f"Adding: {item}")
 						tasksFile.append(item)
 
 			# handle deletion
