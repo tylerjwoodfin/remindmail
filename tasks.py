@@ -12,6 +12,8 @@ import time
 
 sys.path.insert(0, '/home/pi/Git/google-reminders-cli')
 sys.path.insert(0, '/home/pi/Git/SecureData')
+sys.path.insert(0, '/home/pi/Git/Tools')
+import mail
 import secureData
 from remind import tasks
 
@@ -59,9 +61,10 @@ def __monthsSinceEpoch(epoch):
 # generates tasks from the TasksGenerate.txt file in {notesPath}. Not intended to be run directly (try 'crontab -e')
 def generate():
 	dayOfMonthTasksGenerated = secureData.variable("tasksGenerated")
+
 	dayOfMonthTasksGenerated = dayOfMonthTasksGenerated if dayOfMonthTasksGenerated != '' else 0
 
-	if((str(date.today().day) != dayOfMonthTasksGenerated and date.today().hour > 0) or sys.argv[2] == "force"):
+	if((str(date.today().day) != dayOfMonthTasksGenerated and date.today().hour > 0) or (len(sys.argv) > 2 and sys.argv[2] == "force")):
 		secureData.log("Generating tasks")
 
 		epochDay = int(time.time()/60/60/24)
@@ -73,12 +76,13 @@ def generate():
 		dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
 
 		# read files
-		tasksFile = secureData.array("Tasks.txt", "notes")
+		# tasksFile = secureData.array("Tasks.txt", "notes")
 		tasksGenerateFile = secureData.array("TasksGenerate.txt", "notes")
 
 		for item in tasksGenerateFile:
 			if(item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed)):
-				tasksFile.append(item)
+				# tasksFile.append(item)
+				mail.send(f"Reminder - ${item}", "")
 			elif(item.startswith("[") and ("%" in item) and ("]" in item)):
 
 				if(item[1:4] in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']):
@@ -98,28 +102,32 @@ def generate():
 				if(splitType == "d"):
 					if(epochDay % splitFactor == splitOffset):
 						print(f"Adding: {item}")
-						tasksFile.append(item)
+						# tasksFile.append(item)
+						mail.send(f"Reminder - ${item}", "")
 				elif(splitType == "w"):
 					if(date.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset):
 						print(f"Adding: {item}")
-						tasksFile.append(item)
+						# tasksFile.append(item)
+						mail.send(f"Reminder - ${item}", "")
 				elif(splitType == "m"):
 					if(date.today().day == 1 and epochMonth % splitFactor == splitOffset):
 						print(f"Adding: {item}")
-						tasksFile.append(item)
+						# tasksFile.append(item)
+						mail.send(f"Reminder - ${item}", "")
 				elif(splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']):
 					if(date.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset):
 						print(f"Adding: {item}")
-						tasksFile.append(item)
+						# tasksFile.append(item)
+						mail.send(f"Reminder - ${item}", "")
 
 			# handle deletion
 			if("]d" in item):
 				tasksGenerateFile.remove(item)
 
 		# filter to unique items
-		tasksFile = list(dict.fromkeys(tasksFile))
+		# tasksFile = list(dict.fromkeys(tasksFile))
 		
-		secureData.write("Tasks.txt", '\n'.join(tasksFile), "notes")
+		# secureData.write("Tasks.txt", '\n'.join(tasksFile), "notes")
 		secureData.write("TasksGenerate.txt", '\n'.join(tasksGenerateFile), "notes")
 		secureData.write("tasksGenerated", str(date.today().day))
 		secureData.log("Generated tasks")
