@@ -9,10 +9,14 @@ import tempfile
 from datetime import datetime as date
 from subprocess import call
 import time
+import pwd
 
-sys.path.insert(0, '/home/pi/Git/google-reminders-cli')
-sys.path.insert(0, '/home/pi/Git/SecureData')
-sys.path.insert(0, '/home/pi/Git/Tools')
+userDir = pwd.getpwuid( os.getuid() )[ 0 ]
+
+sys.path.insert(0, f'/home/{userDir}/Git/google-reminders-cli')
+sys.path.insert(0, f'/home/{userDir}/Git/SecureData')
+sys.path.insert(0, f'/home/{userDir}/Git/Tools')
+
 import mail
 import secureData
 from remind import tasks
@@ -74,14 +78,11 @@ def generate():
 		dayOfMonthEnclosed = "[d{:02d}]".format(today.day)
 		dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
 		dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
-
-		# read files
-		# tasksFile = secureData.array("Tasks.txt", "notes")
+		
 		tasksGenerateFile = secureData.array("TasksGenerate.txt", "notes")
 
 		for item in tasksGenerateFile:
 			if(item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed)):
-				# tasksFile.append(item)
 				mail.send(f"Reminder - ${item}", "")
 			elif(item.startswith("[") and ("%" in item) and ("]" in item)):
 
@@ -101,33 +102,25 @@ def generate():
 
 				if(splitType == "d"):
 					if(epochDay % splitFactor == splitOffset):
-						print(f"Adding: {item}")
-						# tasksFile.append(item)
+						print(f"Sending: {item}")
 						mail.send(f"Reminder - ${item}", "")
 				elif(splitType == "w"):
 					if(date.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset):
-						print(f"Adding: {item}")
-						# tasksFile.append(item)
+						print(f"Sending: {item}")
 						mail.send(f"Reminder - ${item}", "")
 				elif(splitType == "m"):
 					if(date.today().day == 1 and epochMonth % splitFactor == splitOffset):
-						print(f"Adding: {item}")
-						# tasksFile.append(item)
+						print(f"Sending: {item}")
 						mail.send(f"Reminder - ${item}", "")
 				elif(splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']):
 					if(date.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset):
-						print(f"Adding: {item}")
-						# tasksFile.append(item)
-						mail.send(f"Reminder - ${item}", "")
+						print(f"Sending: {item}")
+						mail.send(f"Reminder - {item}", "")
 
 			# handle deletion
 			if("]d" in item):
 				tasksGenerateFile.remove(item)
-
-		# filter to unique items
-		# tasksFile = list(dict.fromkeys(tasksFile))
-		
-		# secureData.write("Tasks.txt", '\n'.join(tasksFile), "notes")
+				
 		secureData.write("TasksGenerate.txt", '\n'.join(tasksGenerateFile), "notes")
 		secureData.write("tasksGenerated", str(date.today().day))
 		secureData.log("Generated tasks")
@@ -273,15 +266,15 @@ def pull(s=None):
 			titlesToAdd.append(item['title'])
 			print(f"Moving {item['title']} to {secureData.piTasksNotesPath}Tasks.txt")
 		print(f"Deleting {item['title']}")
-		print(subprocess.check_output(['/home/pi/Git/google-reminders-cli/remind.py', '-d', item['id']]))
+		print(subprocess.check_output(['/home/{userDir}/Git/google-reminders-cli/remind.py', '-d', item['id']]))
 
-	if(len(titlesToAdd) > 0):
-		secureData.appendUnique("Tasks.txt", '\n'.join(titlesToAdd), "notes")
+	for i in titlesToAdd:
+		mail.send(f"Reminder - {i}", "")
 
 def config(s=None):
 	if(s == "help"):
 		return f"""tasks config notespath <path>: Set your notes path (use full paths)
-		e.g. tasks config notes /home/pi/Dropbox/Notes
+		e.g. tasks config notes /home/{userDir}/Dropbox/Notes
 		(this is stored in your secureData folder as PiTasksNotesPath)
 		
 		tasks config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
