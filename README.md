@@ -13,6 +13,7 @@ Manages my To Do list with support for Google Assistant integration and automati
   - Use full paths instead of relative paths, e.g. use `/home/pi/SecureData-Data/` instead of `~/SecureData-Data`
 - Now, we need somewhere to locally store your Tasks.txt file. We'll call it "notespath". In Terminal, run:
   - `tasks config notespath "/full/path/to/notes"`
+- Follow the `TasksGenerate.md` section below
 
 ## Sync with Cloud Storage providers using Rclone (optional)
 - Complete the steps above in "Setup"

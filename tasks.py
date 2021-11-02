@@ -266,7 +266,7 @@ def pull(s=None):
 			titlesToAdd.append(item['title'])
 			print(f"Moving {item['title']} to {secureData.piTasksNotesPath}Tasks.txt")
 		print(f"Deleting {item['title']}")
-		print(subprocess.check_output(['/home/{userDir}/Git/google-reminders-cli/remind.py', '-d', item['id']]))
+		print(subprocess.check_output([f'/home/{userDir}/Git/google-reminders-cli/remind.py', '-d', item['id']]))
 
 	for i in titlesToAdd:
 		mail.send(f"Reminder - {i}", "")
