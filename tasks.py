@@ -11,6 +11,10 @@ from subprocess import call
 import time
 import pwd
 
+#
+# Do Not Commit, not ready!
+#
+
 userDir = pwd.getpwuid( os.getuid() )[ 0 ]
 
 sys.path.insert(0, f'/home/{userDir}/Git/google-reminders-cli')
@@ -38,10 +42,10 @@ helpText = f"""\nUsage: tasks <command>\n\n<command>:
 	
 Parameters:
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. tasks add 'take the trash out'
-	notesPath: Currently {secureData.piTasksNotesPath}. Setting is stored at {secureData.securePath}/PiTasksNotesPath.
+	notesPath: Currently {secureData.getItem('path_tasks_notes')}. Setting is stored at {secureData.getItem('path_secureData')}/PiTasksNotesPath.
 
 Notes Directory:
-	Tasks.txt and TasksGenerate.txt in {secureData.piTasksNotesPath}. Change the path by running "tasks config notes <fullPath>" (stored in {secureData.securePath}/PiTasksNotesPath)
+	Tasks.txt and TasksGenerate.txt in {secureData.getItem('path_tasks_notes')}. Change the path by running "tasks config notes <fullPath>" (stored in {secureData.getItem('path_secureData')}/PiTasksNotesPath)
 
 TasksGenerate.txt:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are added to Tasks.txt.
@@ -64,7 +68,7 @@ def __monthsSinceEpoch(epoch):
 
 # generates tasks from the TasksGenerate.txt file in {notesPath}. Not intended to be run directly (try 'crontab -e')
 def generate():
-	dayOfMonthTasksGenerated = secureData.variable("tasksGenerated")
+	dayOfMonthTasksGenerated = str(secureData.getItem("tasks", "day_generated"))
 
 	dayOfMonthTasksGenerated = dayOfMonthTasksGenerated if dayOfMonthTasksGenerated != '' else 0
 
@@ -130,7 +134,7 @@ def generate():
 
 def add(s=None):
 	if(s == "help"):
-		return "Pulls latest Tasks.txt in secureData.piTasksNotesPath (currently {secureData.piTasksNotesPath}), then adds the string to the file.\n\ne.g. 'tasks add \"buy milk\"'"
+		return "Pulls latest Tasks.txt in secureData.getItem('path_tasks_notes') (currently {secureData.getItem('path_tasks_notes')}), then adds the string to the file.\n\ne.g. 'tasks add \"buy milk\"'"
 	if(len(sys.argv) < 3):
 		print(rm("help"))
 		return
@@ -141,7 +145,7 @@ def add(s=None):
 
 	for arg in sys.argv[2:]:
 		tasks.append(f"{dayOfWeekEnclosed} {arg}")
-		print(f"Added {arg} to {secureData.piTasksNotesPath}Tasks.txt")
+		print(f"Added {arg} to {secureData.getItem('path_tasks_notes')}Tasks.txt")
 	
 	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
 	ls()
@@ -164,13 +168,13 @@ def edit(s=None):
 		if(tasks != new_tasks):
 			print("Saving...")
 			secureData.write("Tasks.txt", new_tasks, "notes")
-			print(f"Saved to {secureData.piTasksNotesPath}Tasks.txt.")
+			print(f"Saved to {secureData.getItem('path_tasks_notes')}Tasks.txt.")
 		else:
 			print("No changes made.")
 	
 def rm(s=None):
 	if(s == "help"):
-		return f"Pulls latest Tasks.txt in secureData.piTasksNotesPath (currently {secureData.piTasksNotesPath}), then removes the selected string or index from the file.\n\ne.g. 'tasks rm 3' removes the third line.\n\nUsage: tasks rm '<string matching task title, or integer of a line to remove>'"
+		return f"Pulls latest Tasks.txt in secureData.getItem('path_tasks_notes') (currently {secureData.getItem('path_tasks_notes')}), then removes the selected string or index from the file.\n\ne.g. 'tasks rm 3' removes the third line.\n\nUsage: tasks rm '<string matching task title, or integer of a line to remove>'"
 	if(len(sys.argv) < 3):
 		print(rm("help"))
 		return
@@ -202,14 +206,14 @@ def rm(s=None):
 					secureData.log("Removed a Task. Good job!")
 					continue
 
-				print(f"'{arg}' isn't in {secureData.piTasksNotesPath}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+				print(f"'{arg}' isn't in {secureData.getItem('path_tasks_notes')}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
 	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
 	ls()
 
 def rename(s=None):
 	if(s == "help"):
-		return f"Pulls latest Tasks.txt in secureData.piTasksNotesPath (currently {secureData.piTasksNotesPath}), then renames the selected string or index in the file.\n\ne.g. 'tasks rename 3 'buy milk' renames the third line to 'buy milk'.\ne.g. 'tasks rename 'buy milk' 'buy water' renames all lines called 'buy milk' to 'buy water'.\n\nUsage: tasks rename <string matching task title, or integer of a line to remove> <replacement string>"
+		return f"Pulls latest Tasks.txt in secureData.getItem('path_tasks_notes') (currently {secureData.getItem('path_tasks_notes')}), then renames the selected string or index in the file.\n\ne.g. 'tasks rename 3 'buy milk' renames the third line to 'buy milk'.\ne.g. 'tasks rename 'buy milk' 'buy water' renames all lines called 'buy milk' to 'buy water'.\n\nUsage: tasks rename <string matching task title, or integer of a line to remove> <replacement string>"
 	if(len(sys.argv) < 4):
 		print(rm("help"))
 		return
@@ -233,14 +237,14 @@ def rename(s=None):
 				ls()
 				quit()
 				
-		print(f"'{sys.argv[2]}' isn't in {secureData.piTasksNotesPath}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+		print(f"'{sys.argv[2]}' isn't in {secureData.getItem('path_tasks_notes')}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
 def ls(s=None):
 	if(s == "help"):
-		return f"Displays the latest Tasks.txt in secureData.piTasksNotesPath (currently {secureData.piTasksNotesPath}), formatted with line numbers\n\nUsage: tasks ls"
+		return f"Displays the latest Tasks.txt in secureData.getItem('path_tasks_notes') (currently {secureData.getItem('path_tasks_notes')}), formatted with line numbers\n\nUsage: tasks ls"
 	
 	print("\n")
-	os.system(f"rclone copyto {secureData.piTasksCloudProvider}{secureData.piTasksCloudProviderPath}/Tasks.txt {secureData.piTasksNotesPath}Tasks.txt; cat -n {secureData.piTasksNotesPath}Tasks.txt")
+	os.system(f"rclone copyto {secureData.piTasksCloudProvider}{secureData.piTasksCloudProviderPath}/Tasks.txt {secureData.getItem('path_tasks_notes')}Tasks.txt; cat -n {secureData.getItem('path_tasks_notes')}Tasks.txt")
 	print("\n")
 	
 def help():
@@ -253,7 +257,7 @@ def help():
 
 def pull(s=None):
 	if(s == "help"):
-		return f"Pull reminders from Google Calendar, delete them, and add them to Tasks.txt in secureData.piTasksNotesPath (currently {secureData.piTasksNotesPath})"
+		return f"Pull reminders from Google Calendar, delete them, and add them to Tasks.txt in secureData.getItem('path_tasks_notes') (currently {secureData.getItem('path_tasks_notes')})"
 		
 	print("Pulling from Google...")
 	items = tasks()
@@ -264,7 +268,7 @@ def pull(s=None):
 		print(item)
 		if(not item["done"]):
 			titlesToAdd.append(item['title'])
-			print(f"Moving {item['title']} to {secureData.piTasksNotesPath}Tasks.txt")
+			print(f"Moving {item['title']} to {secureData.getItem('path_tasks_notes')}Tasks.txt")
 		print(f"Deleting {item['title']}")
 		print(subprocess.check_output([f'/home/{userDir}/Git/google-reminders-cli/remind.py', '-d', item['id']]))
 
@@ -290,12 +294,12 @@ def config(s=None):
 
 	if(sys.argv[2].lower() == "notespath"):
 		newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-		secureData.write("PiTasksNotesPath", newDir)
+		secureData.setItem("path_tasks_notes", newDir)
 		print(f"Tasks.txt and TasksGenerate.txt should now be stored in {newDir}.")
 
 	if(sys.argv[2].lower() == "cloud"):
 		newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-		secureData.write("PiTasksCloudProvider", newDir)
+		secureData.setItem("path_tasks_notes", newDir)
 		print(f"Tasks.txt and TasksGenerate.txt should now be stored in {newDir}.")
 
 def offset(s=None):
@@ -381,7 +385,7 @@ params = {
 }
 
 if(len(sys.argv)) == 1:
-	print(f"Opening {secureData.piTasksNotesPath}Tasks.txt. Run 'tasks help' for help...")
+	print(f"Opening {secureData.getItem('path_tasks_notes')}Tasks.txt. Run 'tasks help' for help...")
 	edit()
 	quit()
 	
