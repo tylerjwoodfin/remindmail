@@ -11,10 +11,6 @@ from subprocess import call
 import time
 import pwd
 
-#
-# Do Not Commit, not ready!
-#
-
 userDir = pwd.getpwuid( os.getuid() )[ 0 ]
 
 sys.path.insert(0, f'/home/{userDir}/Git/google-reminders-cli')
@@ -22,7 +18,7 @@ sys.path.insert(0, f'/home/{userDir}/Git/SecureData')
 sys.path.insert(0, f'/home/{userDir}/Git/Tools')
 
 import mail
-import secureDataNew as secureData
+import secureData
 from remind import tasks
 
 helpText = f"""\nUsage: tasks <command>\n\n<command>:
