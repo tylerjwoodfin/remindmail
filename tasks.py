@@ -22,7 +22,7 @@ sys.path.insert(0, f'/home/{userDir}/Git/SecureData')
 sys.path.insert(0, f'/home/{userDir}/Git/Tools')
 
 import mail
-import secureData
+import secureDataNew as secureData
 from remind import tasks
 
 helpText = f"""\nUsage: tasks <command>\n\n<command>:
@@ -83,7 +83,7 @@ def generate():
 		dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
 		dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
 		
-		tasksGenerateFile = secureData.array("TasksGenerate.txt", "notes")
+		tasksGenerateFile = secureData.getFileAsArray("TasksGenerate.txt", "notes")
 
 		for item in tasksGenerateFile:
 			if(item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed)):
@@ -125,8 +125,8 @@ def generate():
 			if("]d" in item):
 				tasksGenerateFile.remove(item)
 				
-		secureData.write("TasksGenerate.txt", '\n'.join(tasksGenerateFile), "notes")
-		secureData.write("tasksGenerated", str(date.today().day))
+		secureData.writeFile("TasksGenerate.txt", "notes", '\n'.join(tasksGenerateFile))
+		secureData.setItem("tasks", "day_generated", date.today().day)
 		secureData.log("Generated tasks")
 	else:
 		print(f"Tasks have already been generated in the past 12 hours.")
@@ -134,7 +134,7 @@ def generate():
 
 def add(s=None):
 	if(s == "help"):
-		return "Pulls latest Tasks.txt in secureData.getItem('path_tasks_notes') (currently {secureData.getItem('path_tasks_notes')}), then adds the string to the file.\n\ne.g. 'tasks add \"buy milk\"'"
+		return f"Pulls latest Tasks.txt in secureData.getItem('path_tasks_notes') (currently {secureData.getItem('path_tasks_notes')}), then adds the string to the file.\n\ne.g. 'tasks add \"buy milk\"'"
 	if(len(sys.argv) < 3):
 		print(rm("help"))
 		return
@@ -145,9 +145,10 @@ def add(s=None):
 
 	for arg in sys.argv[2:]:
 		tasks.append(f"{dayOfWeekEnclosed} {arg}")
-		print(f"Added {arg} to {secureData.getItem('path_tasks_notes')}Tasks.txt")
+		print(f"Added {arg} to {secureData.getItem('path_tasks_notes')}/Tasks.txt")
 	
-	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
+	secureData.writeFile("Tasks.txt", "notes", '\n'.join(tasks))
+
 	ls()
 
 def edit(s=None):
@@ -156,7 +157,8 @@ def edit(s=None):
 
 	EDITOR = os.environ.get('EDITOR','vim')
 
-	tasks = secureData.file("Tasks.txt", "notes") # if you want to set up the file somehow
+	# if you want to set up the file somehow
+	tasks = '\n'.join(secureData.getFileAsArray("Tasks.txt", "notes"))
 
 	with tempfile.NamedTemporaryFile(mode='w+', suffix=".tmp") as tf:
 		tf.write(tasks)
@@ -167,8 +169,8 @@ def edit(s=None):
 
 		if(tasks != new_tasks):
 			print("Saving...")
-			secureData.write("Tasks.txt", new_tasks, "notes")
-			print(f"Saved to {secureData.getItem('path_tasks_notes')}Tasks.txt.")
+			secureData.writeFile("Tasks.txt", "notes", new_tasks)
+			print(f"Saved to {secureData.getItem('path_tasks_notes')}/Tasks.txt.")
 		else:
 			print("No changes made.")
 	
@@ -180,7 +182,7 @@ def rm(s=None):
 		return
 
 	# convert list and query to lowercase to avoid false negatives
-	tasks = __toLower(secureData.array("Tasks.txt", "notes"))
+	tasks = __toLower(secureData.getFileAsArray("Tasks.txt", "notes"))
 	
 	args = sys.argv[2:]
 	
@@ -201,14 +203,14 @@ def rm(s=None):
 			for i, task in enumerate(tasks):
 				if(arg == task or (task.startswith("[") and "] " in task and arg == task.split("] ")[1])):
 					del tasks[i]
-					secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
+					secureData.writeFile("Tasks.txt", "notes", '\n'.join(tasks))
 					print(f"Removed {arg}.")
 					secureData.log("Removed a Task. Good job!")
 					continue
 
-				print(f"'{arg}' isn't in {secureData.getItem('path_tasks_notes')}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+				print(f"'{arg}' isn't in {secureData.getItem('path_tasks_notes')}/Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
-	secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
+	secureData.writeFile("Tasks.txt", "notes", '\n'.join(tasks))
 	ls()
 
 def rename(s=None):
@@ -219,32 +221,32 @@ def rename(s=None):
 		return
 
 	# convert list and query to lowercase to avoid false negatives
-	tasks = __toLower(secureData.array("Tasks.txt", "notes"))
+	tasks = __toLower(secureData.getFileAsArray("Tasks.txt", "notes"))
 	sys.argv[2] = sys.argv[2].lower()
 	dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
 
 	try:
 		tasks[int(sys.argv[2])-1] = f"{dayOfWeekEnclosed} {sys.argv[3]}"
-		secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
+		secureData.writeFile("Tasks.txt", "notes", '\n'.join(tasks))
 		print(f"Renamed {sys.argv[2]} to {sys.argv[3]}. New Tasks:\n")
 		ls()
 	except:
 		for i, task in enumerate(tasks):
 			if(sys.argv[2] == task or (task.startswith("[") and "] " in task and sys.argv[2] == task.split("] ")[1])):
 				tasks[i] = f"{dayOfWeekEnclosed} {sys.argv[3]}"
-				secureData.write("Tasks.txt", '\n'.join(tasks), "notes")
+				secureData.writeFile("Tasks.txt", "notes", '\n'.join(tasks))
 				print(f"Renamed {sys.argv[2]} to {sys.argv[3]}. New Tasks:\n")
 				ls()
 				quit()
 				
-		print(f"'{sys.argv[2]}' isn't in {secureData.getItem('path_tasks_notes')}Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+		print(f"'{sys.argv[2]}' isn't in {secureData.getItem('path_tasks_notes')}/Tasks.txt.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
 def ls(s=None):
 	if(s == "help"):
 		return f"Displays the latest Tasks.txt in secureData.getItem('path_tasks_notes') (currently {secureData.getItem('path_tasks_notes')}), formatted with line numbers\n\nUsage: tasks ls"
 	
 	print("\n")
-	os.system(f"rclone copyto {secureData.piTasksCloudProvider}{secureData.piTasksCloudProviderPath}/Tasks.txt {secureData.getItem('path_tasks_notes')}Tasks.txt; cat -n {secureData.getItem('path_tasks_notes')}Tasks.txt")
+	os.system(f"rclone copyto {secureData.getItem('path_cloud_notes')}/Tasks.txt {secureData.getItem('path_tasks_notes')}/Tasks.txt; cat -n {secureData.getItem('path_tasks_notes')}/Tasks.txt")
 	print("\n")
 	
 def help():
@@ -268,12 +270,14 @@ def pull(s=None):
 		print(item)
 		if(not item["done"]):
 			titlesToAdd.append(item['title'])
-			print(f"Moving {item['title']} to {secureData.getItem('path_tasks_notes')}Tasks.txt")
+			print(f"Moving {item['title']} to {secureData.getItem('path_tasks_notes')}/Tasks.txt")
 		print(f"Deleting {item['title']}")
 		print(subprocess.check_output([f'/home/{userDir}/Git/google-reminders-cli/remind.py', '-d', item['id']]))
 
 	for i in titlesToAdd:
 		mail.send(f"Reminder - {i}", "")
+	
+	print("Pull complete.")
 
 def config(s=None):
 	if(s == "help"):
@@ -385,7 +389,7 @@ params = {
 }
 
 if(len(sys.argv)) == 1:
-	print(f"Opening {secureData.getItem('path_tasks_notes')}Tasks.txt. Run 'tasks help' for help...")
+	print(f"Opening {secureData.getItem('path_tasks_notes')}/Tasks.txt. Run 'tasks help' for help...")
 	edit()
 	quit()
 	
