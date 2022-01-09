@@ -1,10 +1,10 @@
 # ReadMe
 # A tool for editing Tasks.txt in Dropbox; to be integrated with Raspberry Pilot
 
+from logging import exception
 import os
 import sys
 import subprocess
-import json
 import tempfile
 from datetime import datetime as date
 from subprocess import call
@@ -15,7 +15,7 @@ from securedata import securedata
 userDir = pwd.getpwuid( os.getuid() )[ 0 ]
 
 sys.path.insert(0, f'/home/{userDir}/Git/google-reminders-cli')
-sys.path.insert(0, f'/home/{userDir}/Git/Tools')
+sys.path.insert(0, f'/home/{userDir}/Git/tools')
 
 import mail
 from remind import tasks
@@ -58,7 +58,8 @@ def __monthsSinceEpoch(epoch):
 	epochTime = time.localtime(epoch)
 	return ((epochTime.tm_year - 1970) * 12) + epochTime.tm_mon
 
-# generates tasks from the TasksGenerate.txt file in {notesPath}. Not intended to be run directly (try 'crontab -e')
+# Generates tasks from the TasksGenerate.txt file in {notesPath}. 
+# Intended to be run from crontab (try 'tasks generate force' to run immediately)
 def generate():
 	dayOfMonthTasksGenerated = str(securedata.getItem("tasks", "day_generated"))
 
@@ -75,7 +76,11 @@ def generate():
 		dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
 		dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
 		
-		tasksGenerateFile = securedata.getFileAsArray("TasksGenerate.txt", "notes")
+		try:
+			tasksGenerateFile = securedata.getFileAsArray("TasksGenerate.txt", "notes")
+		except exception as e:
+			securedata.log("Could not read TasksGenerate.txt; Aborting", level="error")
+			sys.exit("Could not read TasksGenerate.txt; Aborting")
 
 		for item in tasksGenerateFile:
 			if(item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed)):
@@ -117,8 +122,11 @@ def generate():
 			if("]d" in item):
 				tasksGenerateFile.remove(item)
 				
-		securedata.writeFile("TasksGenerate.txt", "notes", '\n'.join(tasksGenerateFile))
-		securedata.setItem("tasks", "day_generated", date.today().day)
+		try:
+			securedata.writeFile("TasksGenerate.txt", "notes", '\n'.join(tasksGenerateFile))
+			securedata.setItem("tasks", "day_generated", date.today().day)
+		except exception as e:
+			securedata.log("Could not rewrite TasksGenerate.txt", level="error")
 		securedata.log("Generated tasks")
 	else:
 		print(f"Tasks have already been generated in the past 12 hours.")
