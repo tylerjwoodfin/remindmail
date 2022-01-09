@@ -11,7 +11,7 @@ Manages my To Do list with support for Google Assistant integration and automati
 - Download [SecureData.py](https://github.com/tylerjwoodfin/SecureData) and place it somewhere useful 
 - Modify the line starting with `securePath=` in SecureData.py to point to where you want to store metadata from `tasks config`
   - Use full paths instead of relative paths, e.g. use `/home/pi/SecureData-Data/` instead of `~/SecureData-Data`
-- Now, we need somewhere to locally store your Tasks.txt file. We'll call it "notespath". In Terminal, run:
+- Now, we need somewhere to locally store your Tasks.md file. We'll call it "notespath". In Terminal, run:
   - `tasks config notespath "/full/path/to/notes"`
 - Follow the `TasksGenerate.md` section below
 
@@ -21,13 +21,13 @@ Manages my To Do list with support for Google Assistant integration and automati
 - Run `rclone config` to set up a cloud storage provider of your choice
 - Run `cd /path/to/{securePath} && rclone listremotes > PiTasksCloudProvider`
 - Run `cd /path/to/{securePath} && echo "/path/to/your/notesDir/in/cloud" > PiTasksCloudProviderPath`
-  - For example, if you want to store Tasks.txt in the "Notes" folder in Dropbox, run `echo "Notes" > PiTasksCloudProviderPath`
-  - For example, if you want to store Tasks.txt in the "Documents/Notes" folder in Dropbox, run `echo "Documents/Notes" > PiTasksCloudProviderPath`
+  - For example, if you want to store Tasks.md in the "Notes" folder in Dropbox, run `echo "Notes" > PiTasksCloudProviderPath`
+  - For example, if you want to store Tasks.md in the "Documents/Notes" folder in Dropbox, run `echo "Documents/Notes" > PiTasksCloudProviderPath`
 - Note: if `PiTasksCloudProviderPath` or `PiTasksCloudProvider` are missing or incorrect, tasks will not sync.
 
 # TasksGenerate.md
-- Place the "good" example in the `TasksGenerate.md example` section below in a file named `TasksGenerate.md`, to be placed in the same folder as Tasks.txt. 
-- Tasks from the `TasksGenerate.md` file will be added to Tasks.txt according to the syntax below. This is very useful for automatically scheduling tasks.
+- Place the "good" example in the `TasksGenerate.md example` section below in a file named `TasksGenerate.md`, to be placed in the same folder as Tasks.md. 
+- Tasks from the `TasksGenerate.md` file will be added to Tasks.md according to the syntax below. This is very useful for automatically scheduling tasks.
 
 ## Some Important Notes
 - capitalization doesn't matter anywhere. Feel free to use "[d01]" or "[12-31]D" or "[wEd]".
@@ -96,7 +96,7 @@ Manages my To Do list with support for Google Assistant integration and automati
   - If you want something to happen every 3 days starting tomorrow, use:
   - tasks offset day <tomorrow's date YYYY-MM-DD> 3
 
-  - If the answer is 2, then you can add this to TasksGenerate.txt:
+  - If the answer is 2, then you can add this to TasksGenerate.md:
   - [D%3+2] Task here
   
   - e.g. `tasks offset day 2022-12-31 12`
