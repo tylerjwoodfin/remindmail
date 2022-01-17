@@ -1,6 +1,3 @@
-# ReadMe
-# A tool for editing Tasks.md in Dropbox; to be integrated with Raspberry Pilot
-
 from logging import exception
 import os
 import sys
@@ -58,8 +55,10 @@ def __monthsSinceEpoch(epoch):
 	epochTime = time.localtime(epoch)
 	return ((epochTime.tm_year - 1970) * 12) + epochTime.tm_mon
 
-# Generates tasks from the TasksGenerate.md file in {notesPath}. 
-# Intended to be run from crontab (try 'tasks generate force' to run immediately)
+"""
+Generates tasks from the TasksGenerate.md file in {notesPath}.
+Intended to be run from crontab (try 'tasks generate force' to run immediately)
+"""
 def generate():
 	dayOfMonthTasksGenerated = str(securedata.getItem("tasks", "day_generated"))
 
@@ -132,6 +131,12 @@ def generate():
 		print(f"Tasks have already been generated in the past 12 hours.")
 
 
+"""
+Adds a task to the Tasks file
+
+Parameter:
+- s: string; the task name. Passing 'help' will only return the help information for this function.
+"""
 def add(s=None):
 	if(s == "help"):
 		return f"Pulls latest Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')}), then adds the string to the file.\n\ne.g. 'tasks add \"buy milk\"'"
@@ -151,6 +156,12 @@ def add(s=None):
 
 	ls()
 
+"""
+Opens the tasks file in Vim, then saves it. Depending on `securedata` settings, it may also sync to the cloud.
+
+Parameter:
+- s: string; currently unused. Passing 'help' will only return the help information for this function.
+"""
 def edit(s=None):
 	if(s == "help"):
 		return ""
@@ -174,6 +185,12 @@ def edit(s=None):
 		else:
 			print("No changes made.")
 	
+"""
+Removes a selected string or index from the tasks file.
+
+Parameters:
+- s: string; currently unused. Passing 'help' will only return the help information for this function.
+"""
 def rm(s=None):
 	if(s == "help"):
 		return f"Pulls latest Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')}), then removes the selected string or index from the file.\n\ne.g. 'tasks rm 3' removes the third line.\n\nUsage: tasks rm '<string matching task title, or integer of a line to remove>'"
@@ -213,6 +230,12 @@ def rm(s=None):
 	securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
 	ls()
 
+"""
+Pulls latest Tasks.md in securedata.getItem('path_tasks_notes'), then renames the selected string or index in the file
+
+Parameters:
+- s: string; currently unused. Passing 'help' will only return the help information for this function.
+"""
 def rename(s=None):
 	if(s == "help"):
 		return f"Pulls latest Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')}), then renames the selected string or index in the file.\n\ne.g. 'tasks rename 3 'buy milk' renames the third line to 'buy milk'.\ne.g. 'tasks rename 'buy milk' 'buy water' renames all lines called 'buy milk' to 'buy water'.\n\nUsage: tasks rename <string matching task title, or integer of a line to remove> <replacement string>"
@@ -241,6 +264,14 @@ def rename(s=None):
 				
 		print(f"'{sys.argv[2]}' isn't in {securedata.getItem('path_tasks_notes')}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
+"""
+Displays the latest Tasks.md in securedata.getItem('path_tasks_notes'), formatted with line numbers
+
+Usage: tasks ls
+
+Parameters:
+- s: string; currently unused. Passing 'help' will only return the help information for this function.
+"""
 def ls(s=None):
 	if(s == "help"):
 		return f"Displays the latest Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')}), formatted with line numbers\n\nUsage: tasks ls"
@@ -249,6 +280,9 @@ def ls(s=None):
 	os.system(f"rclone copyto {securedata.getItem('path_cloud_notes')}/Tasks.md {securedata.getItem('path_tasks_notes')}/Tasks.md; cat -n {securedata.getItem('path_tasks_notes')}/Tasks.md")
 	print("\n")
 	
+"""
+Prints help information returned by passing 'help' as a string into other functions.
+"""
 def help():
 	if(len(sys.argv) > 2):
 		func = params.get(sys.argv[2])
@@ -257,9 +291,12 @@ def help():
 	else:
 		print(helpText)
 
+"""
+Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in securedata.getItem('path_tasks_notes'))
+"""
 def pull(s=None):
 	if(s == "help"):
-		return f"Pull reminders from Google Calendar, delete them, and add them to Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')})"
+		return f"Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')})"
 		
 	print("Pulling from Google...")
 	items = tasks()
@@ -279,6 +316,12 @@ def pull(s=None):
 	
 	print("Pull complete.")
 
+"""
+An interactive way to set securedata variables. May be removed in a future update.
+
+Parameters:
+- s: string; currently unused. Passing 'help' will only return the help information for this function.
+"""
 def config(s=None):
 	if(s == "help"):
 		return f"""tasks config notespath <path>: Set your notes path (use full paths)
@@ -306,6 +349,12 @@ def config(s=None):
 		securedata.setItem("path_tasks_notes", newDir)
 		print(f"Tasks.md and TasksGenerate.md should now be stored in {newDir}.")
 
+"""
+Calculates the offset for a certain date (today by default)
+
+Parameters:
+- s: string; currently unused. Passing 'help' will only return the help information for this function.
+"""
 def offset(s=None):
 	if(s == "help"):
 		return f"""Calculates the offset for a certain date (today by default)
