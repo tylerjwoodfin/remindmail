@@ -81,7 +81,13 @@ def generate():
 
 		for item in tasksGenerateFile:
 			if item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed):
-				mail.send(f"Reminder - ${item}", "")
+				mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
+
+				# handle deletion
+				if "]d" in item:
+					securedata.log(f"Deleting item from TasksGenerate: {item}")
+					tasksGenerateFile.remove(item)
+
 			elif item.startswith("[") and ("%" in item) and ("]" in item):
 
 				if item[1:4] in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
@@ -98,26 +104,30 @@ def generate():
 				else:
 					splitFactor = int(splitFactor)
 
-				if splitType == "d":
-					if epochDay % splitFactor == splitOffset:
-						print(f"Sending: {item}")
-						mail.send(f"Reminder - ${item}", "")
-				elif splitType == "w":
-					if datetime.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset:
-						print(f"Sending: {item}")
-						mail.send(f"Reminder - ${item}", "")
-				elif splitType == "m":
-					if datetime.today().day == 1 and epochMonth % splitFactor == splitOffset:
-						print(f"Sending: {item}")
-						mail.send(f"Reminder - ${item}", "")
-				elif splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
-					if datetime.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset:
-						print(f"Sending: {item}")
-						mail.send(f"Reminder - {item}", "")
+				try:
+					if splitType == "d":
+						if epochDay % splitFactor == splitOffset:
+							print(f"Sending: {item}")
+							mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
+					elif splitType == "w":
+						if datetime.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset:
+							print(f"Sending: {item}")
+							mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
+					elif splitType == "m":
+						if datetime.today().day == 1 and epochMonth % splitFactor == splitOffset:
+							print(f"Sending: {item}")
+							mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
+					elif splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
+						if datetime.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset:
+							print(f"Sending: {item}")
+							mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
+				except Exception as e:
+					securedata.log(f"Could not send reminder from TasksGenerate: {e}", level="error")
 
-			# handle deletion
-			if "]d" in item:
-				tasksGenerateFile.remove(item)
+				# handle deletion
+				if "]d" in item:
+					securedata.log(f"Deleting item from TasksGenerate: {item}")
+					tasksGenerateFile.remove(item)
 				
 		try:
 			securedata.writeFile("TasksGenerate.md", "notes", '\n'.join(tasksGenerateFile))
