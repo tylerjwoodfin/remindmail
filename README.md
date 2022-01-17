@@ -120,3 +120,6 @@ Manages my To Do list with support for Google Assistant integration and automati
 # Using "d" to set one-time tasks:
 - [D%5]d will add the task and remove it from TasksGenerate.md, meaning it will only generate once until you add it again.
   - This is useful for scheduling a task in the future that you don't need to repeat.
+
+# Credit
+- Google polling forked from [https://github.com/jonahar/google-reminders-cli](https://github.com/jonahar/google-reminders-cli)
