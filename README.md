@@ -8,26 +8,21 @@ Manages my To Do list with support for Google Assistant integration and automati
 
 # Setup
 - Install Python3
-- Download [SecureData.py](https://github.com/tylerjwoodfin/SecureData) and place it somewhere useful 
-- Modify the line starting with `securePath=` in SecureData.py to point to where you want to store metadata from `tasks config`
-  - Use full paths instead of relative paths, e.g. use `/home/pi/SecureData-Data/` instead of `~/SecureData-Data`
-- Now, we need somewhere to locally store your Tasks.md file. We'll call it "notespath". In Terminal, run:
-  - `tasks config notespath "/full/path/to/notes"`
+- Install [SecureData.py](https://github.com/tylerjwoodfin/securedata) using `pip3 install securedata`
+  - Setup using `securedata config`; see securedata's README for complete setup instructions
+  - Set `path_tasks_notes` in `settings.json` to the full folder path of your `TasksGenerate.md` file (example: `/home/pi/Notes`) (see below)
 - Follow the `TasksGenerate.md` section below
 
-## Sync with Cloud Storage providers using Rclone (optional)
+## (Optional) Sync with Cloud Storage providers using Rclone
 - Complete the steps above in "Setup"
 - Install [rclone](https://rclone.org/install/).
 - Run `rclone config` to set up a cloud storage provider of your choice
-- Run `cd /path/to/{securePath} && rclone listremotes > PiTasksCloudProvider`
-- Run `cd /path/to/{securePath} && echo "/path/to/your/notesDir/in/cloud" > PiTasksCloudProviderPath`
-  - For example, if you want to store Tasks.md in the "Notes" folder in Dropbox, run `echo "Notes" > PiTasksCloudProviderPath`
-  - For example, if you want to store Tasks.md in the "Documents/Notes" folder in Dropbox, run `echo "Documents/Notes" > PiTasksCloudProviderPath`
-- Note: if `PiTasksCloudProviderPath` or `PiTasksCloudProvider` are missing or incorrect, tasks will not sync.
+- Important: using `securedata`, set `path_cloud_notes` in `settings.json` to the Rclone remote path (example: `Dropbox:Notes`)
+  - if `path_cloud_notes` is missing or incorrect, tasks will not sync.
 
 # TasksGenerate.md
 - Place the "good" example in the `TasksGenerate.md example` section below in a file named `TasksGenerate.md`, to be placed in the same folder as Tasks.md. 
-- Tasks from the `TasksGenerate.md` file will be added to Tasks.md according to the syntax below. This is very useful for automatically scheduling tasks.
+- Tasks from the `TasksGenerate.md` file will be emailed or added to Tasks.md according to the syntax below. This is very useful for automatically scheduling tasks.
 
 ## Some Important Notes
 - capitalization doesn't matter anywhere. Feel free to use "[d01]" or "[12-31]D" or "[wEd]".
