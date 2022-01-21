@@ -6,14 +6,7 @@ import tempfile
 from datetime import datetime
 from subprocess import call
 import time
-import pwd
-from securedata import securedata
-
-userDir = pwd.getpwuid( os.getuid() )[ 0 ]
-
-sys.path.insert(0, f'/home/{userDir}/Git/tools')
-
-import mail
+from securedata import securedata, mail
 
 helpText = f"""\nUsage: tasks <command>\n\n<command>:
 	add <taskInfo>
@@ -368,7 +361,7 @@ Parameters:
 def config(s=None):
 	if s == "help":
 		return f"""tasks config notespath <path>: Set your notes path (use full paths)
-		e.g. tasks config notes /home/{userDir}/Dropbox/Notes
+		e.g. tasks config notes /home/userdir/Dropbox/Notes
 		(this is stored in your securedata folder as PiTasksNotesPath)
 		
 		tasks config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
