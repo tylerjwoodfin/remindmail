@@ -8,7 +8,7 @@ from subprocess import call
 import time
 from securedata import securedata, mail
 
-helpText = f"""\nUsage: tasks <command>\n\n<command>:
+helpText = f"""\nUsage: remindmail <command>\n\n<command>:
 	add <taskInfo>
 	add <taskInfo> <line number>
 	edit
@@ -21,14 +21,14 @@ helpText = f"""\nUsage: tasks <command>\n\n<command>:
 	config cloudpath
 	offset
 	
-	For help with a specific command: tasks help <command>
+	For help with a specific command: remindmail help <command>
 	
 Parameters:
-	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. tasks add 'take the trash out'
-	notesPath: Currently {securedata.getItem('path_tasks_notes')}. Setting is stored at {securedata.getConfigItem('path_securedata')}/PiTasksNotesPath.
+	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
+	notesPath: Currently {securedata.getItem('path', 'remindmail', 'local')}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
 
 Notes Directory:
-	Tasks.md and TasksGenerate.md in {securedata.getItem('path_tasks_notes')}. Change the path by running "tasks config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')}/PiTasksNotesPath)
+	Tasks.md and TasksGenerate.md in {securedata.getItem('path', 'remindmail', 'local')}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
 
 TasksGenerate.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are added to Tasks.md.
@@ -51,7 +51,7 @@ def __monthsSinceEpoch(epoch):
 
 """
 Generates tasks from the TasksGenerate.md file in {notesPath}.
-Intended to be run from crontab (try 'tasks generate force' to run immediately)
+Intended to be run from crontab (try 'remindmail generate force' to run immediately)
 """
 
 
@@ -156,7 +156,7 @@ Parameter:
 
 def add(s=None):
     if s == "help":
-        return f"Pulls latest Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')}), then adds the string to the file.\n\ne.g. 'tasks add \"buy milk\"'"
+        return f"Pulls latest Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')}), then adds the string to the file.\n\ne.g. 'remindmail add \"buy milk\"'"
     if len(sys.argv) < 3:
         print(rm("help"))
         return
@@ -168,7 +168,7 @@ def add(s=None):
     for arg in sys.argv[2:]:
         tasks.append(f"{dayOfWeekEnclosed} {arg}")
         print(
-            f"Added {arg} to {securedata.getItem('path_tasks_notes')}/Tasks.md")
+            f"Added {arg} to {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md")
 
     securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
 
@@ -203,7 +203,7 @@ def edit(s=None):
             print("Saving...")
             securedata.writeFile("Tasks.md", "notes", new_tasks)
             print(
-                f"Saved to {securedata.getItem('path_tasks_notes')}/Tasks.md.")
+                f"Saved to {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md.")
         else:
             print("No changes made.")
 
@@ -218,7 +218,7 @@ Parameters:
 
 def rm(s=None):
     if s == "help":
-        return f"Pulls latest Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')}), then removes the selected string or index from the file.\n\ne.g. 'tasks rm 3' removes the third line.\n\nUsage: tasks rm '<string matching task title, or integer of a line to remove>'"
+        return f"Pulls latest Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')}), then removes the selected string or index from the file.\n\ne.g. 'remindmail rm 3' removes the third line.\n\nUsage: remindmail rm '<string matching task title, or integer of a line to remove>'"
     if len(sys.argv) < 3:
         print(rm("help"))
         return
@@ -250,14 +250,14 @@ def rm(s=None):
                     securedata.log("Removed a Task. Good job!")
                     continue
 
-                print(f"'{arg}' isn't in {securedata.getItem('path_tasks_notes')}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+                print(f"'{arg}' isn't in {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
     securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
     ls()
 
 
 """
-Pulls latest Tasks.md in securedata.getItem('path_tasks_notes'), then renames the selected string or index in the file
+Pulls latest Tasks.md in securedata.getItem('path', 'remindmail', 'local'), then renames the selected string or index in the file
 
 Parameters:
 - s: string; currently unused. Passing 'help' will only return the help information for this function.
@@ -266,7 +266,7 @@ Parameters:
 
 def rename(s=None):
     if s == "help":
-        return f"Pulls latest Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')}), then renames the selected string or index in the file.\n\ne.g. 'tasks rename 3 'buy milk' renames the third line to 'buy milk'.\ne.g. 'tasks rename 'buy milk' 'buy water' renames all lines called 'buy milk' to 'buy water'.\n\nUsage: tasks rename <string matching task title, or integer of a line to remove> <replacement string>"
+        return f"Pulls latest Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')}), then renames the selected string or index in the file.\n\ne.g. 'remindmail rename 3 'buy milk' renames the third line to 'buy milk'.\ne.g. 'remindmail rename 'buy milk' 'buy water' renames all lines called 'buy milk' to 'buy water'.\n\nUsage: remindmail rename <string matching task title, or integer of a line to remove> <replacement string>"
     if len(sys.argv) < 4:
         print(rm("help"))
         return
@@ -290,13 +290,13 @@ def rename(s=None):
                 ls()
                 quit()
 
-        print(f"'{sys.argv[2]}' isn't in {securedata.getItem('path_tasks_notes')}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+        print(f"'{sys.argv[2]}' isn't in {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
 
 """
-Displays the latest Tasks.md in securedata.getItem('path_tasks_notes'), formatted with line numbers
+Displays the latest Tasks.md in securedata.getItem('path', 'remindmail', 'local'), formatted with line numbers
 
-Usage: tasks ls
+Usage: remindmail ls
 
 Parameters:
 - s: string; currently unused. Passing 'help' will only return the help information for this function.
@@ -305,10 +305,10 @@ Parameters:
 
 def ls(s=None):
     if s == "help":
-        return f"Displays the latest Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')}), formatted with line numbers\n\nUsage: tasks ls"
+        return f"Displays the latest Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')}), formatted with line numbers\n\nUsage: remindmail ls"
 
     print("\n")
-    os.system(f"rclone copyto {securedata.getItem('path_cloud_notes')}/Tasks.md {securedata.getItem('path_tasks_notes')}/Tasks.md; cat -n {securedata.getItem('path_tasks_notes')}/Tasks.md")
+    os.system(f"rclone copyto {securedata.getItem('path', 'remindmail', 'cloud')}/Tasks.md {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md; cat -n {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md")
     print("\n")
 
 
@@ -327,13 +327,13 @@ def help():
 
 
 """
-Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in securedata.getItem('path_tasks_notes'))
+Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in securedata.getItem('path', 'remindmail', 'local')
 """
 
 
 def pull(s=None):
     if s == "help":
-        return f"Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in securedata.getItem('path_tasks_notes') (currently {securedata.getItem('path_tasks_notes')})"
+        return f"Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')})"
 
     print("Pulling from Google...")
 
@@ -346,14 +346,16 @@ def pull(s=None):
             f"Could not pull reminders from Google: {e}", level="warn")
         sys.exit(-1)
 
-    tasks_generate_path_local = securedata.getItem('path_tasks_notes')
-    tasks_generate_path_cloud = securedata.getItem('path_cloud_notes')
-    cloud_enabled = tasks_generate_path_local and tasks_generate_path_cloud
+    path_local = securedata.getItem(
+        'path', 'remindmail', 'local')
+    path_cloud = securedata.getItem(
+        'path', 'remindmail', 'cloud')
+    cloud_enabled = path_local and path_cloud
 
     # pull TasksGenerate from cloud
     if cloud_enabled:
         os.system(
-            f"rclone copy {tasks_generate_path_cloud} {tasks_generate_path_local}")
+            f"rclone copy {path_cloud} {path_local}")
 
     # for each reminder, either add it to TasksGenerate if > 1 day from now, or send an email now, then delete it
     for item in items:
@@ -362,10 +364,10 @@ def pull(s=None):
 
         if seconds_until_target >= 86400 and not item["done"]:
             print(
-                f"Moving {item['title']} to {tasks_generate_path_local}/TasksGenerate.md")
+                f"Moving {item['title']} to {path_local}/TasksGenerate.md")
 
             try:
-                with open(f"{tasks_generate_path_local}/TasksGenerate.md", 'a') as f:
+                with open(f"{path_local}/TasksGenerate.md", 'a') as f:
                     f.write(f"\n{item['title']}")
             except Exception as e:
                 securedata.log(
@@ -392,7 +394,7 @@ def pull(s=None):
     # sync possibly-modified TasksGenerate
     if cloud_enabled:
         os.system(
-            f"rclone sync {tasks_generate_path_local} {tasks_generate_path_cloud}")
+            f"rclone sync {path_local} {path_cloud}")
 
     print("Pull complete.")
 
@@ -407,30 +409,30 @@ Parameters:
 
 def config(s=None):
     if s == "help":
-        return f"""tasks config notespath <path>: Set your notes path (use full paths)
-		e.g. tasks config notes /home/userdir/Dropbox/Notes
-		(this is stored in your securedata folder as PiTasksNotesPath)
+        return f"""remindmail config notespath <path>: Set your notes path (use full paths)
+		e.g. remindmail config notes /home/userdir/Dropbox/Notes
+		(this is stored SecureData; see README)
 		
-		tasks config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
-		e.g. tasks config cloud
-		(this is stored in your securedata folder as PiTasksCloudProvider)
+		remindmail config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
+		e.g. remindmail config cloud
+		(this is stored SecureData; see README)
 		
-		tasks config cloudpath <path>: Set the path in your cloud service to store Tasks.md
-		e.g., if you keep Tasks in Dropbox at Documents/Notes/Tasks.md: tasks config cloudpath Documents/Notes
-		(this is stored in your securedata folder as PiTasksCloudProviderPath)"""
+		remindmail config cloudpath <path>: Set the path in your cloud service to store Tasks.md
+		e.g., if you keep Tasks in Dropbox at Documents/Notes/Tasks.md: remindmail config cloudpath Documents/Notes
+		(this is stored SecureData; see README)"""
     if len(sys.argv) < 3:
         print(config("help"))
         return
 
     if sys.argv[2].lower() == "notespath":
         newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        securedata.setItem("path_tasks_notes", newDir)
+        securedata.setItem("path", "remindmail", "local", newDir)
         print(
             f"Tasks.md and TasksGenerate.md should now be stored in {newDir}.")
 
     if sys.argv[2].lower() == "cloud":
         newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        securedata.setItem("path_tasks_notes", newDir)
+        securedata.setItem("path", "remindmail", "local", newDir)
         print(
             f"Tasks.md and TasksGenerate.md should now be stored in {newDir}.")
 
@@ -447,32 +449,32 @@ def offset(s=None):
     if s == "help":
         return f"""Calculates the offset for a certain date (today by default)
 
-		tasks offset <type> <date (YYYY-MM-DD, optional)> <n>
+		remindmail offset <type> <date (YYYY-MM-DD, optional)> <n>
 		(type is day, week, month)
 		(n is 'every n days')
 
 		Take the results of this function and use it to add an offset to a function.
 		If you want something to happen every 3 days starting tomorrow, use:
-		tasks offset day <tomorrow's date YYYY-MM-DD> 3
+		remindmail offset day <tomorrow's date YYYY-MM-DD> 3
 
 		If the answer is 2, then you can add this to TasksGenerate.md:
 		[D%3+2] Task here
 		
-		e.g. tasks offset day 2022-12-31 12
+		e.g. remindmail offset day 2022-12-31 12
 		(find offset for every 12 days intersecting 2022-12-31)
 
-		e.g. tasks offset week 2022-12-31 3
+		e.g. remindmail offset week 2022-12-31 3
 		(every 3 weeks intersecting 2022-12-31)
 
-		e.g. tasks offset month 2022-12-31 4
+		e.g. remindmail offset month 2022-12-31 4
 		(every 4 months intersecting 2022-12-31)
 
-		e.g. tasks offset day 2022-12-31 5
-		e.g. tasks offset week 2022-12-31 6
-		e.g. tasks offset month 2022-12-31 7"""
+		e.g. remindmail offset day 2022-12-31 5
+		e.g. remindmail offset week 2022-12-31 6
+		e.g. remindmail offset month 2022-12-31 7"""
 
     if len(sys.argv) < 4:
-        print("Usage: tasks offset <type (day,week,month)> <date (optional, YYYY-MM-DD)> <n, as in 'every n <type>'>\nExample: tasks offset week 2021-05-20 2\nFor help: 'tasks help offset'")
+        print("Usage: remindmail offset <type (day,week,month)> <date (optional, YYYY-MM-DD)> <n, as in 'every n <type>'>\nExample: remindmail offset week 2021-05-20 2\nFor help: 'remindmail help offset'")
         return
 
     if len(sys.argv) > 4:
@@ -501,7 +503,7 @@ def offset(s=None):
 
         if offsetN == 1:
             print(
-                f"Note: Anything % 1 is always 0. This is saying 'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run for a given {sys.argv[2]}. '%1' means it will always run, so no need for an offset.\nPlease see the README for details, or just run 'tasks help offset'.")
+                f"Note: Anything % 1 is always 0. This is saying 'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run for a given {sys.argv[2]}. '%1' means it will always run, so no need for an offset.\nPlease see the README for details, or just run 'remindmail help offset'.")
         elif returnVal == 0:
             print("Note: The offset is 0, so a task for this date in TasksGenerate.md will be added without an offset.")
 
@@ -510,7 +512,7 @@ def offset(s=None):
         print("Date must be YYYY-MM-DD.")
     except IndexError:
         print(
-            f"Missing <n>, as in 'every n {sys.argv[2]}s'\nUsage: tasks offset {sys.argv[2]} {sys.argv[3]} nExample:\nFor help: 'tasks help offset'")
+            f"Missing <n>, as in 'every n {sys.argv[2]}s'\nUsage: remindmail offset {sys.argv[2]} {sys.argv[3]} nExample:\nFor help: 'remindmail help offset'")
         return
 
 
@@ -529,7 +531,7 @@ params = {
 
 if len(sys.argv) == 1:
     print(
-        f"Opening {securedata.getItem('path_tasks_notes')}/Tasks.md. Run 'tasks help' for help...")
+        f"Opening {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md. Run 'remindmail help' for help...")
     edit()
     quit()
 
