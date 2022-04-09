@@ -23,22 +23,22 @@ helpText = f"""\nUsage: remindmail <command>\n\n<command>:
 	rm  <line number>
 	ls
 	pull
-	config notespath <notesPath>
+	config local <localPath>
 	config cloud
 	config cloudpath
 	offset
 	
 	For help with a specific command: remindmail help <command>
 	
-Parameters:
+Parameters (in brackets):
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
-	notesPath: Currently {path_local}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
+	localPath: Currently {path_local}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
 
 Notes Directory:
 	Tasks.md and remind.md in {path_local}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
 
 remind.md:
-	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are added to Tasks.md.
+	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
 	See the provided example remind.md in ReadMe.
 	
 	"""
@@ -54,14 +54,14 @@ def __monthsSinceEpoch(epoch):
 
 
 """
-Generates tasks from the remind.md file in {notesPath}.
+Generates tasks from the remind.md file in {path_local}.
 Intended to be run from crontab (try 'remindmail generate force' to run immediately)
 """
 
 
 def generate():
     dayOfMonthTasksGenerated = str(
-        securedata.getItem("tasks", "day_generated"))
+        securedata.getItem("remindmail", "day_generated"))
 
     dayOfMonthTasksGenerated = dayOfMonthTasksGenerated if dayOfMonthTasksGenerated != '' else 0
 
@@ -77,21 +77,21 @@ def generate():
         dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
 
         try:
-            tasksGenerateFile = securedata.getFileAsArray(
+            remindMdFile = securedata.getFileAsArray(
                 "remind.md", "notes")
         except exception as e:
             securedata.log(
                 "Could not read remind.md; Aborting", level="error")
             sys.exit("Could not read remind.md; Aborting")
 
-        for item in tasksGenerateFile:
+        for item in remindMdFile:
             if item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed):
                 mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
 
                 # handle deletion
                 if "]d" in item:
-                    securedata.log(f"Deleting item from TasksGenerate: {item}")
-                    tasksGenerateFile.remove(item)
+                    securedata.log(f"Deleting item from remind.md: {item}")
+                    remindMdFile.remove(item)
 
             elif item.startswith("[") and ("%" in item) and ("]" in item):
 
@@ -132,22 +132,23 @@ def generate():
                                 f"Reminder - {item.split(' ', 1)[1]}", "")
                 except Exception as e:
                     securedata.log(
-                        f"Could not send reminder from TasksGenerate: {e}", level="error")
+                        f"Could not send reminder from remind.md: {e}", level="error")
 
                 # handle deletion
                 if "]d" in item:
-                    securedata.log(f"Deleting item from TasksGenerate: {item}")
-                    tasksGenerateFile.remove(item)
+                    securedata.log(f"Deleting item from remind.md: {item}")
+                    remindMdFile.remove(item)
 
         try:
             securedata.writeFile("remind.md", "notes",
-                                 '\n'.join(tasksGenerateFile))
-            securedata.setItem("tasks", "day_generated", datetime.today().day)
+                                 '\n'.join(remindMdFile))
+            securedata.setItem("remindmail", "day_generated",
+                               datetime.today().day)
         except exception as e:
             securedata.log("Could not rewrite remind.md", level="error")
         securedata.log("Generated tasks")
     else:
-        print(f"Tasks have already been generated in the past 12 hours.")
+        print(f"Reminders have already been generated in the past 12 hours.")
 
 
 """
@@ -334,13 +335,13 @@ def help():
 
 
 """
-Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in path_local
+Pulls reminders from Google, deletes them, and emails them to the address using the email in securedata (see README)
 """
 
 
 def pull(s=None):
     if s == "help":
-        return f"Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in path_local (currently {path_local})"
+        return f"Pulls reminders from Google, deletes them, and adds them to Tasks.md in path_local (currently {path_local})"
 
     print("Pulling from Google...")
 
@@ -353,12 +354,12 @@ def pull(s=None):
             f"Could not pull reminders from Google: {e}", level="warn")
         sys.exit(-1)
 
-    # pull TasksGenerate from cloud
+    # pull remind.md from cloud
     if cloud_enabled:
         os.system(
             f"rclone copy {path_cloud} {path_local}")
 
-    # for each reminder, either add it to TasksGenerate if > 1 day from now, or send an email now, then delete it
+    # for each reminder, either add it to remind.md if > 1 day from now, or send an email now, then delete it
     for item in items:
         seconds_until_target = (
             item['target_date'] - datetime.now()).total_seconds()
@@ -372,7 +373,7 @@ def pull(s=None):
                     f.write(f"\n{item['title']}")
             except Exception as e:
                 securedata.log(
-                    f"Could not write to TasksGenerate: {e}", level="critical")
+                    f"Could not write to remind.md: {e}", level="critical")
                 sys.exit(-1)
         else:
             try:
@@ -392,7 +393,7 @@ def pull(s=None):
             securedata.log(
                 f"Could not delete {item['title']} from Google Reminders", level="warning")
 
-    # sync possibly-modified TasksGenerate
+    # sync possibly-modified remind.md
     if cloud_enabled:
         os.system(
             f"rclone sync {path_local} {path_cloud}")
@@ -410,7 +411,7 @@ Parameters:
 
 def config(s=None):
     if s == "help":
-        return f"""remindmail config notespath <path>: Set your notes path (use full paths)
+        return f"""remindmail config local <path>: Set your notes path (use full paths)
 		e.g. remindmail config notes /home/userdir/Dropbox/Notes
 		(this is stored SecureData; see README)
 		
@@ -425,17 +426,17 @@ def config(s=None):
         print(config("help"))
         return
 
-    if sys.argv[2].lower() == "notespath":
+    if sys.argv[2].lower() == "local":
         newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
         securedata.setItem("path", "remindmail", "local", newDir)
         print(
-            f"Tasks.md and remind.md should now be stored in {newDir}.")
+            f"remind.md should now be stored in {newDir}.")
 
     if sys.argv[2].lower() == "cloud":
         newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        securedata.setItem("path", "remindmail", "local", newDir)
+        securedata.setItem("path", "remindmail", "cloud", newDir)
         print(
-            f"Tasks.md and remind.md should now be stored in {newDir}.")
+            f"remind.md should now be synced in rclone through {newDir}.")
 
 
 """

@@ -12,6 +12,9 @@
 
 - Linux (Raspberry Pis work great!)
 - [securedata](https://github.com/tylerjwoodfin/securedata)
+- a unique, non-Gmail address specifically for this project
+  - do not use an email address that you use in other areas of your life
+  - do not re-use a password you've used anywhere else; use a unique password.
 - Python3
 
 # setup
@@ -19,8 +22,13 @@
 - install Python3
 - install [securedata](https://github.com/tylerjwoodfin/securedata)
 
-  - Setup using `securedata config`; see securedata's README for complete setup instructions
-  - Set the full directory path of your `remind.md` file using `path -> remindmail -> local`, like this example SecureData `settings.json` file:
+  - initialize using `securedata config`; see securedata's README for complete setup instructions
+  - in securedata's `settings.json`, set the full directory path of your `remind.md` file using `path -> remindmail -> local`
+  - in securedata's `settings.json`, set the email information using the example below
+    - note that Gmail will _not_ work due to their security restrictions.
+    - it's very bad practice to store your password in plaintext; for this reason, never sync this file.
+    - always use a unique email address specifically for this, and _especially_ use a unique password.
+  - Your `settings.json` should be similar to this:
 
   ```
   {
@@ -28,6 +36,15 @@
       "remindmail": {
         "local": "/home/pi/remindmail"
       }
+    },
+    "email": {
+        "from": "YourUniqueAndNonGmailEmailAddress",
+        "from_pw": "YourPassword",
+        "from_name": "Your Name",
+        "to": "RemindersSentToThisEmailAddress",
+        "smtp_server": "your domain's smtp server",
+        "imap_server": "your domain's imap server",
+        "port": 465
     }
   }
   ```
