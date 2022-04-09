@@ -44,10 +44,6 @@ remind.md:
 	"""
 
 
-def __toLower(arr):
-    return list(map(lambda x: x.lower(), arr))
-
-
 def __monthsSinceEpoch(epoch):
     epochTime = time.localtime(epoch)
     return ((epochTime.tm_year - 1970) * 12) + epochTime.tm_mon
@@ -149,175 +145,6 @@ def generate():
         securedata.log("Generated tasks")
     else:
         print(f"Reminders have already been generated in the past 12 hours.")
-
-
-"""
-Adds a task to the Tasks file
-
-Parameter:
-- s: string; the task name. Passing 'help' will only return the help information for this function.
-"""
-
-
-def add(s=None):
-    if s == "help":
-        return f"Pulls latest Tasks.md in path_local (currently {path_local}), then adds the string to the file.\n\ne.g. 'remindmail add \"buy milk\"'"
-    if len(sys.argv) < 3:
-        print(rm("help"))
-        return
-
-    dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
-
-    tasks = securedata.getFileAsArray("Tasks.md", "notes")
-
-    for arg in sys.argv[2:]:
-        tasks.append(f"{dayOfWeekEnclosed} {arg}")
-        print(
-            f"Added {arg} to {path_local}/Tasks.md")
-
-    securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
-
-    ls()
-
-
-"""
-Opens the tasks file in Vim, then saves it. Depending on `securedata` settings, it may also sync to the cloud.
-
-Parameter:
-- s: string; currently unused. Passing 'help' will only return the help information for this function.
-"""
-
-
-def edit(s=None):
-    if s == "help":
-        return ""
-
-    EDITOR = os.environ.get('EDITOR', 'vim')
-
-    # if you want to set up the file somehow
-    tasks = '\n'.join(securedata.getFileAsArray("Tasks.md", "notes"))
-
-    with tempfile.NamedTemporaryFile(mode='w+', suffix=".tmp") as tf:
-        tf.write(tasks)
-        tf.flush()
-        call([EDITOR, tf.name])
-        tf.seek(0)
-        new_tasks = tf.read()
-
-        if tasks != new_tasks:
-            print("Saving...")
-            securedata.writeFile("Tasks.md", "notes", new_tasks)
-            print(
-                f"Saved to {path_local}/Tasks.md.")
-        else:
-            print("No changes made.")
-
-
-"""
-Removes a selected string or index from the tasks file.
-
-Parameters:
-- s: string; currently unused. Passing 'help' will only return the help information for this function.
-"""
-
-
-def rm(s=None):
-    if s == "help":
-        return f"Pulls latest Tasks.md in path_local (currently {path_local}), then removes the selected string or index from the file.\n\ne.g. 'remindmail rm 3' removes the third line.\n\nUsage: remindmail rm '<string matching task title, or integer of a line to remove>'"
-    if len(sys.argv) < 3:
-        print(rm("help"))
-        return
-
-    # convert list and query to lowercase to avoid false negatives
-    tasks = __toLower(securedata.getFileAsArray("Tasks.md", "notes"))
-
-    args = sys.argv[2:]
-
-    # convert numeric parameters to integers for proper sorting
-    for i, arg in enumerate(args):
-        if arg.isnumeric():
-            args[i] = int(arg)
-        else:
-            args[i] = arg.lower()
-
-    args.sort(reverse=True)
-
-    for arg in args:
-        try:
-            del tasks[int(arg)-1]
-            print(f"Removed {arg}.")
-        except:
-            for i, task in enumerate(tasks):
-                if arg == task or (task.startswith("[") and "] " in task and arg == task.split("] ")[1]):
-                    del tasks[i]
-                    securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
-                    print(f"Removed {arg}.")
-                    securedata.log("Removed a Task. Good job!")
-                    continue
-
-                print(
-                    f"'{arg}' isn't in {path_local}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
-
-    securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
-    ls()
-
-
-"""
-Pulls latest Tasks.md in path_local, then renames the selected string or index in the file
-
-Parameters:
-- s: string; currently unused. Passing 'help' will only return the help information for this function.
-"""
-
-
-def rename(s=None):
-    if s == "help":
-        return f"Pulls latest Tasks.md in path_local (currently {path_local}), then renames the selected string or index in the file.\n\ne.g. 'remindmail rename 3 'buy milk' renames the third line to 'buy milk'.\ne.g. 'remindmail rename 'buy milk' 'buy water' renames all lines called 'buy milk' to 'buy water'.\n\nUsage: remindmail rename <string matching task title, or integer of a line to remove> <replacement string>"
-    if len(sys.argv) < 4:
-        print(rm("help"))
-        return
-
-    # convert list and query to lowercase to avoid false negatives
-    tasks = __toLower(securedata.getFileAsArray("Tasks.md", "notes"))
-    sys.argv[2] = sys.argv[2].lower()
-    dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
-
-    try:
-        tasks[int(sys.argv[2])-1] = f"{dayOfWeekEnclosed} {sys.argv[3]}"
-        securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
-        print(f"Renamed {sys.argv[2]} to {sys.argv[3]}. New Tasks:\n")
-        ls()
-    except:
-        for i, task in enumerate(tasks):
-            if sys.argv[2] == task or (task.startswith("[") and "] " in task and sys.argv[2] == task.split("] ")[1]):
-                tasks[i] = f"{dayOfWeekEnclosed} {sys.argv[3]}"
-                securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
-                print(f"Renamed {sys.argv[2]} to {sys.argv[3]}. New Tasks:\n")
-                ls()
-                quit()
-
-        print(
-            f"'{sys.argv[2]}' isn't in {path_local}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
-
-
-"""
-Displays the latest Tasks.md in path_local, formatted with line numbers
-
-Usage: remindmail ls
-
-Parameters:
-- s: string; currently unused. Passing 'help' will only return the help information for this function.
-"""
-
-
-def ls(s=None):
-    if s == "help":
-        return f"Displays the latest Tasks.md in path_local (currently {path_local}), formatted with line numbers\n\nUsage: remindmail ls"
-
-    print("\n")
-    os.system(
-        f"rclone copyto {path_cloud}/Tasks.md {path_local}/Tasks.md; cat -n {path_local}/Tasks.md")
-    print("\n")
 
 
 """
@@ -520,11 +347,6 @@ def offset(s=None):
 
 
 params = {
-    "add": add,
-    "edit": edit,
-    "rm": rm,
-    "rename": rename,
-    "ls": ls,
     "help": help,
     "pull": pull,
     "config": config,
@@ -533,9 +355,7 @@ params = {
 }
 
 if len(sys.argv) == 1:
-    print(
-        f"Opening {path_local}/Tasks.md. Run 'remindmail help' for help...")
-    edit()
+    help()
     quit()
 
 if __name__ == '__main__':
