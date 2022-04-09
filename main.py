@@ -8,6 +8,13 @@ from subprocess import call
 import time
 from securedata import securedata, mail
 
+
+today = datetime.today()
+path_local = securedata.getItem(
+    'path', 'remindmail', 'local')
+path_cloud = securedata.getItem(
+    'path', 'remindmail', 'cloud')
+cloud_enabled = path_local and path_cloud
 helpText = f"""\nUsage: remindmail <command>\n\n<command>:
 	add <taskInfo>
 	add <taskInfo> <line number>
@@ -25,19 +32,16 @@ helpText = f"""\nUsage: remindmail <command>\n\n<command>:
 	
 Parameters:
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
-	notesPath: Currently {securedata.getItem('path', 'remindmail', 'local')}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
+	notesPath: Currently {path_local}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
 
 Notes Directory:
-	Tasks.md and TasksGenerate.md in {securedata.getItem('path', 'remindmail', 'local')}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
+	Tasks.md and remind.md in {path_local}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
 
-TasksGenerate.md:
+remind.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are added to Tasks.md.
-	See the provided example TasksGenerate.md in ReadMe.
+	See the provided example remind.md in ReadMe.
 	
 	"""
-
-
-today = datetime.today()
 
 
 def __toLower(arr):
@@ -50,7 +54,7 @@ def __monthsSinceEpoch(epoch):
 
 
 """
-Generates tasks from the TasksGenerate.md file in {notesPath}.
+Generates tasks from the remind.md file in {notesPath}.
 Intended to be run from crontab (try 'remindmail generate force' to run immediately)
 """
 
@@ -74,11 +78,11 @@ def generate():
 
         try:
             tasksGenerateFile = securedata.getFileAsArray(
-                "TasksGenerate.md", "notes")
+                "remind.md", "notes")
         except exception as e:
             securedata.log(
-                "Could not read TasksGenerate.md; Aborting", level="error")
-            sys.exit("Could not read TasksGenerate.md; Aborting")
+                "Could not read remind.md; Aborting", level="error")
+            sys.exit("Could not read remind.md; Aborting")
 
         for item in tasksGenerateFile:
             if item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed):
@@ -136,11 +140,11 @@ def generate():
                     tasksGenerateFile.remove(item)
 
         try:
-            securedata.writeFile("TasksGenerate.md", "notes",
+            securedata.writeFile("remind.md", "notes",
                                  '\n'.join(tasksGenerateFile))
             securedata.setItem("tasks", "day_generated", datetime.today().day)
         except exception as e:
-            securedata.log("Could not rewrite TasksGenerate.md", level="error")
+            securedata.log("Could not rewrite remind.md", level="error")
         securedata.log("Generated tasks")
     else:
         print(f"Tasks have already been generated in the past 12 hours.")
@@ -156,19 +160,19 @@ Parameter:
 
 def add(s=None):
     if s == "help":
-        return f"Pulls latest Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')}), then adds the string to the file.\n\ne.g. 'remindmail add \"buy milk\"'"
+        return f"Pulls latest Tasks.md in path_local (currently {path_local}), then adds the string to the file.\n\ne.g. 'remindmail add \"buy milk\"'"
     if len(sys.argv) < 3:
         print(rm("help"))
         return
 
     dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
 
-    tasks = securedata.array("Tasks.md", "notes")
+    tasks = securedata.getFileAsArray("Tasks.md", "notes")
 
     for arg in sys.argv[2:]:
         tasks.append(f"{dayOfWeekEnclosed} {arg}")
         print(
-            f"Added {arg} to {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md")
+            f"Added {arg} to {path_local}/Tasks.md")
 
     securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
 
@@ -203,7 +207,7 @@ def edit(s=None):
             print("Saving...")
             securedata.writeFile("Tasks.md", "notes", new_tasks)
             print(
-                f"Saved to {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md.")
+                f"Saved to {path_local}/Tasks.md.")
         else:
             print("No changes made.")
 
@@ -218,7 +222,7 @@ Parameters:
 
 def rm(s=None):
     if s == "help":
-        return f"Pulls latest Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')}), then removes the selected string or index from the file.\n\ne.g. 'remindmail rm 3' removes the third line.\n\nUsage: remindmail rm '<string matching task title, or integer of a line to remove>'"
+        return f"Pulls latest Tasks.md in path_local (currently {path_local}), then removes the selected string or index from the file.\n\ne.g. 'remindmail rm 3' removes the third line.\n\nUsage: remindmail rm '<string matching task title, or integer of a line to remove>'"
     if len(sys.argv) < 3:
         print(rm("help"))
         return
@@ -250,14 +254,15 @@ def rm(s=None):
                     securedata.log("Removed a Task. Good job!")
                     continue
 
-                print(f"'{arg}' isn't in {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+                print(
+                    f"'{arg}' isn't in {path_local}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
     securedata.writeFile("Tasks.md", "notes", '\n'.join(tasks))
     ls()
 
 
 """
-Pulls latest Tasks.md in securedata.getItem('path', 'remindmail', 'local'), then renames the selected string or index in the file
+Pulls latest Tasks.md in path_local, then renames the selected string or index in the file
 
 Parameters:
 - s: string; currently unused. Passing 'help' will only return the help information for this function.
@@ -266,7 +271,7 @@ Parameters:
 
 def rename(s=None):
     if s == "help":
-        return f"Pulls latest Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')}), then renames the selected string or index in the file.\n\ne.g. 'remindmail rename 3 'buy milk' renames the third line to 'buy milk'.\ne.g. 'remindmail rename 'buy milk' 'buy water' renames all lines called 'buy milk' to 'buy water'.\n\nUsage: remindmail rename <string matching task title, or integer of a line to remove> <replacement string>"
+        return f"Pulls latest Tasks.md in path_local (currently {path_local}), then renames the selected string or index in the file.\n\ne.g. 'remindmail rename 3 'buy milk' renames the third line to 'buy milk'.\ne.g. 'remindmail rename 'buy milk' 'buy water' renames all lines called 'buy milk' to 'buy water'.\n\nUsage: remindmail rename <string matching task title, or integer of a line to remove> <replacement string>"
     if len(sys.argv) < 4:
         print(rm("help"))
         return
@@ -290,11 +295,12 @@ def rename(s=None):
                 ls()
                 quit()
 
-        print(f"'{sys.argv[2]}' isn't in {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
+        print(
+            f"'{sys.argv[2]}' isn't in {path_local}/Tasks.md.\nHint: don't include brackets. Names must be an exact, case-insensitive match.")
 
 
 """
-Displays the latest Tasks.md in securedata.getItem('path', 'remindmail', 'local'), formatted with line numbers
+Displays the latest Tasks.md in path_local, formatted with line numbers
 
 Usage: remindmail ls
 
@@ -305,10 +311,11 @@ Parameters:
 
 def ls(s=None):
     if s == "help":
-        return f"Displays the latest Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')}), formatted with line numbers\n\nUsage: remindmail ls"
+        return f"Displays the latest Tasks.md in path_local (currently {path_local}), formatted with line numbers\n\nUsage: remindmail ls"
 
     print("\n")
-    os.system(f"rclone copyto {securedata.getItem('path', 'remindmail', 'cloud')}/Tasks.md {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md; cat -n {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md")
+    os.system(
+        f"rclone copyto {path_cloud}/Tasks.md {path_local}/Tasks.md; cat -n {path_local}/Tasks.md")
     print("\n")
 
 
@@ -327,13 +334,13 @@ def help():
 
 
 """
-Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in securedata.getItem('path', 'remindmail', 'local')
+Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in path_local
 """
 
 
 def pull(s=None):
     if s == "help":
-        return f"Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in securedata.getItem('path', 'remindmail', 'local') (currently {securedata.getItem('path', 'remindmail', 'local')})"
+        return f"Pulls reminders from Google Calendar, deletes them, and adds them to Tasks.md in path_local (currently {path_local})"
 
     print("Pulling from Google...")
 
@@ -345,12 +352,6 @@ def pull(s=None):
         securedata.log(
             f"Could not pull reminders from Google: {e}", level="warn")
         sys.exit(-1)
-
-    path_local = securedata.getItem(
-        'path', 'remindmail', 'local')
-    path_cloud = securedata.getItem(
-        'path', 'remindmail', 'cloud')
-    cloud_enabled = path_local and path_cloud
 
     # pull TasksGenerate from cloud
     if cloud_enabled:
@@ -364,10 +365,10 @@ def pull(s=None):
 
         if seconds_until_target >= 86400 and not item["done"]:
             print(
-                f"Moving {item['title']} to {path_local}/TasksGenerate.md")
+                f"Moving {item['title']} to {path_local}/remind.md")
 
             try:
-                with open(f"{path_local}/TasksGenerate.md", 'a') as f:
+                with open(f"{path_local}/remind.md", 'a') as f:
                     f.write(f"\n{item['title']}")
             except Exception as e:
                 securedata.log(
@@ -428,13 +429,13 @@ def config(s=None):
         newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
         securedata.setItem("path", "remindmail", "local", newDir)
         print(
-            f"Tasks.md and TasksGenerate.md should now be stored in {newDir}.")
+            f"Tasks.md and remind.md should now be stored in {newDir}.")
 
     if sys.argv[2].lower() == "cloud":
         newDir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
         securedata.setItem("path", "remindmail", "local", newDir)
         print(
-            f"Tasks.md and TasksGenerate.md should now be stored in {newDir}.")
+            f"Tasks.md and remind.md should now be stored in {newDir}.")
 
 
 """
@@ -457,7 +458,7 @@ def offset(s=None):
 		If you want something to happen every 3 days starting tomorrow, use:
 		remindmail offset day <tomorrow's date YYYY-MM-DD> 3
 
-		If the answer is 2, then you can add this to TasksGenerate.md:
+		If the answer is 2, then you can add this to remind.md:
 		[D%3+2] Task here
 		
 		e.g. remindmail offset day 2022-12-31 12
@@ -505,7 +506,8 @@ def offset(s=None):
             print(
                 f"Note: Anything % 1 is always 0. This is saying 'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run for a given {sys.argv[2]}. '%1' means it will always run, so no need for an offset.\nPlease see the README for details, or just run 'remindmail help offset'.")
         elif returnVal == 0:
-            print("Note: The offset is 0, so a task for this date in TasksGenerate.md will be added without an offset.")
+            print(
+                "Note: The offset is 0, so a task for this date in remind.md will be added without an offset.")
 
     except ValueError:
         print(sys.argv[3])
@@ -531,7 +533,7 @@ params = {
 
 if len(sys.argv) == 1:
     print(
-        f"Opening {securedata.getItem('path', 'remindmail', 'local')}/Tasks.md. Run 'remindmail help' for help...")
+        f"Opening {path_local}/Tasks.md. Run 'remindmail help' for help...")
     edit()
     quit()
 
