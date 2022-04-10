@@ -61,12 +61,37 @@ def __getWeekday(dayw):
         return 'Saturday'
 
 
+"""
+A wrapper for securedata.log to handle the remindmail log setting
+"""
+
+
 def log(str, level="info"):
     path = securedata.getItem("path", "remindmail", "log") or securedata.setItem("path", "remindmail", "log",
                                                                                  securedata.getItem("path_log"))
 
     securedata.log(str, level=level, filePath=path)
     return
+
+
+"""
+Displays the scheduled reminders in remind.py, formatted with line numbers
+Usage: remindmail ls
+Parameters:
+- s: string; currently unused. Passing 'help' will only return the help information for this function.
+"""
+
+
+def ls(s=None):
+    if s == "help":
+        return f"Displays the scheduled reminders in remind.py (in {securedata.getItem('path', 'remindmail', 'local')}), formatted with line numbers\n\nUsage: remindmail ls"
+
+    remindMd_cloud = f"{securedata.getItem('path', 'remindmail', 'cloud')}/remind.md"
+    remindMd_local = f"{securedata.getItem('path', 'remindmail', 'local')}/remind.md"
+    print("\n")
+    os.system(
+        f"rclone copyto {remindMd_cloud} {remindMd_local}; cat -n {remindMd_local}")
+    print("\n")
 
 
 """
@@ -89,7 +114,7 @@ def generate():
         epochMonth = int(datetime.today().month)
 
         dayOfMonthEnclosed = "[d{:02d}]".format(today.day)
-        dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
+        dayOfWeekEnclosed = f"[{today.strftime('%a')}]"
         dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
 
         try:
@@ -101,7 +126,7 @@ def generate():
             sys.exit("Could not read remind.md; Aborting")
 
         for item in remindMdFile:
-            if item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed):
+            if item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfMonthEnclosed) or item.startswith(dayOfWeekEnclosed) or item.startswith(dayOfWeekEnclosed.lower()) or item.startswith(dateMMdashDDEnclosed):
                 mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
 
                 # handle deletion
@@ -439,6 +464,7 @@ def parse():
 params = {
     "help": help,
     "pull": pull,
+    "ls": ls,
     "config": config,
     "generate": generate,
     "offset": offset
