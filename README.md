@@ -28,6 +28,7 @@
     - note that Gmail will _not_ work due to their security restrictions.
     - it's very bad practice to store your password in plaintext; for this reason, never sync this file.
     - always use a unique email address specifically for this, and _especially_ use a unique password.
+    - an example client id and secret can be found [here](https://github.com/jonahar/google-reminders-cli/blob/master/app_keys.json)
   - Your `settings.json` should be similar to this:
 
   ```
@@ -45,11 +46,30 @@
         "smtp_server": "your domain's smtp server",
         "imap_server": "your domain's imap server",
         "port": 465
+    },
+    "tasks": {
+      "client_id": "Your client ID",
+      "client_secret": "Your client secret"
     }
   }
   ```
 
 - follow the `remind.md` section below
+
+# usage
+
+- natural language, e.g. `remindmail take the trash out on thursday`
+  - This is a work in progress!
+- scheduling `remindmail pull` to automatically pull reminders from Google through crontab (see below)
+- scheduling `remindmail generate` to automatically send emails based on date match from `remind.md` (see below)
+
+# generate
+
+- generates reminders from `remind.md` (see below)
+
+# pull
+
+- generates reminders from Google
 
 ## syncing with rclone (optional)
 
@@ -63,11 +83,12 @@
 - type "crontab -e" in the terminal
 
 - add the line below (without the >, without the #, replacing the path with your real path):
-  - `0 * * * * python3 path/to/main.py generate`
+  - `0 * * * * python3 path/to/main.py generate` (every hour, generate based on remind.md)
+  - `*/5 * * * * python3 path/to/main.py pull` (every 5 minutes, query Google for new reminders)
 
 # logging
 
-- by defualt, activity is logged to `/var/log/remindmail.log`
+- by defualt, remindmail's log path is set to `securedata`'s default log
 - otherwise, you can set `path -> remindmail -> log` in `securedata` (see Setup above) for a custom directory.
 
 # remind.md

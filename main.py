@@ -2,7 +2,7 @@ from logging import exception
 import client
 import os
 import sys
-import tempfile
+import re
 from datetime import datetime
 from subprocess import call
 import time
@@ -16,13 +16,8 @@ path_cloud = securedata.getItem(
     'path', 'remindmail', 'cloud')
 cloud_enabled = path_local and path_cloud
 helpText = f"""\nUsage: remindmail <command>\n\n<command>:
-	add <taskInfo>
-	add <taskInfo> <line number>
-	edit
-	rm  <taskInfo>
-	rm  <line number>
-	ls
 	pull
+    generate force
 	config local <localPath>
 	config cloud
 	config cloudpath
@@ -49,6 +44,31 @@ def __monthsSinceEpoch(epoch):
     return ((epochTime.tm_year - 1970) * 12) + epochTime.tm_mon
 
 
+def __getWeekday(dayw):
+    if dayw == 'sun':
+        return 'Sunday'
+    if dayw == 'mon':
+        return 'Monday'
+    if dayw == 'tue':
+        return 'Tuesday'
+    if dayw == 'wed':
+        return 'Wednesday'
+    if dayw == 'thu':
+        return 'Thursday'
+    if dayw == 'fri':
+        return 'Friday'
+    if dayw == 'sat':
+        return 'Saturday'
+
+
+def log(str, level="info"):
+    path = securedata.getItem("path", "remindmail", "log") or securedata.setItem("path", "remindmail", "log",
+                                                                                 securedata.getItem("path_log"))
+
+    securedata.log(str, level=level, filePath=path)
+    return
+
+
 """
 Generates tasks from the remind.md file in {path_local}.
 Intended to be run from crontab (try 'remindmail generate force' to run immediately)
@@ -62,7 +82,7 @@ def generate():
     dayOfMonthTasksGenerated = dayOfMonthTasksGenerated if dayOfMonthTasksGenerated != '' else 0
 
     if (str(datetime.today().day) != dayOfMonthTasksGenerated and datetime.today().hour > 0) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
-        securedata.log("Generating tasks")
+        log("Generating tasks")
 
         epochDay = int(time.time()/60/60/24)
         epochWeek = int(time.time()/60/60/24/7)
@@ -76,7 +96,7 @@ def generate():
             remindMdFile = securedata.getFileAsArray(
                 "remind.md", "notes")
         except exception as e:
-            securedata.log(
+            log(
                 "Could not read remind.md; Aborting", level="error")
             sys.exit("Could not read remind.md; Aborting")
 
@@ -86,7 +106,7 @@ def generate():
 
                 # handle deletion
                 if "]d" in item:
-                    securedata.log(f"Deleting item from remind.md: {item}")
+                    log(f"Deleting item from remind.md: {item}")
                     remindMdFile.remove(item)
 
             elif item.startswith("[") and ("%" in item) and ("]" in item):
@@ -127,12 +147,12 @@ def generate():
                             mail.send(
                                 f"Reminder - {item.split(' ', 1)[1]}", "")
                 except Exception as e:
-                    securedata.log(
+                    log(
                         f"Could not send reminder from remind.md: {e}", level="error")
 
                 # handle deletion
                 if "]d" in item:
-                    securedata.log(f"Deleting item from remind.md: {item}")
+                    log(f"Deleting item from remind.md: {item}")
                     remindMdFile.remove(item)
 
         try:
@@ -141,8 +161,8 @@ def generate():
             securedata.setItem("remindmail", "day_generated",
                                datetime.today().day)
         except exception as e:
-            securedata.log("Could not rewrite remind.md", level="error")
-        securedata.log("Generated tasks")
+            log("Could not rewrite remind.md", level="error")
+        log("Generated tasks")
     else:
         print(f"Reminders have already been generated in the past 12 hours.")
 
@@ -177,7 +197,7 @@ def pull(s=None):
     try:
         items = cli.list_reminders(5)
     except Exception as e:
-        securedata.log(
+        log(
             f"Could not pull reminders from Google: {e}", level="warn")
         sys.exit(-1)
 
@@ -199,7 +219,7 @@ def pull(s=None):
                 with open(f"{path_local}/remind.md", 'a') as f:
                     f.write(f"\n{item['title']}")
             except Exception as e:
-                securedata.log(
+                log(
                     f"Could not write to remind.md: {e}", level="critical")
                 sys.exit(-1)
         else:
@@ -209,15 +229,15 @@ def pull(s=None):
                 try:
                     mail.send(f"Reminder - {item['title']}", "")
                 except Exception as e:
-                    securedata.log(
+                    log(
                         f"Could not send reminder email: {e}", level="warn")
 
         # delete
         if cli.delete_reminder(reminder_id=item['id']):
-            securedata.log(
+            log(
                 f"Pulled and deleted {item['title']} from Google Reminders")
         else:
-            securedata.log(
+            log(
                 f"Could not delete {item['title']} from Google Reminders", level="warning")
 
     # sync possibly-modified remind.md
@@ -346,6 +366,75 @@ def offset(s=None):
         return
 
 
+def parse():
+    print("Parsing")
+
+    # parse reminder title
+    query_time = ''
+    query = ' '.join(sys.argv[1:])
+    query = ''.join(re.split('me to ', query, flags=re.IGNORECASE)[
+                    1:]) if re.search('me to ', query, re.IGNORECASE) else query
+    query = ''.join(query.split('to ')[
+        1:]) if query.startswith('to ') else query
+
+    if query.__contains__(" at ") or query.__contains__(" on "):
+        print("Parsing time...")
+
+        # look for weekdays using 'on {dayw}'
+        for day in ['on sun',
+                    'on mon',
+                    'on tue',
+                    'on wed',
+                    'on thu',
+                    'on fri',
+                    'on sat',
+                    'next sun',
+                    'next mon',
+                    'next tue',
+                    'next wed',
+                    'next thu',
+                    'next fri',
+                    'next sat',
+                    'sunday',
+                    'monday',
+                    'tuesday',
+                    'wednesday',
+                    'thursday',
+                    'friday',
+                    'saturday']:
+
+            if re.search(day, query, flags=re.IGNORECASE):
+
+                _query_match = re.split(day, query, flags=re.IGNORECASE)
+                query = _query_match[0] if len(
+                    _query_match[0]) > len(_query_match[1]) else _query_match[1]
+
+                query_time = day
+                query_time = re.sub('on ', '', query_time, flags=re.IGNORECASE)
+                query_time = re.sub('next ', '', query_time,
+                                    flags=re.IGNORECASE)
+                query_time = re.sub('day', '', query_time, flags=re.IGNORECASE)
+                break
+
+        if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
+            query = ''.join(query.split('to')[1:])
+
+        if query_time:
+            response = input(
+                f"""Sending "{query.strip()}" on {__getWeekday(query_time)}- OK? y/n""")
+            if len(response) > 0 and not response.startswith('n'):
+                remindMd = securedata.getFileAsArray('remind.md', 'notes')
+                remindMd.append(f"[{query_time}]d {query}")
+                securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
+            return
+
+        # TODO parse dates
+
+    response = input(f"""Sending "{query}" right now- OK? y/n\n""")
+    if len(response) > 0 and not response.startswith('n'):
+        mail.send(f"Reminder - {query}", "Sent via Terminal")
+
+
 params = {
     "help": help,
     "pull": pull,
@@ -354,10 +443,6 @@ params = {
     "offset": offset
 }
 
-if len(sys.argv) == 1:
-    help()
-    quit()
-
 if __name__ == '__main__':
-    func = params.get(sys.argv[1], lambda: print(helpText))
+    func = params.get(sys.argv[1], lambda: parse())
     func()
