@@ -374,6 +374,8 @@ def parse():
                     1:]) if re.search('me to ', query, re.IGNORECASE) else query
     query = ''.join(query.split('to ')[
         1:]) if query.startswith('to ') else query
+    query = ''.join(query.split('me ')[
+        1:]) if query.startswith('me ') else query
 
     if query.__contains__(" at ") or query.__contains__(" on "):
         # look for weekdays using 'on {dayw}'
