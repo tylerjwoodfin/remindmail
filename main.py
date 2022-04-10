@@ -367,8 +367,6 @@ def offset(s=None):
 
 
 def parse():
-    print("Parsing")
-
     # parse reminder title
     query_time = ''
     query = ' '.join(sys.argv[1:])
@@ -378,8 +376,6 @@ def parse():
         1:]) if query.startswith('to ') else query
 
     if query.__contains__(" at ") or query.__contains__(" on "):
-        print("Parsing time...")
-
         # look for weekdays using 'on {dayw}'
         for day in ['on sun',
                     'on mon',
@@ -421,11 +417,14 @@ def parse():
 
         if query_time:
             response = input(
-                f"""Sending "{query.strip()}" on {__getWeekday(query_time)}- OK? y/n""")
+                f"""Sending "{query.strip()}" on {__getWeekday(query_time)}- OK? y/n\n""")
             if len(response) > 0 and not response.startswith('n'):
+                print("Adding...")
+                query = query.strip()
                 remindMd = securedata.getFileAsArray('remind.md', 'notes')
                 remindMd.append(f"[{query_time}]d {query}")
                 securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
+                log(f"""Scheduled "{query}" for {__getWeekday(query_time)}""")
             return
 
         # TODO parse dates

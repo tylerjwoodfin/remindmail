@@ -24,7 +24,7 @@ def authenticate() -> httplib2.Http:
     On the first time, this function will open the browser so that the user can
     grant it access to his data
     """
-    app_keys = securedata.getItem("tasks")
+    app_keys = securedata.getItem("remindmail")
     try:
         client_id = app_keys['client_id']
         client_secret = app_keys['client_secret']
