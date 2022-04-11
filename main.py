@@ -471,5 +471,8 @@ params = {
 }
 
 if __name__ == '__main__':
-    func = params.get(sys.argv[1], lambda: parse())
-    func()
+    if len(sys.argv) > 1:
+        func = params.get(sys.argv[1], lambda: parse())
+        func()
+    else:
+        help()
