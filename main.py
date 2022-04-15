@@ -4,6 +4,7 @@ import os
 import sys
 import re
 from datetime import datetime
+from dateutil.parser import parse
 from subprocess import call
 import time
 from securedata import securedata, mail
@@ -22,9 +23,9 @@ helpText = f"""\nUsage: remindmail <command>\n\n<command>:
 	config cloud
 	config cloudpath
 	offset
-	
+
 	For help with a specific command: remindmail help <command>
-	
+
 Parameters (in brackets):
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
 	localPath: Currently {path_local}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
@@ -35,7 +36,7 @@ Notes Directory:
 remind.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
 	See the provided example remind.md in ReadMe.
-	
+
 	"""
 
 
@@ -59,6 +60,15 @@ def __getWeekday(dayw):
         return 'Friday'
     if dayw == 'sat':
         return 'Saturday'
+
+
+def __parseDate(string):
+    try:
+        dt = parse(string, fuzzy_with_tokens=True)
+        return dt
+
+    except ValueError:
+        return False
 
 
 """
@@ -286,11 +296,11 @@ def config(s=None):
         return f"""remindmail config local <path>: Set your notes path (use full paths)
 		e.g. remindmail config notes /home/userdir/Dropbox/Notes
 		(this is stored SecureData; see README)
-		
+
 		remindmail config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
 		e.g. remindmail config cloud
 		(this is stored SecureData; see README)
-		
+
 		remindmail config cloudpath <path>: Set the path in your cloud service to store Tasks.md
 		e.g., if you keep Tasks in Dropbox at Documents/Notes/Tasks.md: remindmail config cloudpath Documents/Notes
 		(this is stored SecureData; see README)"""
@@ -333,7 +343,7 @@ def offset(s=None):
 
 		If the answer is 2, then you can add this to remind.md:
 		[D%3+2] Task here
-		
+
 		e.g. remindmail offset day 2022-12-31 12
 		(find offset for every 12 days intersecting 2022-12-31)
 
@@ -391,7 +401,7 @@ def offset(s=None):
         return
 
 
-def parse():
+def parseQuery():
     # parse reminder title
     query_time = ''
     query = ' '.join(sys.argv[1:])
@@ -401,8 +411,9 @@ def parse():
         1:]) if query.startswith('to ') else query
     query = ''.join(query.split('me ')[
         1:]) if query.startswith('me ') else query
+    parseDate = __parseDate(query)
 
-    if query.__contains__(" at ") or query.__contains__(" on "):
+    if query.__contains__(" at ") or query.__contains__(" on ") or query.__contains__(" next "):
         # look for weekdays using 'on {dayw}'
         for day in ['on sun',
                     'on mon',
@@ -437,28 +448,34 @@ def parse():
                 query_time = re.sub('next ', '', query_time,
                                     flags=re.IGNORECASE)
                 query_time = re.sub('day', '', query_time, flags=re.IGNORECASE)
+                query_time_formatted = __getWeekday(query_time)
                 break
 
         if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
             query = ''.join(query.split('to')[1:])
 
-        if query_time:
-            response = input(
-                f"""Sending "{query.strip()}" on {__getWeekday(query_time)}- OK? y/n\n""")
-            if len(response) > 0 and not response.startswith('n'):
-                print("Adding...")
-                query = query.strip()
-                remindMd = securedata.getFileAsArray('remind.md', 'notes')
-                remindMd.append(f"[{query_time}]d {query}")
-                securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
-                log(f"""Scheduled "{query}" for {__getWeekday(query_time)}""")
-            return
+    if parseDate and not query_time:
+        query_time = parseDate[0].strftime('%F')
+        query_time_formatted = parseDate[0].strftime('%A, %B %d')
+        query = ''.join(parseDate[1][0])
+        query = ''.join(query.split(' on ')[:-1]) or query
+        print(query_time)
 
-        # TODO parse dates
+    if query_time:
+        response = input(
+            f"""Sending "{query.strip()}" on {query_time_formatted}. OK? y/n\n""")
+        if len(response) > 0 and not response.startswith('n'):
+            print("Adding...")
+            query = query.strip()
+            remindMd = securedata.getFileAsArray('remind.md', 'notes')
+            remindMd.append(f"[{query_time}]d {query}")
+            securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
+            log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
+        return
 
-    response = input(f"""Sending "{query}" right now- OK? y/n\n""")
+    response = input(f"""Sending "{query.strip()}" right now- OK? y/n\n""")
     if len(response) > 0 and not response.startswith('n'):
-        mail.send(f"Reminder - {query}", "Sent via Terminal")
+        mail.send(f"Reminder - {query.strip()}", "Sent via Terminal")
 
 
 params = {
@@ -472,7 +489,7 @@ params = {
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        func = params.get(sys.argv[1], lambda: parse())
+        func = params.get(sys.argv[1], lambda: parseQuery())
         func()
     else:
         help()
