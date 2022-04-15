@@ -123,10 +123,6 @@ def generate():
         epochWeek = int(time.time()/60/60/24/7)
         epochMonth = int(datetime.today().month)
 
-        dayOfMonthEnclosed = "[d{:02d}]".format(today.day)
-        dayOfWeekEnclosed = f"[{today.strftime('%a')}]"
-        dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
-
         try:
             remindMdFile = securedata.getFileAsArray(
                 "remind.md", "notes")
@@ -136,7 +132,16 @@ def generate():
             sys.exit("Could not read remind.md; Aborting")
 
         for item in remindMdFile:
-            if item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfMonthEnclosed) or item.startswith(dayOfWeekEnclosed) or item.startswith(dayOfWeekEnclosed.lower()) or item.startswith(dateMMdashDDEnclosed):
+
+            if not re.match("\[(.*?)\]", item):
+                continue
+
+            token = item.split("[")[1].split("]")[0]
+
+            dt = parse(
+                token, fuzzy_with_tokens=True) if not "%" in token else ""
+
+            if dt and datetime.today().replace(hour=0, minute=0, second=0, microsecond=0) == dt[0]:
                 mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
 
                 # handle deletion
@@ -144,7 +149,7 @@ def generate():
                     log(f"Deleting item from remind.md: {item}")
                     remindMdFile.remove(item)
 
-            elif item.startswith("[") and ("%" in item) and ("]" in item):
+            elif "%" in token:
 
                 if item[1:4] in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
                     splitType = item[1:4]
@@ -186,6 +191,7 @@ def generate():
                         f"Could not send reminder from remind.md: {e}", level="error")
 
                 # handle deletion
+                # TODO Putting ]d will delete whether there is a match or not. Refactor this whole section.
                 if "]d" in item:
                     log(f"Deleting item from remind.md: {item}")
                     remindMdFile.remove(item)
@@ -459,7 +465,6 @@ def parseQuery():
         query_time_formatted = parseDate[0].strftime('%A, %B %d')
         query = ''.join(parseDate[1][0])
         query = ''.join(query.split(' on ')[:-1]) or query
-        print(query_time)
 
     if query_time:
         response = input(
