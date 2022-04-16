@@ -4,6 +4,7 @@ import os
 import sys
 import re
 from datetime import datetime
+from datetime import timedelta
 from dateutil.parser import parse
 from subprocess import call
 import time
@@ -457,9 +458,21 @@ def parseQuery():
                 query_time_formatted = __getWeekday(query_time)
                 break
 
-        if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
-            query = ''.join(query.split('to')[1:])
+    if not query_time and re.search("tomorrow", query, flags=re.IGNORECASE):
 
+        # "tomorrow" means "today" if it's before 3AM
+        if datetime.now().hour > 3:
+            _date_tomorrow = datetime.now() + timedelta(days=1)
+            query_time = _date_tomorrow.strftime('%F')
+            query_time_formatted = _date_tomorrow.strftime('%A, %B %d')
+        _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
+        query = query = _query_match[0] if len(
+            _query_match[0]) > len(_query_match[1]) else _query_match[1]
+
+    if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
+        query = ''.join(query.split('to')[1:])
+
+    # date detected
     if parseDate and not query_time:
         query_time = parseDate[0].strftime('%F')
         query_time_formatted = parseDate[0].strftime('%A, %B %d')

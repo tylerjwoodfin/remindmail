@@ -59,8 +59,7 @@
 # usage
 
 - natural language, e.g. `remindmail take the trash out on thursday`
-  - This is a work in progress!
-  - I recommend aliasing `remindmail` to `remind`; something like "remind me to take the trash out on Thursday" should parse properly.
+  - I recommend aliasing `remindmail` to `remind`; then, something like `remind me to take the trash out on Thursday` should parse properly.
 - scheduling `remindmail pull` to automatically pull reminders from Google through crontab (see below)
 - scheduling `remindmail generate` to automatically send emails based on date match from `remind.md` (see below)
 
@@ -92,7 +91,7 @@
 - by defualt, remindmail's log path is set to `securedata`'s default log
 - otherwise, you can set `path -> remindmail -> log` in `securedata` (see Setup above) for a custom directory.
 
-# remind.md
+# scheduling reminders with remind.md
 
 - this file is the heart of this tool, used for scheduling one-time or recurring reminders.
 - place the "good" example in the `remind.md example` section below in a file named `remind.md`.
@@ -100,74 +99,70 @@
 
 ## using natural language to add to remind.md
 
-- this is a work in progress, but because there's a confirmation message before reminders are sent, there is minimal risk of data loss.
-- `remindmail take out the trash on Thursday` will add `[thu]d take out the trash` upon confirmation (see below for meaning)
 - `remindmail take out the trash` will immediately send an email upon confirmation
-- `remindmail take out the trash on the 13th` will add `[D13]d take out the trash` upon confirmation (work in progress)
-- `remindmail take out the trash every 2 weeks` will add `[W%2] take out the trash` upon confirmation (work in progress)
+- `remindmail take out the trash tomorrow` will add `[YYYY-MM-DD]d take out the trash` upon confirmation (where `YYYY-MM-DD` is tomorrow's date)
+- `remindmail take out the trash on Thursday` will add `[thu]d take out the trash` upon confirmation
+- `remindmail take out the trash on the 13th` will add `[YYYY-MM-13]d take out the trash` upon confirmation (where `YYYY-MM-13` is the next `13th`)
+- `remindmail take out the trash every 2 weeks` will add `[W%2] take out the trash` upon confirmation (TODO!)
 - try other combinations, and feel free to contribute to the codebase for other scenarios!
-
-## important notes
-
-- capitalization doesn't matter anywhere. Feel free to use "[d01]" or "[12-31]D" or "[wEd]".
-- % operators are based on Epoch Time, not a specific year/month. If you use "[M%5]", it adds _every 5 months_, not necessarily May or October. This is why offsets are necessary to "align" it properly.
-- see the other sections below to further understand the + operator
 
 ## remind.md examples
 
-### good
+### days
 
 ```
-[mon]     This reminder is sent if today is Monday.
-[thu]     This reminder is sent if today is Thursday.
-[D01]     This reminder is sent if today is the 1st of the month.
-[D31]     This reminder is sent if today is the 31st of the month.
-[12-31]   This reminder is sent if today is December 31.
-[1-5]     This reminder is sent if today is January 5. (not tested on non-US systems)
-[M%5]     This reminder is sent every 5 months (*not necessarily May and October! pay attention to offsets*)
-[W%3]     This reminder is sent if today is a Sunday of every third week, based on Epoch Time. See instructions below...
-[D%4]     This reminder is sent every 4 days.
-[thu%2]   This reminder is sent every other Thursday.
-[thu%2+1] This reminder is sent every *other* other Thursday.
-[W%3+1]   This reminder is sent if today is a Sunday of every third week, _with an offset of 1_, meaning if [W%3] would normally be sent last week, it will be sent this week instead.
-[M%2]d    This reminder is sent at the next even-numbered month, then deleted from remind.md.
+[D%1]         This reminder is sent every day.
+[D%4]         This reminder is sent every 4 days.
 
-[M%6+3]d  Schedule a doctor's appointment
-[W%1+5]   Take the trash out each Thursday
-[D%1]     Go to bed
-[12-31]d  Celebrate the next New Year's Eve, then delete the reminder
-[M%4]     Spend 15 minutes away from your computer every 4 months
+[mon]         This reminder is sent if today is Monday.
+[Monday]      This reminder is sent if today is Monday.
+[thu]         This reminder is sent if today is Thursday.
+[Thursday]d   This reminder is sent, then deleted, if today is Thursday.
+[D01]         This reminder is sent if today is the 1st of the month.
+[D31]d        This reminder is sent, then deleted, if today is the 31st of the month.
+
+[3-5]         This reminder is sent if today is March 5.
+[3/5]d        This reminder is sent if today is March 5.
+[2022-3-5]d   This reminder is sent, then deleted, if today is March 5.
 ```
 
-### bad
+### weeks
 
 ```
-[Monday]  You must use sun, mon, tue, wed, thu, fri, or sat. Capitalization doesn't matter.
-[D50]     Months only have up to 31 days.
-[D%3] d   The 'd' operator must be immediately next to the ] symbol.
-[Y%5]     Year is unsupported.
-(thu)     You must use brackets.
-{thu}     You must use brackets.
-  [W%3]   You must start reminders on the first column.
-[W%3-1]   This is invalid. To add an offset, you MUST use +.
-[W%3+4]   An offset of 4 makes no sense because [W%3+3] is the same thing as [W%3+0], so [W%3+4] is the same as [W%3+1]. Use [W%3+1] instead.
+[W%3]         This reminder is sent if today is a Sunday of every third week, based on Epoch Time. See below...
+[thu%2]       This reminder is sent every other Thursday.
+[thu%2+1]     This reminder is sent every other Thursday (between the weeks of the line above).
+[W%3+1]       This reminder is sent if today is a Sunday of every third week, _with an offset of 1_, meaning if [W%3] would normally be sent last week, it will be sent this week instead.
 ```
 
-## using % to set "every n weeks", "every n days", "every n months":
+### months
 
-- The Epoch time is the number of seconds since January 1, 1970, UTC.
-- For example, if the current time is 1619394350, then today is Sunday, April 25, 2021 at 11:45:50PM UTC.
-- The "week number" is calculated by {epochTime}/60/60/24/7.
-  - 1619394350 /60/60/24/7 ~= 2677
-  - 2677 % 3 == 1, meaning scheduling a reminder for [W%3] would be sent last week, but not this week (or next week or the week after).
+```
+[M%5]         This reminder is sent every 5 months (_not necessarily May and October! pay attention to offsets_)
+[M%2]d        This reminder is sent at the next even-numbered month, then deleted.
+```
 
-### calculating and scheduling offsets
+### examples that won't work
+
+```
+[D50]         Months only have up to 31 days.
+[D%3] d       The 'd' operator must be immediately next to the ] symbol.
+[Y%5]         Year is unsupported.
+(thu)         You must use brackets.
+{thu}         You must use brackets.
+   [W%3]      You must start reminders on the first column.
+[W%3-1]       This is invalid. To add an offset, you MUST use +.
+[W%3+4]       An offset of 4 makes no sense and won't be triggered because [W%3+3] is the same thing as [W%3+0]. Use [W%3+1] instead.
+
+```
+
+## calculating and scheduling "every n weeks", "every n days", "every n months"
 
 - `remindmail offset <type> <date (YYYY-MM-DD, optional)> <n>`
 - (`type` is day, week, month)
 - (`n` is 'every `n` days')
 
-- Take the results of this function and use it to add an offset to a function.
+- Take the results of this function and use it to add an offset.
 
   - If you want something to happen every 3 days starting tomorrow, use:
   - remindmail offset day <tomorrow's date YYYY-MM-DD> 3
@@ -175,25 +170,35 @@
   - If the answer is 2, then you can add this to remind.md:
   - [D%3+2] Description here
 
-  - e.g. `remindmail offset day 2022-12-31 12`
-  - (find offset for every 12 days intersecting 2022-12-31)
+### how this is calculated
 
-  - e.g. `remindmail offset week 2022-12-31 3`
-  - (every 3 weeks intersecting 2022-12-31)
+- The Epoch time is the number of seconds since January 1, 1970, UTC.
+- For example, if the current time is 1619394350, then today is Sunday, April 25, 2021 at 11:45:50PM UTC.
+- The "week number" is calculated by {epochTime}/60/60/24/7.
+  - 1619394350 /60/60/24/7 ~= 2677
+  - 2677 % 3 == 1, meaning scheduling a reminder for [W%3] would be sent last week, but not this week (or next week or the week after).
 
-  - e.g. `remindmail offset month 2022-12-31 4`
-  - (every 4 months intersecting 2022-12-31)
+## offset examples
 
-  - e.g. `remindmail offset day 5`
+- e.g. `remindmail offset day 2022-12-31 12`
+- (find offset for every 12 days intersecting 2022-12-31)
 
-    - (every 5 days intersecting today)
+- e.g. `remindmail offset week 2022-12-31 3`
+- (every 3 weeks intersecting 2022-12-31)
 
-  - e.g. `remindmail offset week 6`
+- e.g. `remindmail offset month 2022-12-31 4`
+- (every 4 months intersecting 2022-12-31)
 
-    - (every 6 weeks intersecting today)
+- e.g. `remindmail offset day 5`
 
-  - e.g. `remindmail offset month 7`
-    - (every 7 months intersecting today)"""
+  - (every 5 days intersecting today)
+
+- e.g. `remindmail offset week 6`
+
+  - (every 6 weeks intersecting today)
+
+- e.g. `remindmail offset month 7`
+  - (every 7 months intersecting today)"""
 
 ## using "d" to set one-time reminders:
 
