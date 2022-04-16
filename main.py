@@ -4,6 +4,8 @@ import os
 import sys
 import re
 from datetime import datetime
+from datetime import timedelta
+from dateutil.parser import parse
 from subprocess import call
 import time
 from securedata import securedata, mail
@@ -22,9 +24,9 @@ helpText = f"""\nUsage: remindmail <command>\n\n<command>:
 	config cloud
 	config cloudpath
 	offset
-	
+
 	For help with a specific command: remindmail help <command>
-	
+
 Parameters (in brackets):
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
 	localPath: Currently {path_local}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
@@ -35,7 +37,7 @@ Notes Directory:
 remind.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
 	See the provided example remind.md in ReadMe.
-	
+
 	"""
 
 
@@ -61,12 +63,46 @@ def __getWeekday(dayw):
         return 'Saturday'
 
 
+def __parseDate(string):
+    try:
+        dt = parse(string, fuzzy_with_tokens=True)
+        return dt
+
+    except ValueError:
+        return False
+
+
+"""
+A wrapper for securedata.log to handle the remindmail log setting
+"""
+
+
 def log(str, level="info"):
     path = securedata.getItem("path", "remindmail", "log") or securedata.setItem("path", "remindmail", "log",
                                                                                  securedata.getItem("path_log"))
 
     securedata.log(str, level=level, filePath=path)
     return
+
+
+"""
+Displays the scheduled reminders in remind.py, formatted with line numbers
+Usage: remindmail ls
+Parameters:
+- s: string; currently unused. Passing 'help' will only return the help information for this function.
+"""
+
+
+def ls(s=None):
+    if s == "help":
+        return f"Displays the scheduled reminders in remind.py (in {securedata.getItem('path', 'remindmail', 'local')}), formatted with line numbers\n\nUsage: remindmail ls"
+
+    remindMd_cloud = f"{securedata.getItem('path', 'remindmail', 'cloud')}/remind.md"
+    remindMd_local = f"{securedata.getItem('path', 'remindmail', 'local')}/remind.md"
+    print("\n")
+    os.system(
+        f"rclone copyto {remindMd_cloud} {remindMd_local}; cat -n {remindMd_local}")
+    print("\n")
 
 
 """
@@ -88,10 +124,6 @@ def generate():
         epochWeek = int(time.time()/60/60/24/7)
         epochMonth = int(datetime.today().month)
 
-        dayOfMonthEnclosed = "[d{:02d}]".format(today.day)
-        dayOfWeekEnclosed = f"[{today.strftime('%a').lower()}]"
-        dateMMdashDDEnclosed = f"[{today.strftime('%m-%d')}]"
-
         try:
             remindMdFile = securedata.getFileAsArray(
                 "remind.md", "notes")
@@ -101,7 +133,16 @@ def generate():
             sys.exit("Could not read remind.md; Aborting")
 
         for item in remindMdFile:
-            if item.startswith(dayOfMonthEnclosed.lower()) or item.startswith(dayOfWeekEnclosed) or item.startswith(dateMMdashDDEnclosed):
+
+            if not re.match("\[(.*?)\]", item):
+                continue
+
+            token = item.split("[")[1].split("]")[0]
+
+            dt = parse(
+                token, fuzzy_with_tokens=True) if not "%" in token else ""
+
+            if dt and datetime.today().replace(hour=0, minute=0, second=0, microsecond=0) == dt[0]:
                 mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
 
                 # handle deletion
@@ -109,7 +150,7 @@ def generate():
                     log(f"Deleting item from remind.md: {item}")
                     remindMdFile.remove(item)
 
-            elif item.startswith("[") and ("%" in item) and ("]" in item):
+            elif "%" in token:
 
                 if item[1:4] in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
                     splitType = item[1:4]
@@ -151,6 +192,7 @@ def generate():
                         f"Could not send reminder from remind.md: {e}", level="error")
 
                 # handle deletion
+                # TODO Putting ]d will delete whether there is a match or not. Refactor this whole section.
                 if "]d" in item:
                     log(f"Deleting item from remind.md: {item}")
                     remindMdFile.remove(item)
@@ -261,11 +303,11 @@ def config(s=None):
         return f"""remindmail config local <path>: Set your notes path (use full paths)
 		e.g. remindmail config notes /home/userdir/Dropbox/Notes
 		(this is stored SecureData; see README)
-		
+
 		remindmail config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
 		e.g. remindmail config cloud
 		(this is stored SecureData; see README)
-		
+
 		remindmail config cloudpath <path>: Set the path in your cloud service to store Tasks.md
 		e.g., if you keep Tasks in Dropbox at Documents/Notes/Tasks.md: remindmail config cloudpath Documents/Notes
 		(this is stored SecureData; see README)"""
@@ -308,7 +350,7 @@ def offset(s=None):
 
 		If the answer is 2, then you can add this to remind.md:
 		[D%3+2] Task here
-		
+
 		e.g. remindmail offset day 2022-12-31 12
 		(find offset for every 12 days intersecting 2022-12-31)
 
@@ -366,7 +408,7 @@ def offset(s=None):
         return
 
 
-def parse():
+def parseQuery():
     # parse reminder title
     query_time = ''
     query = ' '.join(sys.argv[1:])
@@ -374,8 +416,11 @@ def parse():
                     1:]) if re.search('me to ', query, re.IGNORECASE) else query
     query = ''.join(query.split('to ')[
         1:]) if query.startswith('to ') else query
+    query = ''.join(query.split('me ')[
+        1:]) if query.startswith('me ') else query
+    parseDate = __parseDate(query)
 
-    if query.__contains__(" at ") or query.__contains__(" on "):
+    if query.__contains__(" at ") or query.__contains__(" on ") or query.__contains__(" next "):
         # look for weekdays using 'on {dayw}'
         for day in ['on sun',
                     'on mon',
@@ -410,38 +455,59 @@ def parse():
                 query_time = re.sub('next ', '', query_time,
                                     flags=re.IGNORECASE)
                 query_time = re.sub('day', '', query_time, flags=re.IGNORECASE)
+                query_time_formatted = __getWeekday(query_time)
                 break
 
-        if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
-            query = ''.join(query.split('to')[1:])
+    if not query_time and re.search("tomorrow", query, flags=re.IGNORECASE):
 
-        if query_time:
-            response = input(
-                f"""Sending "{query.strip()}" on {__getWeekday(query_time)}- OK? y/n\n""")
-            if len(response) > 0 and not response.startswith('n'):
-                print("Adding...")
-                query = query.strip()
-                remindMd = securedata.getFileAsArray('remind.md', 'notes')
-                remindMd.append(f"[{query_time}]d {query}")
-                securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
-                log(f"""Scheduled "{query}" for {__getWeekday(query_time)}""")
-            return
+        # "tomorrow" means "today" if it's before 3AM
+        if datetime.now().hour > 3:
+            _date_tomorrow = datetime.now() + timedelta(days=1)
+            query_time = _date_tomorrow.strftime('%F')
+            query_time_formatted = _date_tomorrow.strftime('%A, %B %d')
+        _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
+        query = query = _query_match[0] if len(
+            _query_match[0]) > len(_query_match[1]) else _query_match[1]
 
-        # TODO parse dates
+    if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
+        query = ''.join(query.split('to')[1:])
 
-    response = input(f"""Sending "{query}" right now- OK? y/n\n""")
+    # date detected
+    if parseDate and not query_time:
+        query_time = parseDate[0].strftime('%F')
+        query_time_formatted = parseDate[0].strftime('%A, %B %d')
+        query = ''.join(parseDate[1][0])
+        query = ''.join(query.split(' on ')[:-1]) or query
+
+    if query_time:
+        response = input(
+            f"""Sending "{query.strip()}" on {query_time_formatted}. OK? y/n\n""")
+        if len(response) > 0 and not response.startswith('n'):
+            print("Adding...")
+            query = query.strip()
+            remindMd = securedata.getFileAsArray('remind.md', 'notes')
+            remindMd.append(f"[{query_time}]d {query}")
+            securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
+            log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
+        return
+
+    response = input(f"""Sending "{query.strip()}" right now- OK? y/n\n""")
     if len(response) > 0 and not response.startswith('n'):
-        mail.send(f"Reminder - {query}", "Sent via Terminal")
+        mail.send(f"Reminder - {query.strip()}", "Sent via Terminal")
 
 
 params = {
     "help": help,
     "pull": pull,
+    "ls": ls,
     "config": config,
     "generate": generate,
     "offset": offset
 }
 
 if __name__ == '__main__':
-    func = params.get(sys.argv[1], lambda: parse())
-    func()
+    if len(sys.argv) > 1:
+        func = params.get(sys.argv[1], lambda: parseQuery())
+        func()
+    else:
+        help()
