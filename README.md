@@ -97,6 +97,10 @@
 - place the "good" example in the `remind.md example` section below in a file named `remind.md`.
 - reminders from the `remind.md` file will be emailed once the conditions are met.
 
+## using colons to edit email body
+
+- any text after a colon (`:`) will be placed in the body of the email.
+
 ## using natural language to add to remind.md
 
 - `remindmail take out the trash` will immediately send an email upon confirmation
@@ -106,7 +110,7 @@
 - `remindmail take out the trash every 2 weeks` will add `[W%2] take out the trash` upon confirmation (TODO!)
 - try other combinations, and feel free to contribute to the codebase for other scenarios!
 
-## remind.md examples
+## manually editing remind.md to schedule reminders
 
 ### days
 

@@ -132,7 +132,9 @@ def generate():
                 "Could not read remind.md; Aborting", level="error")
             sys.exit("Could not read remind.md; Aborting")
 
-        for item in remindMdFile:
+        _remindMdFile = remindMdFile.copy()
+        for item in _remindMdFile:
+            print(item)
 
             if not re.match("\[(.*?)\]", item):
                 continue
@@ -409,9 +411,19 @@ def offset(s=None):
 
 
 def parseQuery():
+
+    query = ' '.join(sys.argv[1:])
+    query_notes = ''
+    query_time_formatted = ''
+    query_notes_formatted = ''
+
+    # parse body of email (optional)
+    if ':' in query:
+        query_notes = query.split(":")[1]
+        query = query.split(":")[0]
+
     # parse reminder title
     query_time = ''
-    query = ' '.join(sys.argv[1:])
     query = ''.join(re.split('me to ', query, flags=re.IGNORECASE)[
                     1:]) if re.search('me to ', query, re.IGNORECASE) else query
     query = ''.join(query.split('to ')[
@@ -479,21 +491,27 @@ def parseQuery():
         query = ''.join(parseDate[1][0])
         query = ''.join(query.rsplit(' on ', 1)) or query
 
+    # confirmation
+    if query_notes:
+        query_notes_formatted = f"\nNotes: {query_notes.strip()}\n"
+    response = input(
+        f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query.strip()}\n{query_notes_formatted or ''}\nOK? y/n\n""")
+
     if query_time:
-        response = input(
-            f"""Sending "{query.strip()}" on {query_time_formatted}. OK? y/n\n""")
         if len(response) > 0 and not response.startswith('n'):
             print("Adding...")
             query = query.strip()
+            if query_notes:
+                query = f"{query}: {query_notes}"
             remindMd = securedata.getFileAsArray('remind.md', 'notes')
             remindMd.append(f"[{query_time}]d {query}")
             securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
             log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
         return
 
-    response = input(f"""Sending "{query.strip()}" right now- OK? y/n\n""")
     if len(response) > 0 and not response.startswith('n'):
-        mail.send(f"Reminder - {query.strip()}", "Sent via Terminal")
+        mail.send(f"Reminder - {query.strip()}",
+                  f"{query_notes}\n\nSent via Terminal")
 
 
 params = {
