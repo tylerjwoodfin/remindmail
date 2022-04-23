@@ -106,6 +106,19 @@ def ls(s=None):
 
 
 """
+A helper function to call mail.send
+"""
+
+
+def _send(subject, body):
+    print(f"Sending: {subject}")
+
+    if body:
+        subject = f"{subject} [See Notes]"
+    mail.send(f"Reminder - {subject}", body or "")
+
+
+"""
 Generates tasks from the remind.md file in {path_local}.
 Intended to be run from crontab (try 'remindmail generate force' to run immediately)
 """
@@ -134,7 +147,11 @@ def generate():
 
         _remindMdFile = remindMdFile.copy()
         for item in _remindMdFile:
-            print(item)
+            _item = item
+            item_notes = ''
+            if ':' in item:
+                item_notes = item.split(":")[1].strip()
+                item = item.split(":")[0]
 
             if not re.match("\[(.*?)\]", item):
                 continue
@@ -145,12 +162,12 @@ def generate():
                 token, fuzzy_with_tokens=True) if not "%" in token else ""
 
             if dt and datetime.today().replace(hour=0, minute=0, second=0, microsecond=0) == dt[0]:
-                mail.send(f"Reminder - {item.split(' ', 1)[1]}", "")
+                _send(item.split(' ', 1)[1], item_notes)
 
                 # handle deletion
                 if "]d" in item:
                     log(f"Deleting item from remind.md: {item}")
-                    remindMdFile.remove(item)
+                    remindMdFile.remove(_item)
 
             elif "%" in token:
 
@@ -169,26 +186,15 @@ def generate():
                     splitFactor = int(splitFactor)
 
                 try:
-                    if splitType == "d":
-                        if epochDay % splitFactor == splitOffset:
-                            print(f"Sending: {item}")
-                            mail.send(
-                                f"Reminder - {item.split(' ', 1)[1]}", "")
-                    elif splitType == "w":
-                        if datetime.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset:
-                            print(f"Sending: {item}")
-                            mail.send(
-                                f"Reminder - {item.split(' ', 1)[1]}", "")
-                    elif splitType == "m":
-                        if datetime.today().day == 1 and epochMonth % splitFactor == splitOffset:
-                            print(f"Sending: {item}")
-                            mail.send(
-                                f"Reminder - {item.split(' ', 1)[1]}", "")
+                    if splitType == "d" and epochDay % splitFactor == splitOffset:
+                        _send(item.split(' ', 1)[1], item_notes)
+                    elif splitType == "w" and datetime.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset:
+                        _send(item.split(' ', 1)[1], item_notes)
+                    elif splitType == "m" and datetime.today().day == 1 and epochMonth % splitFactor == splitOffset:
+                        _send(item.split(' ', 1)[1], item_notes)
                     elif splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
                         if datetime.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset:
-                            print(f"Sending: {item}")
-                            mail.send(
-                                f"Reminder - {item.split(' ', 1)[1]}", "")
+                            _send(item.split(' ', 1)[1], item_notes)
                 except Exception as e:
                     log(
                         f"Could not send reminder from remind.md: {e}", level="error")
@@ -197,7 +203,7 @@ def generate():
                 # TODO Putting ]d will delete whether there is a match or not. Refactor this whole section.
                 if "]d" in item:
                     log(f"Deleting item from remind.md: {item}")
-                    remindMdFile.remove(item)
+                    remindMdFile.remove(_item)
 
         try:
             securedata.writeFile("remind.md", "notes",
