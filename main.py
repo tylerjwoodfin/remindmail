@@ -477,7 +477,7 @@ def parseQuery():
         query_time = parseDate[0].strftime('%F')
         query_time_formatted = parseDate[0].strftime('%A, %B %d')
         query = ''.join(parseDate[1][0])
-        query = ''.join(query.split(' on ')[:-1]) or query
+        query = ''.join(query.rsplit(' on ', 1)) or query
 
     if query_time:
         response = input(
