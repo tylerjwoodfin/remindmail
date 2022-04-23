@@ -20,6 +20,7 @@ cloud_enabled = path_local and path_cloud
 helpText = f"""\nUsage: remindmail <command>\n\n<command>:
 	pull
     generate force
+    generate force test
 	config local <localPath>
 	config cloud
 	config cloudpath
@@ -110,12 +111,17 @@ A helper function to call mail.send
 """
 
 
-def _send(subject, body):
+def _send(subject, body, isTest):
     print(f"Sending: {subject}")
 
     if body:
         subject = f"{subject} [See Notes]"
-    mail.send(f"Reminder - {subject}", body or "")
+
+    if not isTest:
+        mail.send(f"Reminder - {subject}", body or "")
+    else:
+        log(
+            f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
 
 
 """
@@ -132,6 +138,10 @@ def generate():
 
     if (str(datetime.today().day) != dayOfMonthTasksGenerated and datetime.today().hour > 0) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
         log("Generating tasks")
+
+        isTest = False
+        if len(sys.argv) > 3 and sys.argv[3] == "test":
+            isTest = True
 
         epochDay = int(time.time()/60/60/24)
         epochWeek = int(time.time()/60/60/24/7)
@@ -162,7 +172,7 @@ def generate():
                 token, fuzzy_with_tokens=True) if not "%" in token else ""
 
             if dt and datetime.today().replace(hour=0, minute=0, second=0, microsecond=0) == dt[0]:
-                _send(item.split(' ', 1)[1], item_notes)
+                _send(item.split(' ', 1)[1], item_notes, isTest)
 
                 # handle deletion
                 if "]d" in item:
@@ -187,14 +197,14 @@ def generate():
 
                 try:
                     if splitType == "d" and epochDay % splitFactor == splitOffset:
-                        _send(item.split(' ', 1)[1], item_notes)
+                        _send(item.split(' ', 1)[1], item_notes, isTest)
                     elif splitType == "w" and datetime.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset:
-                        _send(item.split(' ', 1)[1], item_notes)
+                        _send(item.split(' ', 1)[1], item_notes, isTest)
                     elif splitType == "m" and datetime.today().day == 1 and epochMonth % splitFactor == splitOffset:
-                        _send(item.split(' ', 1)[1], item_notes)
+                        _send(item.split(' ', 1)[1], item_notes, isTest)
                     elif splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
                         if datetime.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset:
-                            _send(item.split(' ', 1)[1], item_notes)
+                            _send(item.split(' ', 1)[1], item_notes, isTest)
                 except Exception as e:
                     log(
                         f"Could not send reminder from remind.md: {e}", level="error")
@@ -203,7 +213,12 @@ def generate():
                 # TODO Putting ]d will delete whether there is a match or not. Refactor this whole section.
                 if "]d" in item:
                     log(f"Deleting item from remind.md: {item}")
-                    remindMdFile.remove(_item)
+
+                    if not isTest:
+                        remindMdFile.remove(_item)
+                    else:
+                        log(f"(in test mode- not deleting {item})",
+                            level="debug")
 
         try:
             securedata.writeFile("remind.md", "notes",
