@@ -104,11 +104,18 @@
 ## using natural language to add to remind.md
 
 - `remindmail take out the trash` will immediately send an email upon confirmation
+- `remindmail write essay: need to go to library` will immediately send an email with the subject `write essay` and body `need to go to library` upon confirmation
 - `remindmail take out the trash tomorrow` will add `[YYYY-MM-DD]d take out the trash` upon confirmation (where `YYYY-MM-DD` is tomorrow's date)
 - `remindmail take out the trash on Thursday` will add `[thu]d take out the trash` upon confirmation
 - `remindmail take out the trash on the 13th` will add `[YYYY-MM-13]d take out the trash` upon confirmation (where `YYYY-MM-13` is the next `13th`)
 - `remindmail take out the trash every 2 weeks` will add `[W%2] take out the trash` upon confirmation (TODO!)
 - try other combinations, and feel free to contribute to the codebase for other scenarios!
+
+### parse without time
+
+- some queries, like `remind me to buy 12 eggs` can be misinterpreted from the date parser library, and the confirmation may ask to schedule the reminder on the 12th of the month.
+  - these edge cases aren't worth fixing, in the interest of preserving the ability for something like "remind me on the 12th to buy eggs" to continue working reliably.
+  - in these situations, it's worth choosing `(p)arse without time`, which ignores any potential dates and asks to send the reminder immediately
 
 ## manually editing remind.md to schedule reminders
 
@@ -126,7 +133,8 @@
 [D31]d        This reminder is sent, then deleted, if today is the 31st of the month.
 
 [3-5]         This reminder is sent if today is March 5.
-[3/5]d        This reminder is sent if today is March 5.
+[3/5]d        This reminder is sent, then deleted, if today is March 5.
+[3/5]1        This reminder is sent, then deleted, if today is March 5.
 [2022-3-5]d   This reminder is sent, then deleted, if today is March 5.
 ```
 
@@ -144,6 +152,18 @@
 ```
 [M%5]         This reminder is sent every 5 months (_not necessarily May and October! pay attention to offsets_)
 [M%2]d        This reminder is sent at the next even-numbered month, then deleted.
+```
+
+### one-time or n-time reminders
+
+```
+[4/23]3       This reminder will be sent if today is April 23, then converted into [4/23]2
+[4/23]2       This reminder will be sent if today is April 23, then converted into [4/23]1 (same as [4/23]d)
+[4/23]1       This reminder is sent, then deleted, if today is April 23.
+[4/23]d       This reminder is sent, then deleted, if today is April 23.
+
+[M%3]6        This reminder will be sent, then decremented, every 3 months, until it becomes [M%3]1 in approximately 18 months.
+[D%2]30       This reminder will be sent, then decremented, every other day, until it becomes [D%2]1 in approximately 2 months.
 ```
 
 ### examples that won't work

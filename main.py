@@ -1,4 +1,5 @@
 from logging import exception
+from math import fabs
 import client
 import os
 import sys
@@ -156,28 +157,48 @@ def generate():
             sys.exit("Could not read remind.md; Aborting")
 
         _remindMdFile = remindMdFile.copy()
-        for item in _remindMdFile:
+        for index, item in enumerate(_remindMdFile):
+
+            # ignore anything outside of [*]
+            if not re.match("\[(.*?)\]", item):
+                continue
+
             _item = item
+            isMatch = False
+
+            # handle notes
             item_notes = ''
             if ':' in item:
                 item_notes = item.split(":")[1].strip()
                 item = item.split(":")[0]
 
-            if not re.match("\[(.*?)\]", item):
-                continue
-
+            # handle [*]n, where n is a number or "d"
             token = item.split("[")[1].split("]")[0]
+            token_after = item.split("]")[1].split(" ")[0]
+
+            if token_after == "d" or token_after == "0":
+                token_after = "1"
+
+            if token_after.isdigit():
+                token_after = int(token_after)
+            else:
+                token_after = -1
 
             dt = parse(
                 token, fuzzy_with_tokens=True) if not "%" in token else ""
 
             if dt and datetime.today().replace(hour=0, minute=0, second=0, microsecond=0) == dt[0]:
+                isMatch = True
                 _send(item.split(' ', 1)[1], item_notes, isTest)
 
                 # handle deletion
-                if "]d" in item:
+                if token_after == 1:
                     log(f"Deleting item from remind.md: {item}")
-                    remindMdFile.remove(_item)
+                    if not isTest:
+                        remindMdFile.remove(_item)
+                    else:
+                        log(f"(in test mode- not deleting {item})",
+                            level="debug")
 
             elif "%" in token:
 
@@ -197,28 +218,34 @@ def generate():
 
                 try:
                     if splitType == "d" and epochDay % splitFactor == splitOffset:
+                        isMatch = True
                         _send(item.split(' ', 1)[1], item_notes, isTest)
                     elif splitType == "w" and datetime.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset:
+                        isMatch = True
                         _send(item.split(' ', 1)[1], item_notes, isTest)
                     elif splitType == "m" and datetime.today().day == 1 and epochMonth % splitFactor == splitOffset:
+                        isMatch = True
                         _send(item.split(' ', 1)[1], item_notes, isTest)
                     elif splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
                         if datetime.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset:
+                            isMatch = True
                             _send(item.split(' ', 1)[1], item_notes, isTest)
                 except Exception as e:
                     log(
                         f"Could not send reminder from remind.md: {e}", level="error")
 
-                # handle deletion
-                # TODO Putting ]d will delete whether there is a match or not. Refactor this whole section.
-                if "]d" in item:
+            # handle deletion and decrementing
+            if isMatch:
+                if token_after == 1:
                     log(f"Deleting item from remind.md: {item}")
-
                     if not isTest:
                         remindMdFile.remove(_item)
                     else:
                         log(f"(in test mode- not deleting {item})",
                             level="debug")
+                elif token_after > 1:
+                    remindMdFile[index] = (item.replace(
+                        f"]{token_after} ", f"]{token_after-1} "))
 
         try:
             securedata.writeFile("remind.md", "notes",
@@ -515,24 +542,47 @@ def parseQuery():
     # confirmation
     if query_notes:
         query_notes_formatted = f"\nNotes: {query_notes.strip()}\n"
-    response = input(
-        f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query.strip()}\n{query_notes_formatted or ''}\nOK? y/n\n""")
+
+    response = ''
+    while response not in ['y', 'n', 'r']:
+        response = input(
+            f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query.strip()}\n{query_notes_formatted or ''}\nOK? (y)es, (n)o, (p)arse without time\n""")
+
+        if response == 'p':
+            query_time = ''
+            query_time_formatted = ''
+            query = ' '.join(sys.argv[1:])
+            print("\n------------------------------")
 
     if query_time:
         if len(response) > 0 and not response.startswith('n'):
-            print("Adding...")
-            query = query.strip()
-            if query_notes:
-                query = f"{query}: {query_notes}"
-            remindMd = securedata.getFileAsArray('remind.md', 'notes')
-            remindMd.append(f"[{query_time}]d {query}")
-            securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
-            log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
+            if response == 'r':
+                print("Reporting bad query via email...")
+                log(
+                    f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
+                mail.send(f"RemindMail - Bad Query",
+                          f"{' '.join(sys.argv[1:])}<br><br>Reported via Terminal")
+            else:
+                print("Adding...")
+                query = query.strip()
+                if query_notes:
+                    query = f"{query}: {query_notes}"
+                remindMd = securedata.getFileAsArray('remind.md', 'notes')
+                remindMd.append(f"[{query_time}]d {query}")
+                securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
+                log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
         return
 
     if len(response) > 0 and not response.startswith('n'):
-        mail.send(f"Reminder - {query.strip()}",
-                  f"{query_notes}\n\nSent via Terminal")
+        if response == 'r':
+            print("Reporting bad query via email...")
+            log(
+                f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
+            mail.send(f"RemindMail - Bad Query",
+                      f"{' '.join(sys.argv[1:])}<br><br>Reported via Terminal")
+        else:
+            mail.send(f"Reminder - {query.strip()}",
+                      f"{query_notes}\n\nSent via Terminal")
 
 
 params = {
