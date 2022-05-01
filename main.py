@@ -6,6 +6,7 @@ import sys
 import re
 from datetime import datetime
 from datetime import timedelta
+from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
 from subprocess import call
 import time
@@ -191,15 +192,6 @@ def generate():
                 isMatch = True
                 _send(item.split(' ', 1)[1], item_notes, isTest)
 
-                # handle deletion
-                if token_after == 1:
-                    log(f"Deleting item from remind.md: {item}")
-                    if not isTest:
-                        remindMdFile.remove(_item)
-                    else:
-                        log(f"(in test mode- not deleting {item})",
-                            level="debug")
-
             elif "%" in token:
 
                 if item[1:4] in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
@@ -239,7 +231,11 @@ def generate():
                 if token_after == 1:
                     log(f"Deleting item from remind.md: {item}")
                     if not isTest:
-                        remindMdFile.remove(_item)
+                        try:
+                            remindMdFile.remove(_item)
+                        except Exception as e:
+                            log(
+                                f"Could not remove from remind.md: {e}", level="error")
                     else:
                         log(f"(in test mode- not deleting {item})",
                             level="debug")
@@ -478,7 +474,36 @@ def parseQuery():
         1:]) if query.startswith('to ') else query
     query = ''.join(query.split('me ')[
         1:]) if query.startswith('me ') else query
-    parseDate = __parseDate(query)
+
+    # handle "in n months"
+    _months = re.findall("in [0-9]+ months|in 1 month",
+                         query, flags=re.IGNORECASE)
+
+    if _months:
+        _numberOfMonths = int(re.search(r'\d+', _months[0]).group())
+        _query_match = query.split(_months[0])
+        query = query = _query_match[0] if len(
+            _query_match[0]) > len(_query_match[1]) else _query_match[1]
+        query_time = (datetime.now().date() +
+                      relativedelta(months=_numberOfMonths))
+        query_time_formatted = query_time.strftime('%A, %B %d')
+
+    # handle "in n weeks"
+    _weeks = re.findall("in [0-9]+ weeks|in 1 week",
+                        query, flags=re.IGNORECASE)
+    if _weeks:
+        _numberOfWeeks = int(re.search(r'\d+', _weeks[0]).group())
+        query = re.sub(_weeks[0], f"in {_numberOfWeeks * 7} days", query)
+
+    # handle "in n days"
+    _days = re.findall("in [0-9]+ days|in 1 day", query, flags=re.IGNORECASE)
+    if _days:
+        _numberOfDays = int(re.search(r'\d+', _days[0]).group())
+        _query_match = query.split(_days[0])
+        query = query = _query_match[0] if len(
+            _query_match[0]) > len(_query_match[1]) else _query_match[1]
+        query_time = (datetime.now().date() + timedelta(days=_numberOfDays))
+        query_time_formatted = query_time.strftime('%A, %B %d')
 
     if query.__contains__(" at ") or query.__contains__(" on ") or query.__contains__(" next "):
         # look for weekdays using 'on {dayw}'
@@ -518,6 +543,7 @@ def parseQuery():
                 query_time_formatted = __getWeekday(query_time)
                 break
 
+    # handle "tomorrow"
     if not query_time and re.search("tomorrow", query, flags=re.IGNORECASE):
 
         # "tomorrow" means "today" if it's before 3AM
@@ -532,7 +558,8 @@ def parseQuery():
     if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
         query = ''.join(query.split('to')[1:])
 
-    # date detected
+    # handle other dates
+    parseDate = __parseDate(query)
     if parseDate and not query_time:
         query_time = parseDate[0].strftime('%F')
         query_time_formatted = parseDate[0].strftime('%A, %B %d')
