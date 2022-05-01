@@ -104,10 +104,15 @@
 ## using natural language to add to remind.md
 
 - `remindmail take out the trash` will immediately send an email upon confirmation
+- `remindmail take out the trash tomorrow` will add `[YYYY-MM-DD]d take out the trash` upon confirmation (where `YYYY-MM-13` is the next day)
+  - if it is before 3AM, the reminder will immediately send an email upon confirmation
 - `remindmail write essay: need to go to library` will immediately send an email with the subject `write essay` and body `need to go to library` upon confirmation
 - `remindmail take out the trash tomorrow` will add `[YYYY-MM-DD]d take out the trash` upon confirmation (where `YYYY-MM-DD` is tomorrow's date)
 - `remindmail take out the trash on Thursday` will add `[thu]d take out the trash` upon confirmation
 - `remindmail take out the trash on the 13th` will add `[YYYY-MM-13]d take out the trash` upon confirmation (where `YYYY-MM-13` is the next `13th`)
+- `remindmail go to the gym in 4 months` will add `[YYYY-MM-DD]d take out the trash` upon confirmation (where `YYYY-MM-DD` is 4 months from today)
+- `remindmail spring is here in 6 weeks` will add `[YYYY-MM-DD]d spring is here` upon confirmation (where `YYYY-MM-DD` is 6 weeks from today)
+- `remindmail finish procrastinating in 5 days` will add `[YYYY-MM-DD]d finish procrastinating` upon confirmation (where `YYYY-MM-DD` is 5 days from today)
 - `remindmail take out the trash every 2 weeks` will add `[W%2] take out the trash` upon confirmation (TODO!)
 - try other combinations, and feel free to contribute to the codebase for other scenarios!
 
