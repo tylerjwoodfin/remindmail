@@ -278,11 +278,10 @@ def pull(s=None):
     if s == "help":
         return f"Pulls reminders from Google, deletes them, and adds them to Tasks.md in path_local (currently {path_local})"
 
-    print("Pulling from Google...")
-
-    cli = client.RemindersClient()
-
     try:
+        print("Connecting to Google...")
+        cli = client.RemindersClient()
+        print("Connection established.")
         items = cli.list_reminders(5)
     except Exception as e:
         log(

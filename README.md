@@ -28,8 +28,41 @@
     - note that Gmail will _not_ work due to their security restrictions.
     - it's very bad practice to store your password in plaintext; for this reason, never sync this file.
     - always use a unique email address specifically for this, and _especially_ use a unique password.
-    - an example working client id and secret can be found [here](https://github.com/jonahar/google-reminders-cli/blob/master/app_keys.json)
-  - Your `settings.json` should be similar to this:
+  - Your settings.json file should look similar to this example:
+
+  ```
+  {
+    "path": {
+      "remindmail": {
+        "local": "/home/pi/remindmail"
+      }
+    },
+    "email": {
+        "from": "YourUniqueAndNonGmailEmailAddress",
+        "from_pw": "YourPassword",
+        "from_name": "Your Name",
+        "to": "RemindersSentToThisEmailAddress",
+        "smtp_server": "your domain's smtp server",
+        "imap_server": "your domain's imap server",
+        "port": 465
+    }
+  }
+  ```
+
+## pulling reminders from Google (optional)
+
+- [Create a new Google Developer project](https://console.developers.google.com)
+
+  - Create a new project
+  - Select "Enable APIs and Services"
+  - Search for "Calendar"
+  - Enable Google Calendar API
+  - Create an OAuth 2.0 Client ID:
+
+    - For "type", use "desktop"
+    - For detailed instructions, see [here](https://developers.google.com/identity/protocols/oauth2)
+
+  - Find the client ID and client secret, then populate `settings.json` to match this example:
 
   ```
   {
@@ -47,29 +80,18 @@
         "imap_server": "your domain's imap server",
         "port": 465
     },
-    "tasks": {
+    "remindmail": {
       "client_id": "Your client ID",
       "client_secret": "Your client secret"
     }
   }
   ```
 
-- follow the `remind.md` section below
+  - Run `python3 path/to/main.py pull`; the terminal should prompt you to visit a link.
+  - Visit the link, sign in, then copy the verification code into the terminal
 
-# usage
-
-- natural language, e.g. `remindmail take the trash out on thursday`
-  - I recommend aliasing `remindmail` to `remind`; then, something like `remind me to take the trash out on Thursday` should parse properly.
-- scheduling `remindmail pull` to automatically pull reminders from Google through crontab (see below)
-- scheduling `remindmail generate` to automatically send emails based on date match from `remind.md` (see below)
-
-# generate
-
-- generates reminders from `remind.md` (see below)
-
-# pull
-
-- generates reminders from Google
+- add to crontab:
+  - `*/5 * * * * python3 path/to/main.py pull` (every 5 minutes, query Google for new reminders)
 
 ## syncing with rclone (optional)
 
@@ -84,7 +106,21 @@
 
 - add the line below (without the >, without the #, replacing the path with your real path):
   - `0 * * * * python3 path/to/main.py generate` (every hour, generate based on remind.md)
-  - `*/5 * * * * python3 path/to/main.py pull` (every 5 minutes, query Google for new reminders)
+
+# usage
+
+- natural language, e.g. `remindmail take the trash out on thursday`
+  - I recommend aliasing `remindmail` to `remind`; then, something like `remind me to take the trash out on Thursday` should parse properly.
+- scheduling `remindmail pull` to automatically pull reminders from Google through crontab (see below)
+- scheduling `remindmail generate` to automatically send emails based on date match from `remind.md` (see below)
+
+# generate
+
+- generates reminders from `remind.md` (see below)
+
+# pull
+
+- generates reminders from Google (see above)
 
 # logging
 
