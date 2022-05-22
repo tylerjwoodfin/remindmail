@@ -113,17 +113,28 @@ A helper function to call mail.send
 """
 
 
-def _send(subject, body, isTest):
+def _send(subject, body, isTest, method="Terminal"):
     print(f"Sending: {subject}")
 
     if body:
         subject = f"{subject} [See Notes]"
+
+    body += f"<br><br>Sent via {method}"
 
     if not isTest:
         mail.send(f"Reminder - {subject}", body or "")
     else:
         log(
             f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
+
+
+"""
+A helper function to return the larger string
+"""
+
+
+def _larger(a, b):
+    return a if len(a) > len(b) else b
 
 
 """
@@ -190,7 +201,7 @@ def generate():
 
             if dt and datetime.today().replace(hour=0, minute=0, second=0, microsecond=0) == dt[0]:
                 isMatch = True
-                _send(item.split(' ', 1)[1], item_notes, isTest)
+                _send(item.split(' ', 1)[1], item_notes, isTest, "remind.md")
 
             elif "%" in token:
 
@@ -211,17 +222,21 @@ def generate():
                 try:
                     if splitType == "d" and epochDay % splitFactor == splitOffset:
                         isMatch = True
-                        _send(item.split(' ', 1)[1], item_notes, isTest)
+                        _send(item.split(' ', 1)[
+                              1], item_notes, isTest, "remind.md")
                     elif splitType == "w" and datetime.today().strftime("%a") == 'Sun' and epochWeek % splitFactor == splitOffset:
                         isMatch = True
-                        _send(item.split(' ', 1)[1], item_notes, isTest)
+                        _send(item.split(' ', 1)[
+                              1], item_notes, isTest, "remind.md")
                     elif splitType == "m" and datetime.today().day == 1 and epochMonth % splitFactor == splitOffset:
                         isMatch = True
-                        _send(item.split(' ', 1)[1], item_notes, isTest)
+                        _send(item.split(' ', 1)[
+                              1], item_notes, isTest, "remind.md")
                     elif splitType in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
                         if datetime.today().strftime("%a").lower() == splitType and epochWeek % splitFactor == splitOffset:
                             isMatch = True
-                            _send(item.split(' ', 1)[1], item_notes, isTest)
+                            _send(item.split(' ', 1)[
+                                  1], item_notes, isTest, "remind.md")
                 except Exception as e:
                     log(
                         f"Could not send reminder from remind.md: {e}", level="error")
@@ -481,8 +496,7 @@ def parseQuery():
     if _months:
         _numberOfMonths = int(re.search(r'\d+', _months[0]).group())
         _query_match = query.split(_months[0])
-        query = query = _query_match[0] if len(
-            _query_match[0]) > len(_query_match[1]) else _query_match[1]
+        query = _larger(_query_match[0], _query_match[1])
         query_time = (datetime.now().date() +
                       relativedelta(months=_numberOfMonths))
         query_time_formatted = query_time.strftime('%A, %B %d')
@@ -499,8 +513,7 @@ def parseQuery():
     if _days:
         _numberOfDays = int(re.search(r'\d+', _days[0]).group())
         _query_match = query.split(_days[0])
-        query = query = _query_match[0] if len(
-            _query_match[0]) > len(_query_match[1]) else _query_match[1]
+        query = _larger(_query_match[0], _query_match[1])
         query_time = (datetime.now().date() + timedelta(days=_numberOfDays))
         query_time_formatted = query_time.strftime('%A, %B %d')
 
@@ -531,8 +544,7 @@ def parseQuery():
             if re.search(day, query, flags=re.IGNORECASE):
 
                 _query_match = re.split(day, query, flags=re.IGNORECASE)
-                query = _query_match[0] if len(
-                    _query_match[0]) > len(_query_match[1]) else _query_match[1]
+                query = _larger(_query_match[0], _query_match[1])
 
                 query_time = day
                 query_time = re.sub('on ', '', query_time, flags=re.IGNORECASE)
@@ -551,8 +563,7 @@ def parseQuery():
             query_time = _date_tomorrow.strftime('%F')
             query_time_formatted = _date_tomorrow.strftime('%A, %B %d')
         _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
-        query = query = _query_match[0] if len(
-            _query_match[0]) > len(_query_match[1]) else _query_match[1]
+        query = _larger(_query_match[0], _query_match[1])
 
     if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
         query = ''.join(query.split('to')[1:])
@@ -562,7 +573,7 @@ def parseQuery():
     if parseDate and not query_time:
         query_time = parseDate[0].strftime('%F')
         query_time_formatted = parseDate[0].strftime('%A, %B %d')
-        query = ''.join(parseDate[1][0])
+        query = ''.join(_larger(parseDate[1][0], parseDate[1][1]))
         query = ''.join(query.rsplit(' on ', 1)) or query
 
     # confirmation
@@ -572,7 +583,7 @@ def parseQuery():
     response = ''
     while response not in ['y', 'n', 'r']:
         response = input(
-            f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query.strip()}\n{query_notes_formatted or ''}\nOK? (y)es, (n)o, (p)arse without time\n""")
+            f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query.strip()}\n{query_notes_formatted or ''}\nOK?\n\n(y)es\n(n)o\n(p)arse without time\n(r)eport\n""")
 
         if response == 'p':
             query_time = ''
@@ -586,8 +597,7 @@ def parseQuery():
                 print("Reporting bad query via email...")
                 log(
                     f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
-                mail.send(f"RemindMail - Bad Query",
-                          f"{' '.join(sys.argv[1:])}<br><br>Reported via Terminal")
+                _send("Bad Query", ' '.join(sys.argv[1:]), False)
             else:
                 print("Adding...")
                 query = query.strip()
@@ -603,12 +613,10 @@ def parseQuery():
         if response == 'r':
             print("Reporting bad query via email...")
             log(
-                f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
-            mail.send(f"RemindMail - Bad Query",
-                      f"{' '.join(sys.argv[1:])}<br><br>Reported via Terminal")
+                f"RemindMail query reported: {' '.join(sys.argv[0:])}", level="warn")
+            _send("Bad Query", ' '.join(sys.argv[0:]), False)
         else:
-            mail.send(f"Reminder - {query.strip()}",
-                      f"{query_notes}\n\nSent via Terminal")
+            _send(query.strip(), query_notes, False)
 
 
 params = {
