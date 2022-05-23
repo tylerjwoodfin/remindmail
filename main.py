@@ -149,7 +149,7 @@ def generate():
 
     dayOfMonthTasksGenerated = dayOfMonthTasksGenerated if dayOfMonthTasksGenerated != '' else 0
 
-    if (str(datetime.today().day) != dayOfMonthTasksGenerated and datetime.today().hour > 0) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
+    if (str(datetime.today().day) != dayOfMonthTasksGenerated and datetime.today().hour > 3) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
         log("Generating tasks")
 
         isTest = False
