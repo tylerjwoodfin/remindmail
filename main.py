@@ -49,6 +49,13 @@ def __monthsSinceEpoch(epoch):
     return ((epochTime.tm_year - 1970) * 12) + epochTime.tm_mon
 
 
+def __stripTo(query):
+    if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
+        return ''.join(query.split('to')[1:])
+
+    return query
+
+
 def __getWeekday(dayw):
     if dayw == 'sun':
         return 'Sunday'
@@ -563,18 +570,16 @@ def parseQuery():
             query_time = _date_tomorrow.strftime('%F')
             query_time_formatted = _date_tomorrow.strftime('%A, %B %d')
         _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
-        query = _larger(_query_match[0], _query_match[1])
-
-    if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
-        query = ''.join(query.split('to')[1:])
+        query = __stripTo(_larger(_query_match[0], _query_match[1]))
 
     # handle other dates
     parseDate = __parseDate(query)
     if parseDate and not query_time:
         query_time = parseDate[0].strftime('%F')
         query_time_formatted = parseDate[0].strftime('%A, %B %d')
-        query = ''.join(_larger(parseDate[1][0], parseDate[1][1]))
-        query = ''.join(query.rsplit(' on ', 1)) or query
+        query = ''.join(
+            _larger(parseDate[1][0], parseDate[1][1] if len(parseDate[1]) > 1 else ""))
+        query = __stripTo(''.join(query.rsplit(' on ', 1)) or query)
 
     # confirmation
     if query_notes:
