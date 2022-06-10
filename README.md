@@ -149,7 +149,8 @@
 - `remindmail go to the gym in 4 months` will add `[YYYY-MM-DD]d take out the trash` upon confirmation (where `YYYY-MM-DD` is 4 months from today)
 - `remindmail spring is here in 6 weeks` will add `[YYYY-MM-DD]d spring is here` upon confirmation (where `YYYY-MM-DD` is 6 weeks from today)
 - `remindmail finish procrastinating in 5 days` will add `[YYYY-MM-DD]d finish procrastinating` upon confirmation (where `YYYY-MM-DD` is 5 days from today)
-- `remindmail take out the trash every 2 weeks` will add `[W%2] take out the trash` upon confirmation (TODO!)
+- `remindmail take out the trash every 2 weeks` will add `[W%2] take out the trash` upon confirmation
+  - for recurring reminders, use `every n days`, `every n weeks`, or `every n months`
 - try other combinations, and feel free to contribute to the codebase for other scenarios!
 
 ### parse without time
