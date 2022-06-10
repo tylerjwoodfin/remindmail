@@ -51,9 +51,9 @@ def __monthsSinceEpoch(epoch):
 
 def __stripTo(query):
     if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
-        return ''.join(query.split('to')[1:])
+        return ''.join(query.split('to')[1:]).strip()
 
-    return query
+    return query.strip()
 
 
 def __getWeekday(dayw):
@@ -481,6 +481,7 @@ def parseQuery():
     query_notes = ''
     query_time_formatted = ''
     query_notes_formatted = ''
+    isRecurring = False
 
     # parse body of email (optional)
     if ':' in query:
@@ -496,17 +497,34 @@ def parseQuery():
     query = ''.join(query.split('me ')[
         1:]) if query.startswith('me ') else query
 
+    # handle recurring reminders
+    isRecurring = len(re.findall(
+        "every [0-9]+ |every week|every month|every day", query, flags=re.IGNORECASE)) > 0
+
+    if(isRecurring):
+        query = re.sub('every ', 'in ', query, flags=re.IGNORECASE)
+        query = re.sub('in day', 'in 1 day', query, flags=re.IGNORECASE)
+        query = re.sub('in week', 'in 1 week', query, flags=re.IGNORECASE)
+        query = re.sub('in month', 'in 1 month', query, flags=re.IGNORECASE)
+
     # handle "in n months"
     _months = re.findall("in [0-9]+ months|in 1 month",
                          query, flags=re.IGNORECASE)
 
     if _months:
         _numberOfMonths = int(re.search(r'\d+', _months[0]).group())
+        _newdate = (datetime.now().date() +
+                    relativedelta(months=_numberOfMonths))
         _query_match = query.split(_months[0])
         query = _larger(_query_match[0], _query_match[1])
-        query_time = (datetime.now().date() +
-                      relativedelta(months=_numberOfMonths))
-        query_time_formatted = query_time.strftime('%A, %B %d')
+
+        if isRecurring:
+            query_time = f"M%{_numberOfMonths}"
+            _frequency = f"{f'{_numberOfMonths} ' if _numberOfMonths > 1 else ''}{'month' if _numberOfMonths == 1 else 'months'}"
+            query_time_formatted = f"every {_frequency} starting {_newdate.strftime('%B %d')}"
+        else:
+            query_time = _newdate
+            query_time_formatted = query_time.strftime('%A, %B %d')
 
     # handle "in n weeks"
     _weeks = re.findall("in [0-9]+ weeks|in 1 week",
@@ -521,8 +539,14 @@ def parseQuery():
         _numberOfDays = int(re.search(r'\d+', _days[0]).group())
         _query_match = query.split(_days[0])
         query = _larger(_query_match[0], _query_match[1])
-        query_time = (datetime.now().date() + timedelta(days=_numberOfDays))
-        query_time_formatted = query_time.strftime('%A, %B %d')
+
+        _newdate = datetime.now().date() + timedelta(days=_numberOfDays)
+        if isRecurring:
+            query_time = f"D%{_numberOfDays}"
+            query_time_formatted = f"every {_numberOfDays} days starting {_newdate.strftime('%B %d')}"
+        else:
+            query_time = _newdate
+            query_time_formatted = _newdate.strftime('%A, %B %d')
 
     if query.__contains__(" at ") or query.__contains__(" on ") or query.__contains__(" next "):
         # look for weekdays using 'on {dayw}'
@@ -586,9 +610,10 @@ def parseQuery():
         query_notes_formatted = f"\nNotes: {query_notes.strip()}\n"
 
     response = ''
+    query = __stripTo(query.strip())
     while response not in ['y', 'n', 'r']:
         response = input(
-            f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query.strip()}\n{query_notes_formatted or ''}\nOK?\n\n(y)es\n(n)o\n(p)arse without time\n(r)eport\n""")
+            f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query}\n{query_notes_formatted or ''}\nOK?\n\n(y)es\n(n)o\n(p)arse without time\n(r)eport\n""")
 
         if response == 'p':
             query_time = ''
@@ -609,7 +634,8 @@ def parseQuery():
                 if query_notes:
                     query = f"{query}: {query_notes}"
                 remindMd = securedata.getFileAsArray('remind.md', 'notes')
-                remindMd.append(f"[{query_time}]d {query}")
+                remindMd.append(
+                    f"[{query_time}]{'' if isRecurring else 'd'} {query}")
                 securedata.writeFile("remind.md", "notes", '\n'.join(remindMd))
                 log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
         return
