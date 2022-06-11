@@ -89,7 +89,7 @@ A wrapper for securedata.log to handle the remindmail log setting
 
 def log(str, level="info"):
     path = securedata.getItem("path", "remindmail", "log") or securedata.setItem("path", "remindmail", "log",
-                                                                                 securedata.getItem("path_log"))
+                                                                                 securedata.getItem("path", "log") or "log")
 
     securedata.log(str, level=level, filePath=path)
     return
