@@ -13,13 +13,13 @@ import time
 from securedata import securedata, mail
 
 
-today = datetime.today()
-path_local = securedata.getItem(
+TODAY = datetime.today()
+PATH_LOCAL = securedata.getItem(
     'path', 'remindmail', 'local')
-path_cloud = securedata.getItem(
+PATH_CLOUD = securedata.getItem(
     'path', 'remindmail', 'cloud')
-cloud_enabled = path_local and path_cloud
-helpText = f"""\nUsage: remindmail <command>\n\n<command>:
+IS_CLOUD_ENABLED = PATH_LOCAL and PATH_CLOUD
+HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
 	pull
     generate force
     generate force test
@@ -32,10 +32,10 @@ helpText = f"""\nUsage: remindmail <command>\n\n<command>:
 
 Parameters (in brackets):
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
-	localPath: Currently {path_local}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
+	localPath: Currently {PATH_LOCAL}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
 
 Notes Directory:
-	Tasks.md and remind.md in {path_local}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
+	Tasks.md and remind.md in {PATH_LOCAL}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
 
 remind.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
@@ -288,7 +288,7 @@ def help():
         if hasattr(func, '__name__'):
             print(func("help"))
     else:
-        print(helpText)
+        print(HELP_TEXT)
 
 
 """
@@ -298,7 +298,7 @@ Pulls reminders from Google, deletes them, and emails them to the address using 
 
 def pull(s=None):
     if s == "help":
-        return f"Pulls reminders from Google, deletes them, and adds them to Tasks.md in path_local (currently {path_local})"
+        return f"Pulls reminders from Google, deletes them, and adds them to Tasks.md in path_local (currently {PATH_LOCAL})"
 
     try:
         print("Connecting to Google...")
@@ -311,9 +311,9 @@ def pull(s=None):
         sys.exit(-1)
 
     # pull remind.md from cloud
-    if cloud_enabled:
+    if IS_CLOUD_ENABLED:
         os.system(
-            f"rclone copy {path_cloud} {path_local}")
+            f"rclone copy {PATH_CLOUD} {PATH_LOCAL}")
 
     # for each reminder, either add it to remind.md if > 1 day from now, or send an email now, then delete it
     for item in items:
@@ -322,10 +322,10 @@ def pull(s=None):
 
         if seconds_until_target >= 86400 and not item["done"]:
             print(
-                f"Moving {item['title']} to {path_local}/remind.md")
+                f"Moving {item['title']} to {PATH_LOCAL}/remind.md")
 
             try:
-                with open(f"{path_local}/remind.md", 'a') as f:
+                with open(f"{PATH_LOCAL}/remind.md", 'a') as f:
                     f.write(f"\n{item['title']}")
             except Exception as e:
                 log(
@@ -350,9 +350,9 @@ def pull(s=None):
                 f"Could not delete {item['title']} from Google Reminders", level="warning")
 
     # sync possibly-modified remind.md
-    if cloud_enabled:
+    if IS_CLOUD_ENABLED:
         os.system(
-            f"rclone sync {path_local} {path_cloud}")
+            f"rclone sync {PATH_LOCAL} {PATH_CLOUD}")
 
     print("Pull complete.")
 

@@ -35,17 +35,29 @@ def authenticate() -> httplib2.Http:
 
     storage = Storage(USER_OAUTH_DATA_FILE)
     credentials = storage.get()
-    if credentials is None or credentials.invalid:
+    credentials_json = json.loads(credentials.to_json())
+    securedata.setItem("remindmail", "refresh_token",
+                       credentials_json['refresh_token'])
+
+    if credentials is None:
+        securedata.log(
+            "RemindMail is has no credentials; please reauthorize", level="error")
         credentials = tools.run_flow(
             flow=OAuth2WebServerFlow(
                 client_id=client_id,
                 client_secret=client_secret,
                 scope=['https://www.googleapis.com/auth/reminders'],
-                user_agent='google reminders cli tool',
+                user_agent='remindmail',
+                access_type='offline',
             ),
             storage=storage,
             flags=tools.argparser.parse_args([]),
         )
+    elif credentials.invalid:
+        securedata.log(
+            "RemindMail is unauthenticated from Google", level="warn")
+        credentials.refresh(httplib2.Http())
+
     auth_http = credentials.authorize(httplib2.Http())
     return auth_http
 

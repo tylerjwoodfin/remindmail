@@ -21,13 +21,13 @@ HTTP_OK = 200
 class RemindersClient:
     def __init__(self):
         self.auth_http = client_utils.authenticate()
-    
+
     @staticmethod
     def _report_error(response, content, func_name: str):
         print(f'Error in {func_name}:')
         print(f'    status code: {response.status}')
         print(f'    content: {content}')
-    
+
     def create_reminder(self, reminder: Reminder) -> bool:
         """
         send a 'create reminder' request.
@@ -44,7 +44,7 @@ class RemindersClient:
         else:
             self._report_error(response, content, 'create_reminder')
             return False
-    
+
     def get_reminder(self, reminder_id: str) -> Optional[Reminder]:
         """
         retrieve information about the reminder with the given id. None if an
@@ -65,7 +65,7 @@ class RemindersClient:
             return client_utils.build_reminder(reminder_dict=reminder_dict)
         else:
             self._report_error(response, content, 'get_reminder')
-    
+
     def delete_reminder(self, reminder_id: str) -> bool:
         """
         delete the reminder with the given id.
@@ -82,7 +82,7 @@ class RemindersClient:
         else:
             self._report_error(response, content, 'delete_reminder')
             return False
-    
+
     def list_reminders(self, num_reminders: int):
         """
         returns a list of the last num_reminders created reminders, or
@@ -94,6 +94,7 @@ class RemindersClient:
             body=client_utils.list_req_body(num_reminders=num_reminders),
             headers=HEADERS,
         )
+
         if response.status == HTTP_OK:
             content_dict = json.loads(content.decode('utf-8'))
             if '1' not in content_dict:
