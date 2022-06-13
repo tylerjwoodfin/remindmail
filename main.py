@@ -228,8 +228,9 @@ def generate():
             else:
                 token_after = -1
 
-            dt = parse(
-                token, fuzzy_with_tokens=True) if not "%" in token else ""
+            dt = ""
+            if not "%" in token and not "any" in token:
+                dt = parse(token, fuzzy_with_tokens=True)
 
             if dt and datetime.today().replace(hour=0, minute=0, second=0, microsecond=0) == dt[0]:
                 isMatch = True
