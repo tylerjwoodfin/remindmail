@@ -208,6 +208,16 @@
 [D%2]30       This reminder will be sent, then decremented, every other day, until it becomes [D%2]1 in approximately 2 months.
 ```
 
+### "any time" reminders for later
+
+```
+[any]         This reminder requires manual removal from remind.md
+[any]         You will be given a summary of [any] reminders when generateSummary() is called.
+[any]         This can be called as `...main.py later`
+```
+
+It is recommended you add `...main.py later` as a scheduled crontab action.
+
 ### examples that won't work
 
 ```

@@ -145,6 +145,31 @@ def _larger(a, b):
 
 
 """
+Generates reminders with [any] at the start
+"""
+
+
+def generateRemindersForLater():
+    try:
+        remindMdFile = securedata.getFileAsArray("remind.md", "notes")
+    except exception as e:
+        log("Could not read remind.md; Aborting", level="error")
+        sys.exit("Could not read remind.md; Aborting")
+
+    remindersForLater = []
+    for item in remindMdFile:
+        if item.startswith("[any] "):
+            remindersForLater.append(f"<li>{item.split('[any] ')[1]}")
+
+    mailSummary = "Just a heads up, these reminders are waiting for you!<br><br>"
+    mailSummary += "".join(remindersForLater)
+    mailSummary += "<br><br>To remove these, edit <b>remind.md</b>."
+
+    mail.send(
+        f"Pending Reminder Summary: {datetime.today().strftime('%B %d, %Y')}", mailSummary)
+
+
+"""
 Generates tasks from the remind.md file in {path_local}.
 Intended to be run from crontab (try 'remindmail generate force' to run immediately)
 """
@@ -611,15 +636,21 @@ def parseQuery():
 
     response = ''
     query = __stripTo(query.strip())
-    while response not in ['y', 'n', 'r']:
+    while response not in ['y', 'n', 'r', 'l']:
+        options = "(y)es\n(n)o\n(p)arse without time\n(r)eport\n(l)ater"
         response = input(
-            f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query}\n{query_notes_formatted or ''}\nOK?\n\n(y)es\n(n)o\n(p)arse without time\n(r)eport\n""")
+            f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n""")
 
         if response == 'p':
             query_time = ''
             query_time_formatted = ''
             query = ' '.join(sys.argv[1:])
             print("\n------------------------------")
+
+        elif response == 'l':
+            query_time = 'any'
+            isRecurring = True
+            query_time_formatted = 'later'
 
     if query_time:
         if len(response) > 0 and not response.startswith('n'):
@@ -629,7 +660,8 @@ def parseQuery():
                     f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
                 _send("Bad Query", ' '.join(sys.argv[1:]), False)
             else:
-                print("Adding...")
+                print("Adding..." if response !=
+                      'l' else "Saving for later...")
                 query = query.strip()
                 if query_notes:
                     query = f"{query}: {query_notes}"
@@ -656,6 +688,7 @@ params = {
     "ls": ls,
     "config": config,
     "generate": generate,
+    "later": generateRemindersForLater,
     "offset": offset
 }
 
