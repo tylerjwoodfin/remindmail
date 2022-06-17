@@ -19,8 +19,11 @@
 
 # setup
 
-- install Python3
-- install [securedata](https://github.com/tylerjwoodfin/securedata)
+```bash
+  python3 -m pip install remindmail
+```
+
+- you also need to install and configure [securedata](https://github.com/tylerjwoodfin/securedata)
 
   - initialize using `securedata config`; see securedata's README for complete setup instructions
   - in securedata's `settings.json`, set the full directory path of your `remind.md` file using `path -> remindmail -> local`

@@ -1,8 +1,8 @@
 import json
 from typing import List, Optional
 
-import client_utils
-from reminder import Reminder
+from remind import client_utils
+from remind.reminder_struc import Reminder
 
 URIs = {
     'create': 'https://reminders-pa.clients6.google.com/v1internalOP/reminders/create',

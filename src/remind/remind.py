@@ -1,6 +1,6 @@
 from logging import exception
 from math import fabs
-import client
+from remind import client
 import os
 import sys
 import re
@@ -693,9 +693,14 @@ params = {
     "offset": offset
 }
 
-if __name__ == '__main__':
+
+def main():
     if len(sys.argv) > 1:
         func = params.get(sys.argv[1], lambda: parseQuery())
         func()
     else:
         help()
+
+
+if __name__ == '__main__':
+    main()

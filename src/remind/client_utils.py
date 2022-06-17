@@ -9,7 +9,7 @@ from oauth2client.client import OAuth2WebServerFlow
 from oauth2client.file import Storage
 from securedata import securedata
 
-from reminder import Reminder
+from remind.reminder_struc import Reminder
 
 APP_KEYS_FILE = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), 'app_keys.json')
