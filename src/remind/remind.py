@@ -501,6 +501,29 @@ def offset(s=None):
         return
 
 
+"""
+Edits the remind.md file; must configure the path to remind.md in securedata -> settings.json -> path -> edit -> remind
+"""
+
+
+def edit():
+    status = securedata.editFile("remind")
+    if status == -1:
+        print(
+            f"You must configure the path to remind.md in {securedata.PATH_SECUREDATA}/settings.json -> path -> edit -> remind.\n\n")
+
+        resp = ''
+        while resp not in ['y', 'n']:
+            resp = input(
+                f"Would you like to set this to {PATH_LOCAL}/remind.md? y/n\n\n")
+            if resp == 'y':
+                securedata.setItem("path", "edit", "remind",
+                                   "value", f"{PATH_LOCAL}/remind.md")
+                print(
+                    f"\n\nSet. Open {securedata.PATH_SECUREDATA}/settings.json and set path -> edit -> remind -> sync to true to enable cloud syncing.")
+    exit(0)
+
+
 def parseQuery():
 
     query = ' '.join(sys.argv[1:])
@@ -690,7 +713,8 @@ params = {
     "config": config,
     "generate": generate,
     "later": generateRemindersForLater,
-    "offset": offset
+    "offset": offset,
+    "edit": edit
 }
 
 
