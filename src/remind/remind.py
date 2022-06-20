@@ -13,7 +13,7 @@ import time
 from securedata import securedata, mail
 
 
-TODAY = datetime.today()
+TODAY = str(datetime.today().strftime('%Y-%m-%d'))
 PATH_LOCAL = securedata.getItem(
     'path', 'remindmail', 'local')
 PATH_CLOUD = securedata.getItem(
@@ -90,7 +90,7 @@ A wrapper for securedata.log to handle the remindmail log setting
 def log(str, level="info"):
     path = securedata.getItem("path", "remindmail", "log") or securedata.setItem("path", "remindmail", "log",
                                                                                  securedata.getItem("path", "log") or "log")
-
+    path = f"{path}/{TODAY}"
     securedata.log(str, level=level, filePath=path)
     return
 
@@ -300,7 +300,7 @@ def generate():
             log("Could not rewrite remind.md", level="error")
         log("Generated tasks")
     else:
-        print(f"Reminders have already been generated in the past 12 hours.")
+        log(f"Reminders have already been generated in the past 12 hours.")
 
 
 """
