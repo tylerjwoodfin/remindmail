@@ -145,8 +145,8 @@ def build_reminder(reminder_dict: dict) -> Optional[Reminder]:
     header = ''
 
     # example r: {'1': {'1': '123412341234', '2': 'assistant_123412341234'}, '2': {'1': 16}, '3': 'go to bed', '5': {'1': 2021, '2': 4, '3': 18, '4': {'1': 21, '2': 0, '3': 0}, '9': 0}, '13': {'1': '6594819'}, '15': {}, '18': '1618725268661', '22': 1}
-    if("5" in r):
-        if("1" in r["5"] and "2" in r["5"] and "3" in r["5"]):
+    if "5" in r:
+        if "1" in r["5"] and "2" in r["5"] and "3" in r["5"]:
             year = r['5']['1']
             month = r['5']['2']
             day = r['5']['3']

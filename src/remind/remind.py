@@ -547,14 +547,32 @@ def parseQuery():
         1:]) if query.startswith('me ') else query
 
     # handle recurring reminders
-    isRecurring = len(re.findall(
-        "every [0-9]+ |every week|every month|every day", query, flags=re.IGNORECASE)) > 0
+    isRecurringOptions = ["every [0-9]+", "every week", "every month",
+                          "every day", "every sunday", "every monday",
+                          "every tuesday", "every wednesday",
+                          "every thursday", "every friday", "every saturday"]
 
-    if(isRecurring):
-        query = re.sub('every ', 'in ', query, flags=re.IGNORECASE)
-        query = re.sub('in day', 'in 1 day', query, flags=re.IGNORECASE)
-        query = re.sub('in week', 'in 1 week', query, flags=re.IGNORECASE)
-        query = re.sub('in month', 'in 1 month', query, flags=re.IGNORECASE)
+    isRecurring = len(re.findall(
+        '|'.join(isRecurringOptions), query, flags=re.IGNORECASE)) > 0
+
+    if isRecurring:
+        weekdays = ['sunday', 'monday', 'tuesday',
+                    'wednesday', 'thursday', 'friday', 'saturday']
+        for weekday in weekdays:
+            if weekday in query:
+                query_time = weekday[0:3].lower()
+                query_time_formatted = f"every {weekday.capitalize()}"
+                query = re.sub('every', '', query, flags=re.IGNORECASE)
+                query = re.sub(weekday, '', query, flags=re.IGNORECASE)
+
+        options = [
+            ('every ', 'in '),
+            ('in day', 'in 1 day'),
+            ('in week', 'in 1 week'),
+            ('in month', 'in 1 month')
+        ]
+        for opt in options:
+            query = re.sub(opt[0], opt[1], query, flags=re.IGNORECASE)
 
     # handle "in n months"
     _months = re.findall("in [0-9]+ months|in 1 month",
@@ -649,7 +667,9 @@ def parseQuery():
     parseDate = __parseDate(query)
     if parseDate and not query_time:
         query_time = parseDate[0].strftime('%F')
-        query_time_formatted = parseDate[0].strftime('%A, %B %d')
+
+        if not query_time_formatted:
+            query_time_formatted = parseDate[0].strftime('%A, %B %d')
         query = ''.join(
             _larger(parseDate[1][0], parseDate[1][1] if len(parseDate[1]) > 1 else ""))
         query = __stripTo(''.join(query.rsplit(' on ', 1)) or query)
