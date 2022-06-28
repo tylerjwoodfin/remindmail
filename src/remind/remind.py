@@ -539,12 +539,12 @@ def parseQuery():
 
     # parse reminder title
     query_time = ''
-    query = ''.join(re.split('me to ', query, flags=re.IGNORECASE)[
-                    1:]) if re.search('me to ', query, re.IGNORECASE) else query
-    query = ''.join(query.split('to ')[
-        1:]) if query.startswith('to ') else query
-    query = ''.join(query.split('me ')[
-        1:]) if query.startswith('me ') else query
+
+    _is_query_split = False
+    for item in ['me to ', 'to ', 'me ']:
+        if item in query.lower() and not _is_query_split:
+            query = item.join(re.split(item, query, flags=re.IGNORECASE)[1:])
+            _is_query_split = True
 
     # handle recurring reminders
     isRecurringOptions = ["every [0-9]+", "every week", "every month",
