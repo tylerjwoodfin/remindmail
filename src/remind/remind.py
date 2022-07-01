@@ -542,8 +542,8 @@ def parseQuery():
 
     _is_query_split = False
     for item in ['me to ', 'to ', 'me ']:
-        if item in query.lower() and not _is_query_split:
-            query = item.join(re.split(item, query, flags=re.IGNORECASE)[1:])
+        if item in query.lower():
+            query = re.sub(item, '', query, flags=re.IGNORECASE, count=1)
             _is_query_split = True
 
     # handle recurring reminders
