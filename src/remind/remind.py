@@ -524,9 +524,10 @@ def edit():
     exit(0)
 
 
-def parseQuery():
+def parseQuery(manual_reminder='', manual_time=''):
 
     query = ' '.join(sys.argv[1:])
+    query_time = ''
     query_notes = ''
     query_time_formatted = ''
     query_notes_formatted = ''
@@ -537,14 +538,9 @@ def parseQuery():
         query_notes = query.split(":")[1]
         query = query.split(":")[0]
 
-    # parse reminder title
-    query_time = ''
-
-    _is_query_split = False
     for item in ['me to ', 'to ', 'me ']:
         if item in query.lower():
             query = re.sub(item, '', query, flags=re.IGNORECASE, count=1)
-            _is_query_split = True
 
     # handle recurring reminders
     isRecurringOptions = ["every [0-9]+", "every week", "every month",
@@ -665,7 +661,12 @@ def parseQuery():
 
     # handle other dates
     parseDate = __parseDate(query)
-    if parseDate and not query_time:
+
+    # handle manual time
+    if manual_time:
+        parseDate = __parseDate(manual_time)
+
+    if parseDate and (not query_time or manual_time):
         query_time = parseDate[0].strftime('%F')
 
         if not query_time_formatted:
@@ -680,8 +681,12 @@ def parseQuery():
 
     response = ''
     query = __stripTo(query.strip())
-    while response not in ['y', 'n', 'r', 'l']:
-        options = "(y)es\n(n)o\n(p)arse without time\n(r)eport\n(l)ater"
+
+    if manual_reminder:
+        query = manual_reminder
+
+    while response not in ['y', 'n', 'r', 'l', 'm']:
+        options = "(y)es\n(n)o\n(p)arse without time\n(r)eport\n(l)ater\n(m)anual"
         response = input(
             f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n""")
 
@@ -695,6 +700,11 @@ def parseQuery():
             query_time = 'any'
             isRecurring = True
             query_time_formatted = 'later'
+
+        elif response == 'm':
+            print("\n\n")
+            manualReminder()
+            return
 
     if query_time:
         if len(response) > 0 and not response.startswith('n'):
@@ -726,6 +736,18 @@ def parseQuery():
             _send(query.strip(), query_notes, False)
 
 
+"""
+Used to avoid errors, particularly when numbers are used that interfere with date parsing
+"""
+
+
+def manualReminder():
+    reminder = input("What's the reminder?\n")
+    time = input("\nWhen do you want to be reminded? (blank for now)\n")
+
+    parseQuery(reminder, time)
+
+
 params = {
     "help": help,
     "pull": pull,
@@ -743,7 +765,7 @@ def main():
         func = params.get(sys.argv[1], lambda: parseQuery())
         func()
     else:
-        help()
+        manualReminder()
 
 
 if __name__ == '__main__':
