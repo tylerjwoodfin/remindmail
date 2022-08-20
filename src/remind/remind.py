@@ -35,7 +35,7 @@ Parameters (in brackets):
 	localPath: Currently {PATH_LOCAL}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
 
 Notes Directory:
-	Tasks.md and remind.md in {PATH_LOCAL}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
+	remind.md in {PATH_LOCAL}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
 
 remind.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
@@ -324,7 +324,7 @@ Pulls reminders from Google, deletes them, and emails them to the address using 
 
 def pull(s=None):
     if s == "help":
-        return f"Pulls reminders from Google, deletes them, and adds them to Tasks.md in path_local (currently {PATH_LOCAL})"
+        return f"Pulls reminders from Google, deletes them, and adds them to remind.md in path_local (currently {PATH_LOCAL})"
 
     try:
         print("Connecting to Google...")
@@ -401,8 +401,8 @@ def config(s=None):
 		e.g. remindmail config cloud
 		(this is stored SecureData; see README)
 
-		remindmail config cloudpath <path>: Set the path in your cloud service to store Tasks.md
-		e.g., if you keep Tasks in Dropbox at Documents/Notes/Tasks.md: remindmail config cloudpath Documents/Notes
+		remindmail config cloudpath <path>: Set the path in your cloud service to store reminders (remind.md)
+		e.g., if you keep Tasks in Dropbox at Documents/Notes/remind.md: remindmail config cloudpath Documents/Notes
 		(this is stored SecureData; see README)"""
     if len(sys.argv) < 3:
         print(config("help"))
