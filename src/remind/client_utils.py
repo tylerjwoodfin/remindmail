@@ -136,7 +136,7 @@ def list_req_body(num_reminders: int, max_timestamp_msec: int = 0) -> str:
 
 
 """
-Builds a JSON reminder object for tasks.py
+Builds a JSON reminder object for client.py
 """
 
 

@@ -394,7 +394,7 @@ Parameters:
 def config(s=None):
     if s == "help":
         return f"""remindmail config local <path>: Set your notes path (use full paths)
-		e.g. remindmail config notes /home/userdir/Dropbox/Notes
+		e.g. remindmail config local /home/userdir/Dropbox/Notes
 		(this is stored SecureData; see README)
 
 		remindmail config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
@@ -402,7 +402,7 @@ def config(s=None):
 		(this is stored SecureData; see README)
 
 		remindmail config cloudpath <path>: Set the path in your cloud service to store reminders (remind.md)
-		e.g., if you keep Tasks in Dropbox at Documents/Notes/remind.md: remindmail config cloudpath Documents/Notes
+		e.g., if you keep Tasks in Dropbox at Documents/notes/remind.md: remindmail config cloudpath Documents/Notes
 		(this is stored SecureData; see README)"""
     if len(sys.argv) < 3:
         print(config("help"))
@@ -671,9 +671,13 @@ def parseQuery(manual_reminder='', manual_time=''):
 
         if not query_time_formatted:
             query_time_formatted = parseDate[0].strftime('%A, %B %d')
-        query = ''.join(
-            _larger(parseDate[1][0], parseDate[1][1] if len(parseDate[1]) > 1 else ""))
-        query = __stripTo(''.join(query.rsplit(' on ', 1)) or query)
+
+        if not query and manual_reminder:
+            query = manual_reminder
+        else:
+            query = ''.join(
+                _larger(parseDate[1][0], parseDate[1][1] if len(parseDate[1]) > 1 else ""))
+            query = __stripTo(''.join(query.rsplit(' on ', 1)) or query)
 
     # confirmation
     if query_notes:
