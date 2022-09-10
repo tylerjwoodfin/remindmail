@@ -672,7 +672,7 @@ def parseQuery(manual_reminder='', manual_time=''):
         if not query_time_formatted:
             query_time_formatted = parseDate[0].strftime('%A, %B %d')
 
-        if not query and manual_reminder:
+        if manual_reminder:
             query = manual_reminder
         else:
             query = ''.join(
@@ -765,7 +765,7 @@ params = {
 
 
 def main():
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 1 and not (len(sys.argv) == 2 and sys.argv[1] == 'me'):
         func = params.get(sys.argv[1], lambda: parseQuery())
         func()
     else:
