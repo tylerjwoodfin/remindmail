@@ -75,7 +75,6 @@ def log(message, level="info"):
                                                                                  securedata.getItem("path", "log") or "log")
     path = f"{path}/{TODAY}"
     securedata.log(message, level=level, filePath=path)
-    return
 
 
 def ls(s=None):
@@ -501,7 +500,7 @@ def edit():
 def parse_query(manual_reminder_param='', manual_time=''):
     """Parses sys.argv to determine what to email or what to write to a file for later"""
 
-    query = ' '.join(sys.argv[1:])
+    query = manual_reminder_param or ' '.join(sys.argv[1:])
     query_time = ''
     query_notes = ''
     query_time_formatted = ''
@@ -625,12 +624,9 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
     # handle "tomorrow"
     if not query_time and re.search("tomorrow", query, flags=re.IGNORECASE):
-
-        # "tomorrow" means "today" if it's before 3AM
-        if datetime.now().hour > 3:
-            _date_tomorrow = datetime.now() + timedelta(days=1)
-            query_time = _date_tomorrow.strftime('%F')
-            query_time_formatted = _date_tomorrow.strftime('%A, %B %d')
+        _date_tomorrow = datetime.now() + timedelta(days=1)
+        query_time = _date_tomorrow.strftime('%F')
+        query_time_formatted = _date_tomorrow.strftime('%A, %B %d')
         _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
         query = _strip_to(_larger(_query_match[0], _query_match[1]))
 
@@ -665,7 +661,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
         query = manual_reminder_param
 
     while response not in ['y', 'n', 'r', 'l', 'm']:
-        options = "(y)es\n(n)o\n(p)arse without time\n(r)eport\n(l)ater\n(m)anual"
+        options = "(y)es\n(n)o\n(p)arse without time\n(r)eport\n(l)ater\n(t)omorrow\n(m)anual"
         response = input(
             f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n""")
 
@@ -682,7 +678,14 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
         elif response == 'm':
             print("\n\n")
-            manual_reminder_param()
+            manual_reminder()
+            return
+
+        elif response == 't':
+            days = ["Monday", "Tuesday", "Wednesday",
+                    "Thursday", "Friday", "Saturday", "Sunday"]
+            weekday = days[(datetime.now() + timedelta(days=1)).weekday()]
+            manual_reminder(query, weekday)
             return
 
     if query_time:
@@ -716,11 +719,11 @@ def parse_query(manual_reminder_param='', manual_time=''):
             _send(query.strip(), query_notes, False)
 
 
-def manual_reminder():
+def manual_reminder(reminder_param='', reminder_time_param=''):
     """Used to avoid errors, particularly when numbers are used that interfere with date parsing"""
 
-    reminder = input("What's the reminder?\n")
-    reminder_time = input(
+    reminder = reminder_param or input("What's the reminder?\n")
+    reminder_time = reminder_time_param or input(
         "\nWhen do you want to be reminded? (blank for now)\n")
 
     parse_query(reminder, reminder_time)
