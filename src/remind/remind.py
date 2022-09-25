@@ -539,7 +539,7 @@ def parseQuery(manual_reminder='', manual_time=''):
         query = query.split(":")[0]
 
     for item in ['me to ', 'to ', 'me ']:
-        if item in query.lower():
+        if item in query.lower() and len(query.split(item)[0]) < 3:
             query = re.sub(item, '', query, flags=re.IGNORECASE, count=1)
 
     # handle recurring reminders
