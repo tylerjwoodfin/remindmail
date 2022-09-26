@@ -17,6 +17,7 @@ from securedata import securedata, mail
 
 
 TODAY = str(datetime.today().strftime('%Y-%m-%d'))
+TODAY_INDEX = datetime.today().day
 PATH_LOCAL = securedata.getItem(
     'path', 'remindmail', 'local')
 PATH_CLOUD = securedata.getItem(
@@ -71,22 +72,28 @@ def _parse_date(string):
 def log(message, level="info"):
     """A wrapper for securedata.log to handle the remindmail log setting"""
 
-    path = securedata.getItem("path", "remindmail", "log") or securedata.setItem("path", "remindmail", "log",
-                                                                                 securedata.getItem("path", "log") or "log")
+    path_log = securedata.getItem("path", "log")
+    path_log_remindmail = securedata.getItem("path", "log")
+    path = path_log_remindmail or securedata.setItem(
+        "path", "remindmail", "log", path_log or "log")
     path = f"{path}/{TODAY}"
     securedata.log(message, level=level, filePath=path)
 
 
-def ls(s=None):
+def list_reminders(param=None):
     """
     Displays the scheduled reminders in remind.py, formatted with line numbers
     Usage: remindmail ls
     Parameters:
-    - s: string; currently unused. Passing 'help' will only return the help information for this function.
+    - param: string; currently unused
+
+    Passing 'help' will only return the help information for this function.
     """
 
-    if s == "help":
-        return f"Displays the scheduled reminders in remind.py (in {securedata.getItem('path', 'remindmail', 'local')}), formatted with line numbers\n\nUsage: remindmail ls"
+    if param == "help":
+        return (f"Displays the scheduled reminders in remind.py"
+                f" (in {securedata.getItem('path', 'remindmail', 'local')}),"
+                " formatted with line numbers\n\nUsage: remindmail ls")
 
     remindmd_cloud = f"{securedata.getItem('path', 'remindmail', 'cloud')}/remind.md"
     remindmd_local = f"{securedata.getItem('path', 'remindmail', 'local')}/remind.md"
@@ -113,10 +120,10 @@ def _send(subject, body, is_test, method="Terminal"):
             f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
 
 
-def _larger(a, b):
+def _larger(string_a, string_b):
     """A helper function to return the larger string"""
 
-    return a if len(a) > len(b) else b
+    return string_a if len(string_a) > len(string_b) else string_b
 
 
 def generate_reminders_for_later():
@@ -150,9 +157,11 @@ def generate():
     day_of_month_reminders_generated = str(
         securedata.getItem("remindmail", "day_generated"))
 
-    day_of_month_reminders_generated = day_of_month_reminders_generated if day_of_month_reminders_generated != '' else 0
+    if day_of_month_reminders_generated == '':
+        day_of_month_reminders_generated = 0
 
-    if (str(datetime.today().day) != day_of_month_reminders_generated and datetime.today().hour > 3) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
+    if (str(TODAY_INDEX) != day_of_month_reminders_generated
+            and datetime.today().hour > 3) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
         log("Generating tasks")
 
         is_test = False
@@ -203,7 +212,9 @@ def generate():
             if not "%" in token and not "any" in token:
                 parsed_date = parse(token, fuzzy_with_tokens=True)
 
-            if parsed_date and datetime.today().replace(hour=0, minute=0, second=0, microsecond=0) == parsed_date[0]:
+            today_zero_time = datetime.today().replace(
+                hour=0, minute=0, second=0, microsecond=0)
+            if parsed_date and today_zero_time == parsed_date[0]:
                 is_match = True
                 _send(item.split(' ', 1)[1], item_notes, is_test, "remind.md")
 
@@ -224,20 +235,24 @@ def generate():
                     split_factor = int(split_factor)
 
                 try:
-                    if split_type == "d" and epoch_day % split_factor == split_offset:
+                    is_epoch_equal_offset_d = epoch_day % split_factor == split_offset
+                    is_epoch_equal_offset_w = epoch_week % split_factor == split_offset
+                    is_epoch_equal_offset_m = epoch_month % split_factor == split_offset
+                    today_dayw = datetime.today().strftime("%a")
+                    if split_type == "d" and is_epoch_equal_offset_d:
                         is_match = True
                         _send(item.split(' ', 1)[
                               1], item_notes, is_test, "remind.md")
-                    elif split_type == "w" and datetime.today().strftime("%a") == 'Sun' and epoch_week % split_factor == split_offset:
+                    elif split_type == "w" and today_dayw == 'Sun' and is_epoch_equal_offset_w:
                         is_match = True
                         _send(item.split(' ', 1)[
                               1], item_notes, is_test, "remind.md")
-                    elif split_type == "m" and datetime.today().day == 1 and epoch_month % split_factor == split_offset:
+                    elif split_type == "m" and TODAY_INDEX == 1 and is_epoch_equal_offset_m:
                         is_match = True
                         _send(item.split(' ', 1)[
                               1], item_notes, is_test, "remind.md")
                     elif split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
-                        if datetime.today().strftime("%a").lower() == split_type and epoch_week % split_factor == split_offset:
+                        if today_dayw.lower() == split_type and is_epoch_equal_offset_w:
                             is_match = True
                             _send(item.split(' ', 1)[
                                   1], item_notes, is_test, "remind.md")
@@ -266,7 +281,7 @@ def generate():
             securedata.writeFile("remind.md", "notes",
                                  '\n'.join(remindmd_file))
             securedata.setItem("remindmail", "day_generated",
-                               datetime.today().day)
+                               TODAY_INDEX)
         except exception as e:
             log("Could not rewrite remind.md", level="error")
         log("Generated tasks")
@@ -285,14 +300,18 @@ def help():
         print(HELP_TEXT)
 
 
-def pull(s=None):
+def pull(param=None):
     """
     Pulls reminders from Google, deletes them, and emails them
     to the address using the email in securedata (see README)
+
+    Parameters:
+    - param: string; currently unused.
     """
 
-    if s == "help":
-        return f"Pulls reminders from Google, deletes them, and adds them to remind.md in path_local (currently {PATH_LOCAL})"
+    if param == "help":
+        return (f"Pulls reminders from Google, deletes them, and adds them to"
+                f" remind.md in path_local (currently {PATH_LOCAL})")
 
     try:
         print("Connecting to Google...")
@@ -309,7 +328,8 @@ def pull(s=None):
         os.system(
             f"rclone copy {PATH_CLOUD} {PATH_LOCAL}")
 
-    # for each reminder, either add it to remind.md if > 1 day from now, or send an email now, then delete it
+    # for each reminder, either add it to remind.md if > 1 day from now,
+    # or send an email now, then delete it
     for item in items:
         seconds_until_target = (
             item['target_date'] - datetime.now()).total_seconds()
@@ -351,18 +371,18 @@ def pull(s=None):
     print("Pull complete.")
 
 
-def config(s=None):
+def config(param=None):
     """
     An interactive way to set securedata variables. May be removed in a future updatetime.
 
     Parameters:
-    - s: string; currently unused.
+    - param: string; currently unused.
 
     Passing 'help' will only return the help information for this function.
     """
 
-    if s == "help":
-        return f"""remindmail config local <path>: Set your notes path (use full paths)
+    if param == "help":
+        return """remindmail config local <path>: Set your notes path (use full paths)
 		e.g. remindmail config local /home/userdir/Dropbox/Notes
 		(this is stored SecureData; see README)
 
@@ -390,17 +410,17 @@ def config(s=None):
             f"remind.md should now be synced in rclone through {new_dir}.")
 
 
-def offset(s=None):
+def offset(param=None):
     """
     Calculates the offset for a certain date (today by default)
 
     Parameters:
-    - s: string; currently unused.
+    - param: string; currently unused.
 
     Passing 'help' will only return the help information for this function.
     """
 
-    if s == "help":
+    if param == "help":
         return """Calculates the offset for a certain date (today by default)
 
 		remindmail offset <type> <date (YYYY-MM-DD, optional)> <n>
@@ -428,7 +448,9 @@ def offset(s=None):
 		e.g. remindmail offset month 2022-12-31 7"""
 
     if len(sys.argv) < 4:
-        print("Usage: remindmail offset <type (day,week,month)> <date (optional, YYYY-MM-DD)> <n, as in 'every n <type>'>\nExample: remindmail offset week 2021-05-20 2\nFor help: 'remindmail help offset'")
+        print(("Usage: remindmail offset <type (day,week,month)> "
+               "<date (optional, YYYY-MM-DD)> <n, as in 'every n <type>'>\nExample:"
+               " remindmail offset week 2021-05-20 2\nFor help: 'remindmail help offset'"))
         return
 
     if len(sys.argv) > 4:
@@ -457,18 +479,22 @@ def offset(s=None):
         print(return_val)
 
         if offset_n == 1:
-            print(
-                f"Note: Anything % 1 is always 0. This is saying 'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run for a given {sys.argv[2]}. '%1' means it will always run, so no need for an offset.\nPlease see the README for details, or just run 'remindmail help offset'.")
+            print((f"Note: Anything % 1 is always 0. This is saying "
+                   f"'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run"
+                   f" for a given {sys.argv[2]}. '%1' means it will always run, so no need for an"
+                   f" offset.\nPlease see the README for details, or just"
+                   f" run 'remindmail help offset'."))
         elif return_val == 0:
-            print(
-                "Note: The offset is 0, so a task for this date in remind.md will be added without an offset.")
+            print(("Note: The offset is 0, so a task for this date in remind.md "
+                   "will be added without an offset."))
 
     except ValueError:
         print(sys.argv[3])
         print("Date must be YYYY-MM-DD.")
     except IndexError:
-        print(
-            f"Missing <n>, as in 'every n {sys.argv[2]}s'\nUsage: remindmail offset {sys.argv[2]} {sys.argv[3]} nExample:\nFor help: 'remindmail help offset'")
+        print((f"Missing <n>, as in 'every n {sys.argv[2]}s'\n"
+               f"Usage: remindmail offset {sys.argv[2]} {sys.argv[3]} n"
+               f"\nFor help: 'remindmail help offset'"))
         return
 
 
@@ -482,8 +508,8 @@ def edit():
 
     status = securedata.editFile("remind")
     if status == -1:
-        print(
-            f"You must configure the path to remind.md in {securedata.PATH_SECUREDATA}/settings.json -> path -> edit -> remind.\n\n")
+        print((f"You must configure the path to remind.md in "
+               f"{securedata.PATH_SECUREDATA}/settings.json -> path -> edit -> remind.\n\n"))
 
         resp = ''
         while resp not in ['y', 'n']:
@@ -492,8 +518,9 @@ def edit():
             if resp == 'y':
                 securedata.setItem("path", "edit", "remind",
                                    "value", f"{PATH_LOCAL}/remind.md")
-                print(
-                    f"\n\nSet. Open {securedata.PATH_SECUREDATA}/settings.json and set path -> edit -> remind -> sync to true to enable cloud syncing.")
+                print((f"\n\nSet. Open {securedata.PATH_SECUREDATA}/settings.json"
+                       f" and set path -> edit -> remind -> sync to true"
+                       f" to enable cloud syncing."))
     sys.exit()
 
 
@@ -557,7 +584,8 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
         if is_recurring:
             query_time = f"M%{_number_of_months}"
-            _frequency = f"{f'{_number_of_months} ' if _number_of_months > 1 else ''}{'month' if _number_of_months == 1 else 'months'}"
+            _frequency = (f"{f'{_number_of_months} ' if _number_of_months > 1 else ''}"
+                          f"{'month' if _number_of_months == 1 else 'months'}")
             query_time_formatted = f"every {_frequency} starting {_newdate.strftime('%B %d')}"
         else:
             query_time = _newdate
@@ -580,7 +608,8 @@ def parse_query(manual_reminder_param='', manual_time=''):
         _newdate = datetime.now().date() + timedelta(days=_number_of_days)
         if is_recurring:
             query_time = f"D%{_number_of_days}"
-            query_time_formatted = f"every {_number_of_days} days starting {_newdate.strftime('%B %d')}"
+            query_time_formatted = (f"every {_number_of_days} days"
+                                    f" starting {_newdate.strftime('%B %d')}")
         else:
             query_time = _newdate
             query_time_formatted = _newdate.strftime('%A, %B %d')
@@ -662,8 +691,12 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
     while response not in ['y', 'n', 'r', 'l', 'm']:
         options = "(y)es\n(n)o\n(p)arse without time\n(r)eport\n(l)ater\n(t)omorrow\n(m)anual"
-        response = input(
-            f"""\nYour reminder for {query_time_formatted or "right now"}:\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n""")
+
+        query_time_formatted = query_time_formatted or 'right now'
+        prompt = (f"""\nYour reminder for {query_time_formatted}:"""
+                  f"\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n")
+
+        response = input(prompt)
 
         if response == 'p':
             query_time = ''
@@ -732,7 +765,7 @@ def manual_reminder(reminder_param='', reminder_time_param=''):
 params = {
     "help": help,
     "pull": pull,
-    "ls": ls,
+    "ls": list_reminders,
     "config": config,
     "generate": generate,
     "later": generate_reminders_for_later,
@@ -743,12 +776,12 @@ params = {
 
 def main():
     """
-    Generally parses all sys.argv parameters (such that `remind me to buy milk` is 
+    Generally parses all sys.argv parameters (such that `remind me to buy milk` is
     feasible from the terminal
     """
 
     if len(sys.argv) > 1 and not (len(sys.argv) == 2 and sys.argv[1] == 'me'):
-        func = params.get(sys.argv[1], lambda: parse_query())
+        func = params.get(sys.argv[1]) or parse_query
         func()
     else:
         manual_reminder()
