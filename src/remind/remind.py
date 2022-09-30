@@ -61,6 +61,11 @@ def _strip_to(query):
 
 
 def _parse_date(string):
+    # handle 'tomorrow'
+    if 'tomorrow' in string:
+        _days = 0 if datetime.today().hour < 3 else 1
+        string = (datetime.now() + timedelta(days=_days)).strftime('%F')
+
     try:
         parsed_date = parse(string, fuzzy_with_tokens=True)
         return parsed_date
@@ -651,16 +656,13 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 query_time_formatted = query_time.capitalize() + 'day'
                 break
 
-    # handle "tomorrow"
-    if not query_time and re.search("tomorrow", query, flags=re.IGNORECASE):
-        _date_tomorrow = datetime.now() + timedelta(days=1)
-        query_time = _date_tomorrow.strftime('%F')
-        query_time_formatted = _date_tomorrow.strftime('%A, %B %d')
-        _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
-        query = _strip_to(_larger(_query_match[0], _query_match[1]))
-
     # handle other dates
     parsed_date = _parse_date(query)
+
+    # handle "tomorrow"
+    if not query_time and re.search("tomorrow", query, flags=re.IGNORECASE):
+        _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
+        query = _strip_to(_larger(_query_match[0], _query_match[1]))
 
     # handle manual time
     if manual_time:
@@ -674,7 +676,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
         if manual_reminder_param:
             query = manual_reminder_param
-        else:
+        elif len(parsed_date[1]) > 1:
             query = ''.join(
                 _larger(parsed_date[1][0], parsed_date[1][1] if len(parsed_date[1]) > 1 else ""))
             query = _strip_to(''.join(query.rsplit(' on ', 1)) or query)
