@@ -3,7 +3,6 @@ The main file containing most of the logic. `client` and `client_utils` deal
 specifically with Google Reminders, whereas this file contains the rest.
 """
 
-from logging import exception
 import os
 import sys
 import re
@@ -134,12 +133,7 @@ def _larger(string_a, string_b):
 def generate_reminders_for_later():
     """Generates reminders with [any] at the start"""
 
-    try:
-        remindmd_file = securedata.getFileAsArray("remind.md", "notes")
-    except exception as e:
-        log("Could not read remind.md; Aborting", level="error")
-        sys.exit("Could not read remind.md; Aborting")
-
+    remindmd_file = securedata.getFileAsArray("remind.md", "notes") or []
     reminders_for_later = []
     for item in remindmd_file:
         if item.startswith("[any] "):
@@ -177,13 +171,7 @@ def generate():
         epoch_week = int(time.time()/60/60/24/7)
         epoch_month = int(datetime.today().month)
 
-        try:
-            remindmd_file = securedata.getFileAsArray(
-                "remind.md", "notes")
-        except exception:
-            log(
-                "Could not read remind.md; Aborting", level="error")
-            sys.exit("Could not read remind.md; Aborting")
+        remindmd_file = securedata.getFileAsArray("remind.md", "notes") or []
 
         _remindmd_file = remindmd_file.copy()
         for index, item in enumerate(_remindmd_file):
@@ -261,9 +249,9 @@ def generate():
                             is_match = True
                             _send(item.split(' ', 1)[
                                   1], item_notes, is_test, "remind.md")
-                except Exception as e:
+                except Exception as err:
                     log(
-                        f"Could not send reminder from remind.md: {e}", level="error")
+                        f"Could not send reminder from remind.md: {err}", level="error")
 
             # handle deletion and decrementing
             if is_match:
@@ -272,9 +260,9 @@ def generate():
                     if not is_test:
                         try:
                             remindmd_file.remove(_item)
-                        except Exception as e:
+                        except ValueError as err:
                             log(
-                                f"Could not remove from remind.md: {e}", level="error")
+                                f"Could not remove from remind.md: {err}", level="error")
                     else:
                         log(f"(in test mode- not deleting {item})",
                             level="debug")
@@ -282,19 +270,14 @@ def generate():
                     remindmd_file[index] = (item.replace(
                         f"]{token_after} ", f"]{token_after-1} "))
 
-        try:
-            securedata.writeFile("remind.md", "notes",
-                                 '\n'.join(remindmd_file))
-            securedata.setItem("remindmail", "day_generated",
-                               TODAY_INDEX)
-        except exception as e:
-            log("Could not rewrite remind.md", level="error")
+        securedata.writeFile("remind.md", "notes", '\n'.join(remindmd_file))
+        securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
         log("Generated tasks")
     else:
         log("Reminders have already been generated in the past 12 hours.")
 
 
-def help():
+def about():
     """Prints help information returned by passing 'help' as a string into other functions."""
 
     if len(sys.argv) > 2:
@@ -323,9 +306,9 @@ def pull(param=None):
         cli = client.RemindersClient()
         print("Connection established.")
         items = cli.list_reminders(5)
-    except Exception as e:
+    except Exception as err:
         log(
-            f"Could not pull reminders from Google: {e}", level="warn")
+            f"Could not pull reminders from Google: {err}", level="warn")
         sys.exit(-1)
 
     # pull remind.md from cloud
@@ -344,21 +327,21 @@ def pull(param=None):
                 f"Moving {item['title']} to {PATH_LOCAL}/remind.md")
 
             try:
-                with open(f"{PATH_LOCAL}/remind.md", 'a') as f:
-                    f.write(f"\n{item['title']}")
-            except Exception as e:
+                with open(f"{PATH_LOCAL}/remind.md", 'a', encoding="utf-8") as file:
+                    file.write(f"\n{item['title']}")
+            except EnvironmentError as err:
                 log(
-                    f"Could not write to remind.md: {e}", level="critical")
+                    f"Could not write to remind.md: {err}", level="critical")
                 sys.exit(-1)
         else:
             try:
                 mail.send(f"Reminder - {item['title'].split(']d ')[1]}", "")
-            except Exception as e:
+            except Exception as err:
                 try:
                     mail.send(f"Reminder - {item['title']}", "")
-                except Exception as e:
+                except Exception as err:
                     log(
-                        f"Could not send reminder email: {e}", level="warn")
+                        f"Could not send reminder email: {err}", level="warn")
 
         # delete
         if cli.delete_reminder(reminder_id=item['id']):
@@ -676,10 +659,15 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
         if manual_reminder_param:
             query = manual_reminder_param
-        elif len(parsed_date[1]) > 1:
-            query = ''.join(
-                _larger(parsed_date[1][0], parsed_date[1][1] if len(parsed_date[1]) > 1 else ""))
-            query = _strip_to(''.join(query.rsplit(' on ', 1)) or query)
+        else:
+            if len(parsed_date[1]) > 1:
+                _join_operator = ''
+                if len(parsed_date[1]) > 1:
+                    _join_operator = parsed_date[1][1]
+                query = ''.join(_larger(parsed_date[1][0], _join_operator))
+                query = _strip_to(''.join(query.rsplit(' on ', 1)) or query)
+            elif len(parsed_date) > 1:
+                query = _strip_to(''.join(parsed_date[1]))
 
     # confirmation
     if query_notes:
@@ -765,7 +753,7 @@ def manual_reminder(reminder_param='', reminder_time_param=''):
 
 
 params = {
-    "help": help,
+    "help": about,
     "pull": pull,
     "ls": list_reminders,
     "config": config,
