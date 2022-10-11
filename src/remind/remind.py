@@ -521,6 +521,11 @@ def parse_query(manual_reminder_param='', manual_time=''):
     query_time_formatted = ''
     query_notes_formatted = ''
     is_recurring = False
+    is_noconfirm = False
+
+    if "noconfirm" in query:
+        is_noconfirm = True
+        query = query.replace("noconfirm", "").strip()
 
     # parse body of email (optional)
     if ':' in query:
@@ -682,13 +687,17 @@ def parse_query(manual_reminder_param='', manual_time=''):
         query = manual_reminder_param
 
     while response not in ['y', 'n', 'r', 'l', 'm']:
-        options = "(y)es\n(n)o\n(p)arse without time\n(r)eport\n(l)ater\n(t)omorrow\n(m)anual"
+        options = "(y)es\n(n)o\n(p)arse entire query\n(r)eport\n(l)ater\n(t)omorrow\n(m)anual"
 
         query_time_formatted = query_time_formatted or 'right now'
-        prompt = (f"""\nYour reminder for {query_time_formatted}:"""
-                  f"\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n")
 
-        response = input(prompt)
+        if not is_noconfirm:
+            prompt = (f"""\nYour reminder for {query_time_formatted}:"""
+                    f"\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n")
+
+            response = input(prompt)
+        else:
+            response = 'y'
 
         if response == 'p':
             query_time = ''
