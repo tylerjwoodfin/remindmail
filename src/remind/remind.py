@@ -667,7 +667,9 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 query = ''.join(_larger(parsed_date[1][0], _join_operator))
                 query = _strip_to(''.join(query.rsplit(' on ', 1)) or query)
             elif len(parsed_date) > 1:
-                query = _strip_to(''.join(parsed_date[1]))
+                parsed_date_formatted = _strip_to(''.join(parsed_date[1]))
+                if parsed_date_formatted:
+                    query = parsed_date_formatted
 
     # confirmation
     if query_notes:
