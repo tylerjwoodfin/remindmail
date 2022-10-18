@@ -14,13 +14,13 @@ from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
 from securedata import securedata, mail
 
-
 TODAY = str(datetime.today().strftime('%Y-%m-%d'))
 TODAY_INDEX = datetime.today().day
 PATH_LOCAL = securedata.getItem(
     'path', 'remindmail', 'local')
 PATH_CLOUD = securedata.getItem(
     'path', 'remindmail', 'cloud')
+QUERY_TRACE = []
 IS_CLOUD_ENABLED = PATH_LOCAL and PATH_CLOUD
 HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
 	pull
@@ -516,12 +516,16 @@ def parse_query(manual_reminder_param='', manual_time=''):
     """Parses sys.argv to determine what to email or what to write to a file for later"""
 
     query = manual_reminder_param or ' '.join(sys.argv[1:])
+    QUERY_TRACE.append(query)
     query_time = ''
     query_notes = ''
     query_time_formatted = ''
     query_notes_formatted = ''
     is_recurring = False
     is_noconfirm = False
+
+    if manual_time == 'now':
+        manual_time = TODAY
 
     if "noconfirm" in query:
         is_noconfirm = True
@@ -659,7 +663,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
     if parsed_date and (not query_time or manual_time):
         query_time = parsed_date[0].strftime('%F')
 
-        if not query_time_formatted:
+        if not query_time_formatted and manual_time != TODAY:
             query_time_formatted = parsed_date[0].strftime('%A, %B %d')
 
         if manual_reminder_param:
@@ -693,9 +697,11 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
         if not is_noconfirm:
             prompt = (f"""\nYour reminder for {query_time_formatted}:"""
-                    f"\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n")
+                      f"\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n")
+            QUERY_TRACE.append(prompt)
 
             response = input(prompt)
+            QUERY_TRACE.append(response)
         else:
             response = 'y'
 
@@ -704,6 +710,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
             query_time_formatted = ''
             query = ' '.join(sys.argv[1:])
             print("\n------------------------------")
+            QUERY_TRACE.append("\n------------------------------")
 
         elif response == 'l':
             query_time = 'any'
@@ -722,13 +729,19 @@ def parse_query(manual_reminder_param='', manual_time=''):
             manual_reminder(query, weekday)
             return
 
+    if query_time_formatted == 'right now' and response == 'y':
+        _send(query.strip(), query_notes, False)
+        return
+
     if query_time:
         if len(response) > 0 and not response.startswith('n'):
             if response == 'r':
                 print("Reporting bad query via email...")
+                QUERY_TRACE.append("Reporting bad query via email...")
                 log(
                     f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
-                _send("Bad Query", ' '.join(sys.argv[1:]), False)
+                _send(f"Bad Query: {TODAY}", '<br>'.join(
+                    QUERY_TRACE).replace("\n", "<br>"), False)
             else:
                 print("Adding..." if response !=
                       'l' else "Saving for later...")
@@ -741,25 +754,47 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 securedata.writeFile("remind.md", "notes",
                                      '\n'.join(remind_md))
                 log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
+                QUERY_TRACE.append(
+                    f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
         return
 
     if len(response) > 0 and not response.startswith('n'):
         if response == 'r':
             print("Reporting bad query via email...")
+            QUERY_TRACE.append("Reporting bad query via email...")
             log(
                 f"RemindMail query reported: {' '.join(sys.argv[0:])}", level="warn")
-            _send("Bad Query", ' '.join(sys.argv[0:]), False)
+            _send(f"Bad Query: {TODAY}", '<br>'.join(
+                QUERY_TRACE).replace("\n", "<br>"), False)
         else:
+            # send 'right now' reminder
             _send(query.strip(), query_notes, False)
 
 
 def manual_reminder(reminder_param='', reminder_time_param=''):
     """Used to avoid errors, particularly when numbers are used that interfere with date parsing"""
 
-    reminder = reminder_param or input("What's the reminder?\n")
-    reminder_time = reminder_time_param or input(
-        "\nWhen do you want to be reminded? (blank for now)\n")
+    if reminder_param:
+        reminder = reminder_param
+    else:
+        QUERY_TRACE.append("What's the reminder?\n")
+        reminder = input("What's the reminder?\n")
+        QUERY_TRACE.append(reminder)
 
+    if reminder_time_param:
+        reminder_time = reminder_time_param
+    else:
+        QUERY_TRACE.append(
+            "When do you want to be reminded? (blank for now)\n")
+        reminder_time = input(
+            "\nWhen do you want to be reminded? (blank for now)\n")
+
+        if not reminder_time:
+            reminder_time = "now"
+
+        QUERY_TRACE.append(reminder_time)
+
+    QUERY_TRACE.append(f"... calling parse_query({reminder},{reminder_time}) ")
     parse_query(reminder, reminder_time)
 
 
