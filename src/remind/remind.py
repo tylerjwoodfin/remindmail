@@ -645,7 +645,17 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 query_time = re.sub('next ', '', query_time,
                                     flags=re.IGNORECASE)
                 query_time = re.sub('day', '', query_time, flags=re.IGNORECASE)
-                query_time_formatted = query_time.capitalize() + 'day'
+
+                query_time_formatted = {
+                    'sun': 'Sunday',
+                    'mon': 'Monday',
+                    'tue': 'Tuesday',
+                    'wed': 'Wednesday',
+                    'thu': 'Thursday',
+                    'fri': 'Friday',
+                    'sat': 'Saturday'
+                }.get(query_time, "Error")
+
                 break
 
     # handle other dates
