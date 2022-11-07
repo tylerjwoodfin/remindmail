@@ -81,7 +81,9 @@ def log(message, level="info"):
     path = path_log_remindmail or securedata.setItem(
         "path", "remindmail", "log", path_log or "log")
     path = f"{path}/{TODAY}"
-    securedata.log(message, level=level, filePath=path)
+
+    securedata.log(message, level=level, filePath=path,
+                   is_quiet=level == "info")
 
 
 def list_reminders(param=None):
@@ -107,7 +109,7 @@ def list_reminders(param=None):
     print("\n")
 
 
-def _send(subject, body, is_test, method="Terminal"):
+def _send(subject, body, is_test, method="Terminal", is_quiet=False):
     """A helper function to call mail.send"""
 
     print(f"Sending: {subject}")
@@ -118,7 +120,7 @@ def _send(subject, body, is_test, method="Terminal"):
     body += f"<br><br>Sent via {method}"
 
     if not is_test:
-        mail.send(f"Reminder - {subject}", body or "")
+        mail.send(f"Reminder - {subject}", body or "", is_quiet=is_quiet)
     else:
         log(
             f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
@@ -143,8 +145,8 @@ def generate_reminders_for_later():
     mail_summary += "".join(reminders_for_later)
     mail_summary += "<br><br>To remove these, edit <b>remind.md</b>."
 
-    mail.send(
-        f"Pending Reminder Summary: {datetime.today().strftime('%B %d, %Y')}", mail_summary)
+    _send(
+        f"Pending Reminder Summary: {datetime.today().strftime('%B %d, %Y')}", mail_summary, is_quiet=False)
 
 
 def generate():
@@ -270,7 +272,8 @@ def generate():
                     remindmd_file[index] = (item.replace(
                         f"]{token_after} ", f"]{token_after-1} "))
 
-        securedata.writeFile("remind.md", "notes", '\n'.join(remindmd_file))
+        securedata.writeFile("remind.md", "notes",
+                             '\n'.join(remindmd_file), is_quiet=True)
         securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
         log("Generated tasks")
     else:
@@ -335,10 +338,11 @@ def pull(param=None):
                 sys.exit(-1)
         else:
             try:
-                mail.send(f"Reminder - {item['title'].split(']d ')[1]}", "")
+                _send(
+                    f"Reminder - {item['title'].split(']d ')[1]}", "", is_quiet=False)
             except Exception as err:
                 try:
-                    mail.send(f"Reminder - {item['title']}", "")
+                    _send(f"Reminder - {item['title']}", "", is_quiet=False)
                 except Exception as err:
                     log(
                         f"Could not send reminder email: {err}", level="warn")
@@ -740,7 +744,8 @@ def parse_query(manual_reminder_param='', manual_time=''):
             return
 
     if query_time_formatted == 'right now' and response == 'y':
-        _send(query.strip(), query_notes, False)
+        _send(query.strip(), query_notes, False, is_quiet=True)
+        print("\nSent! Check your inbox.")
         return
 
     if query_time:
@@ -751,10 +756,8 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 log(
                     f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
                 _send(f"Bad Query: {TODAY}", '<br>'.join(
-                    QUERY_TRACE).replace("\n", "<br>"), False)
+                    QUERY_TRACE).replace("\n", "<br>"), False, is_quiet=False)
             else:
-                print("Adding..." if response !=
-                      'l' else "Saving for later...")
                 query = query.strip()
                 if query_notes:
                     query = f"{query}: {query_notes}"
@@ -762,10 +765,13 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 remind_md.append(
                     f"[{query_time}]{'' if is_recurring else 'd'} {query}")
                 securedata.writeFile("remind.md", "notes",
-                                     '\n'.join(remind_md))
+                                     '\n'.join(remind_md), is_quiet=True)
                 log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
                 QUERY_TRACE.append(
                     f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
+
+                print(
+                    f"""\nScheduled "{query.strip()}" for {query_time_formatted}""")
         return
 
     if len(response) > 0 and not response.startswith('n'):
@@ -778,7 +784,8 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 QUERY_TRACE).replace("\n", "<br>"), False)
         else:
             # send 'right now' reminder
-            _send(query.strip(), query_notes, False)
+            _send(query.strip(), query_notes, False, is_quiet=True)
+            print("\nSent! Check your inbox.")
 
 
 def manual_reminder(reminder_param='', reminder_time_param=''):
