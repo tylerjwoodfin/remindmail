@@ -205,7 +205,10 @@ def generate():
 
             parsed_date = ""
             if not "%" in token and not "any" in token:
-                parsed_date = parse(token, fuzzy_with_tokens=True)
+                try:
+                    parsed_date = parse(token, fuzzy_with_tokens=True)
+                except ValueError as error:
+                    securedata.log(f"Could not parse token: {token}; {error}", level="error")
 
             today_zero_time = datetime.today().replace(
                 hour=0, minute=0, second=0, microsecond=0)
