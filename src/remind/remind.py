@@ -653,12 +653,12 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 query_time_formatted = {
                     'sun': 'Sunday',
                     'mon': 'Monday',
-                    'tue': 'Tuesday',
-                    'wed': 'Wednesday',
-                    'thu': 'Thursday',
+                    'tues': 'Tuesday',
+                    'wednes': 'Wednesday',
+                    'thurs': 'Thursday',
                     'fri': 'Friday',
-                    'sat': 'Saturday'
-                }.get(query_time, "Error")
+                    'satur': 'Saturday'
+                }.get(query_time, f"Error: {query_time} not matched to a weekday")
 
                 break
 
