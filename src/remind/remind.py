@@ -45,6 +45,7 @@ remind.md:
 	See the provided example remind.md in ReadMe.
 
 	"""
+COUNT_SENT = securedata.getItem("remindmail", "sent_today") or 0
 
 
 def _months_since_epoch(epoch):
@@ -109,8 +110,10 @@ def list_reminders(param=None):
     print("\n")
 
 
-def _send(subject, body, is_test, method="Terminal", is_quiet=False):
+def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
     """A helper function to call mail.send"""
+
+    global COUNT_SENT
 
     print(f"Sending: {subject}")
 
@@ -120,6 +123,7 @@ def _send(subject, body, is_test, method="Terminal", is_quiet=False):
     body += f"<br><br>Sent via {method}"
 
     if not is_test:
+        COUNT_SENT += 1
         mail.send(f"Reminder - {subject}", body or "", is_quiet=is_quiet)
     else:
         log(
@@ -351,9 +355,9 @@ def pull(param=None):
             except Exception as err:
                 try:
                     _send(f"Reminder - {item['title']}", "", is_quiet=False)
-                except Exception as err:
+                except Exception as error_inner:
                     log(
-                        f"Could not send reminder email: {err}", level="warn")
+                        f"Could not send reminder email: {error_inner}", level="warn")
 
         # delete
         if cli.delete_reminder(reminder_id=item['id']):
@@ -846,6 +850,8 @@ def main():
         func()
     else:
         manual_reminder()
+
+    securedata.setItem("remindmail", "sent_today", COUNT_SENT)
 
 
 if __name__ == '__main__':
