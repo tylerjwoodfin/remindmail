@@ -207,8 +207,13 @@ def generate():
             if not "%" in token and not "any" in token:
                 try:
                     parsed_date = parse(token, fuzzy_with_tokens=True)
-                except ValueError as error:
-                    securedata.log(f"Could not parse token: {token}; {error}", level="error")
+                except ValueError:
+                    try:
+                        parsed_date = parse(
+                            f"{token}day", fuzzy_with_tokens=True)
+                    except ValueError as error:
+                        securedata.log(
+                            f"Could not parse token: {token}; {error}", level="error")
 
             today_zero_time = datetime.today().replace(
                 hour=0, minute=0, second=0, microsecond=0)
@@ -280,7 +285,7 @@ def generate():
         securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
         log("Generated tasks")
     else:
-        log("Reminders have already been generated in the past 12 hours.")
+        log("Reminders have already been generated in the past 12 hours.", level="debug")
 
 
 def about():
