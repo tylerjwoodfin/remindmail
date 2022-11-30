@@ -124,6 +124,7 @@ def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
 
     if not is_test:
         COUNT_SENT += 1
+        log(f"Incremented reminder count to {COUNT_SENT}")
         mail.send(f"Reminder - {subject}", body or "", is_quiet=is_quiet)
     else:
         log(
@@ -851,6 +852,7 @@ def main():
     else:
         manual_reminder()
 
+    log(f"Stored reminder count in securedata as {COUNT_SENT}")
     securedata.setItem("remindmail", "sent_today", COUNT_SENT)
 
 
