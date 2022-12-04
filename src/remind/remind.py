@@ -164,9 +164,9 @@ def generate():
     if day_of_month_reminders_generated == '':
         day_of_month_reminders_generated = 0
 
-    if (str(TODAY_INDEX) != day_of_month_reminders_generated
+    if (TODAY_INDEX != day_of_month_reminders_generated
             and datetime.today().hour > 3) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
-        log("Generating tasks")
+        log(f"Generating reminders ({day_of_month_reminders_generated} is not {TODAY_INDEX})")
 
         is_test = False
         if len(sys.argv) > 3 and sys.argv[3] == "test":
