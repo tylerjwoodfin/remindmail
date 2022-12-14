@@ -7,6 +7,7 @@ import os
 import sys
 import re
 import time
+from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from remind import client
@@ -67,6 +68,12 @@ def _parse_date(string):
 
     try:
         parsed_date = parse(string, fuzzy_with_tokens=True)
+
+        # handle dates in the past
+        days_from_now = (parsed_date[0] - datetime.today()).days
+        if days_from_now < -90:
+            return (parsed_date[0] + relativedelta(years=1), parsed_date[1])
+
         return parsed_date
 
     except ValueError:
@@ -148,8 +155,9 @@ def generate_reminders_for_later():
     mail_summary += "".join(reminders_for_later)
     mail_summary += "<br><br>To remove these, edit <b>remind.md</b>."
 
+    date_formatted = datetime.today().strftime('%B %d, %Y')
     _send(
-        f"Pending Reminder Summary: {datetime.today().strftime('%B %d, %Y')}", mail_summary, is_quiet=False)
+        f"Pending Reminder Summary: {date_formatted}", mail_summary, is_quiet=False)
 
 
 def generate():
@@ -158,8 +166,8 @@ def generate():
     Intended to be run from crontab (try 'remindmail generate force' to run immediately)
     """
 
-    day_of_month_reminders_generated = str(
-        securedata.getItem("remindmail", "day_generated"))
+    day_of_month_reminders_generated = securedata.getItem(
+        "remindmail", "day_generated")
 
     if day_of_month_reminders_generated == '':
         day_of_month_reminders_generated = 0
@@ -601,7 +609,11 @@ def parse_query(manual_reminder_param='', manual_time=''):
             query_time_formatted = f"every {_frequency} starting {_newdate.strftime('%B %d')}"
         else:
             query_time = _newdate
-            query_time_formatted = query_time.strftime('%A, %B %d')
+            query_time_format = '%A, %B %d'
+
+            if _newdate.year != datetime.today().year:
+                query_time_format = '%A, %B %d, %Y'
+            query_time_formatted = _newdate.strftime(query_time_format)
 
     # handle "in n weeks"
     _weeks = re.findall("in [0-9]+ weeks|in 1 week",
@@ -624,7 +636,11 @@ def parse_query(manual_reminder_param='', manual_time=''):
                                     f" starting {_newdate.strftime('%B %d')}")
         else:
             query_time = _newdate
-            query_time_formatted = _newdate.strftime('%A, %B %d')
+            query_time_format = '%A, %B %d'
+
+            if _newdate.year != datetime.today().year:
+                query_time_format = '%A, %B %d, %Y'
+            query_time_formatted = _newdate.strftime(query_time_format)
 
     if " at " in query or " on " in query or " next " in query:
         # look for weekdays using 'on {dayw}'
@@ -685,11 +701,17 @@ def parse_query(manual_reminder_param='', manual_time=''):
     if manual_time:
         parsed_date = _parse_date(manual_time)
 
+    # handle specific dates (found or specified)
     if parsed_date and (not query_time or manual_time):
         query_time = parsed_date[0].strftime('%F')
 
         if not query_time_formatted and manual_time != TODAY:
-            query_time_formatted = parsed_date[0].strftime('%A, %B %d')
+            query_time_format = '%A, %B %d'
+
+            if parsed_date[0].year != datetime.today().year:
+                query_time_format = '%A, %B %d, %Y'
+
+            query_time_formatted = parsed_date[0].strftime(query_time_format)
 
         if manual_reminder_param:
             query = manual_reminder_param
