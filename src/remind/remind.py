@@ -199,7 +199,7 @@ def generate():
             # handle notes
             item_notes = ''
             if ':' in item:
-                item_notes = item.split(":")[1].strip()
+                item_notes = ''.join(item.split(":")[1:]).strip()
                 item = item.split(":")[0]
 
             # handle [*]n, where n is a number or "d"
@@ -293,6 +293,8 @@ def generate():
 
         securedata.writeFile("remind.md", "notes",
                              '\n'.join(remindmd_file), is_quiet=True)
+
+        securedata.log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
         securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
         log("Generated tasks")
     else:
@@ -556,7 +558,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
     # parse body of email (optional)
     if ':' in query:
-        query_notes = query.split(":")[1]
+        query_notes = ''.join(query.split(":")[1:])
         query = query.split(":")[0]
 
     for item in ['me to ', 'to ', 'me ']:
