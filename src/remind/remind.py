@@ -1,16 +1,13 @@
 """
-The main file containing most of the logic. `client` and `client_utils` deal
-specifically with Google Reminders, whereas this file contains the rest.
+The main file containing most of the logic.
 """
 
 import os
 import sys
 import re
 import time
-from datetime import date
 from datetime import datetime
 from datetime import timedelta
-from remind import client
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
 from securedata import securedata, mail
@@ -310,78 +307,6 @@ def about():
             print(func("help"))
     else:
         print(HELP_TEXT)
-
-
-def pull(param=None):
-    """
-    Pulls reminders from Google, deletes them, and emails them
-    to the address using the email in securedata (see README)
-
-    Parameters:
-    - param: string; currently unused.
-    """
-
-    if param == "help":
-        return (f"Pulls reminders from Google, deletes them, and adds them to"
-                f" remind.md in path_local (currently {PATH_LOCAL})")
-
-    try:
-        print("Connecting to Google...")
-        cli = client.RemindersClient()
-        print("Connection established.")
-        items = cli.list_reminders(5)
-    except Exception as err:
-        log(
-            f"Could not pull reminders from Google: {err}", level="warn")
-        sys.exit(-1)
-
-    # pull remind.md from cloud
-    if IS_CLOUD_ENABLED:
-        os.system(
-            f"rclone copy {PATH_CLOUD} {PATH_LOCAL}")
-
-    # for each reminder, either add it to remind.md if > 1 day from now,
-    # or send an email now, then delete it
-    for item in items:
-        seconds_until_target = (
-            item['target_date'] - datetime.now()).total_seconds()
-
-        if seconds_until_target >= 86400 and not item["done"]:
-            print(
-                f"Moving {item['title']} to {PATH_LOCAL}/remind.md")
-
-            try:
-                with open(f"{PATH_LOCAL}/remind.md", 'a', encoding="utf-8") as file:
-                    file.write(f"\n{item['title']}")
-            except EnvironmentError as err:
-                log(
-                    f"Could not write to remind.md: {err}", level="critical")
-                sys.exit(-1)
-        else:
-            try:
-                _send(
-                    f"Reminder - {item['title'].split(']d ')[1]}", "", is_quiet=False)
-            except Exception as err:
-                try:
-                    _send(f"Reminder - {item['title']}", "", is_quiet=False)
-                except Exception as error_inner:
-                    log(
-                        f"Could not send reminder email: {error_inner}", level="warn")
-
-        # delete
-        if cli.delete_reminder(reminder_id=item['id']):
-            log(
-                f"Pulled and deleted {item['title']} from Google Reminders")
-        else:
-            log(
-                f"Could not delete {item['title']} from Google Reminders", level="warning")
-
-    # sync possibly-modified remind.md
-    if IS_CLOUD_ENABLED:
-        os.system(
-            f"rclone sync {PATH_LOCAL} {PATH_CLOUD}")
-
-    print("Pull complete.")
 
 
 def config(param=None):
@@ -852,7 +777,6 @@ def manual_reminder(reminder_param='', reminder_time_param=''):
 
 params = {
     "help": about,
-    "pull": pull,
     "ls": list_reminders,
     "config": config,
     "generate": generate,

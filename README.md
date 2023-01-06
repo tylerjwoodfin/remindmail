@@ -1,6 +1,6 @@
 # remindmail
 
-- turns reminders written in terminal into emails; integrates with Google Assistant; supports scheduled reminders
+- turns reminders written in terminal into emails; supports scheduled reminders
 
 ## features
 
@@ -8,8 +8,9 @@
 - schedule one-time or recurring reminders
 - automatically sync scheduled reminders as a plaintext file with Dropbox, Google Drive, Nextcloud, or any other Cloud Storage provider using [rclone](https://rclone.org/install/)
 
-# dependencies
+# notable dependencies
 
+- use `pip install -r requirements.md` to install all dependencies
 - Linux (Raspberry Pis work great!)
 - [securedata](https://github.com/tylerjwoodfin/securedata)
 - a unique, non-Gmail address specifically for this project
@@ -21,12 +22,17 @@
 
 ```bash
   python3 -m pip install remindmail
+
+  # adjust path accordingly
+  pip install -r /path/to/requirements.md
+
+  securedata config
 ```
 
-- you also need to install and configure [securedata](https://github.com/tylerjwoodfin/securedata)
+## securedata config
+- you need to install and configure [securedata](https://github.com/tylerjwoodfin/securedata)
 
-  - initialize using `securedata config`; see securedata's README for complete setup instructions
-  - in securedata's `settings.json`, set the full directory path of your `remind.md` file using `path -> remindmail -> local`
+  - initialize using `securedata config`; see securedata's README for details
   - in securedata's `settings.json`, set the email information using the example below
     - note that Gmail will _not_ work due to their security restrictions.
     - it's very bad practice to store your password in plaintext; for this reason, never sync this file.
@@ -52,50 +58,6 @@
   }
   ```
 
-## pulling reminders from Google (optional)
-
-- [Create a new Google Developer project](https://console.developers.google.com)
-
-  - Create a new project
-  - Select "Enable APIs and Services"
-  - Search for "Calendar"
-  - Enable Google Calendar API
-  - Create an OAuth 2.0 Client ID:
-
-    - For "type", use "desktop"
-    - For detailed instructions, see [here](https://developers.google.com/identity/protocols/oauth2)
-
-  - Find the client ID and client secret, then populate `settings.json` to match this example:
-
-  ```
-  {
-    "path": {
-      "remindmail": {
-        "local": "/home/pi/remindmail"
-      }
-    },
-    "email": {
-        "from": "YourUniqueAndNonGmailEmailAddress",
-        "from_pw": "YourPassword",
-        "from_name": "Your Name",
-        "to": "RemindersSentToThisEmailAddress",
-        "smtp_server": "your domain's smtp server",
-        "imap_server": "your domain's imap server",
-        "port": 465
-    },
-    "remindmail": {
-      "client_id": "Your client ID",
-      "client_secret": "Your client secret"
-    }
-  }
-  ```
-
-  - Run `remind pull`; the terminal should prompt you to visit a link.
-  - Visit the link, sign in, then copy the verification code into the terminal
-
-- add to crontab:
-  - `*/5 * * * * remind pull` (every 5 minutes, query Google for new reminders)
-
 ## syncing with rclone (optional)
 
 - complete the steps above in "Setup"
@@ -113,16 +75,12 @@
 # usage
 
 - natural language, e.g. `remind me to take the trash out on thursday`
-- scheduling `remindmail pull` to automatically pull reminders from Google through crontab (see below)
-- scheduling `remindmail generate` to automatically send emails based on date match from `remind.md` (see below)
+- scheduling `remindmail generate` in something like crontab to automatically send emails based on date match from `remind.md` (see below)
+  - `remindmail generate force` will override the limitation that reminders can only be generated every 12 hours.
 
 # generate
 
 - `remind generate` generates reminders from `remind.md` (see below)
-
-# pull
-
-- `remind pull` generates reminders from Google (see above)
 
 # edit
 
@@ -301,7 +259,3 @@ It is recommended you add `remind later` as a scheduled crontab action.
 
 - an item with `]d`, such as `[D%5]d`, will add the reminder and remove it from remind.md, meaning it will only generate once until you add it again.
   - this is useful for scheduling a reminder in the future that you don't need to repeat.
-
-# credit
-
-- Google polling forked from [https://github.com/jonahar/google-reminders-cli](https://github.com/jonahar/google-reminders-cli)
