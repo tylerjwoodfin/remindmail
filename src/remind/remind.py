@@ -77,7 +77,7 @@ def _parse_date(string):
         return False
 
 
-def log(message, level="info"):
+def _log(message, level="info"):
     """A wrapper for securedata.log to handle the remindmail log setting"""
 
     path_log = securedata.getItem("path", "log")
@@ -88,29 +88,6 @@ def log(message, level="info"):
 
     securedata.log(message, level=level, filePath=path,
                    is_quiet=level == "info")
-
-
-def list_reminders(param=None):
-    """
-    Displays the scheduled reminders in remind.py, formatted with line numbers
-    Usage: remindmail ls
-    Parameters:
-    - param: string; currently unused
-
-    Passing 'help' will only return the help information for this function.
-    """
-
-    if param == "help":
-        return (f"Displays the scheduled reminders in remind.py"
-                f" (in {securedata.getItem('path', 'remindmail', 'local')}),"
-                " formatted with line numbers\n\nUsage: remindmail ls")
-
-    remindmd_cloud = f"{securedata.getItem('path', 'remindmail', 'cloud')}/remind.md"
-    remindmd_local = f"{securedata.getItem('path', 'remindmail', 'local')}/remind.md"
-    print("\n")
-    os.system(
-        f"rclone copyto {remindmd_cloud} {remindmd_local}; cat -n {remindmd_local}")
-    print("\n")
 
 
 def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
@@ -126,10 +103,10 @@ def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
     if not is_test:
         count_sent = securedata.getItem("remindmail", "sent_today") or 0
         securedata.setItem("remindmail", "sent_today", count_sent+1)
-        log(f"Incremented reminder count to {count_sent+1}")
+        _log(f"Incremented reminder count to {count_sent+1}")
         mail.send(f"Reminder - {subject}", body or "", is_quiet=is_quiet)
     else:
-        log(
+        _log(
             f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
 
 
@@ -137,6 +114,32 @@ def _larger(string_a, string_b):
     """A helper function to return the larger string"""
 
     return string_a if len(string_a) > len(string_b) else string_b
+
+
+def list_reminders(param=None):
+    """
+    Displays the scheduled reminders in remind.py, formatted with line numbers
+    Usage: remindmail ls
+    Parameters:
+    - param: string; currently unused
+
+    Passing 'help' will only return the help information for this function.
+    """
+
+    if param == "help":
+        return (f"Displays the scheduled reminders in remind.py"
+                f" (in {PATH_LOCAL}),"
+                " formatted with line numbers\n\nUsage: remindmail ls")
+
+
+    remindmd_cloud = f"{PATH_CLOUD}/remind.md"
+    remindmd_local = f"{PATH_LOCAL}/remind.md"
+
+    if IS_CLOUD_ENABLED:
+        os.system(f"rclone copyto {remindmd_cloud} {remindmd_local}")
+
+    os.system(f"cat -n {remindmd_local}")
+    print("\n")
 
 
 def generate_reminders_for_later():
@@ -171,7 +174,8 @@ def generate():
 
     if (TODAY_INDEX != day_of_month_reminders_generated
             and datetime.today().hour > 3) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
-        log(f"Generating reminders ({day_of_month_reminders_generated} is not {TODAY_INDEX})")
+        _log(
+            f"Generating reminders ({day_of_month_reminders_generated} is not {TODAY_INDEX})")
 
         is_test = False
         if len(sys.argv) > 3 and sys.argv[3] == "test":
@@ -187,7 +191,7 @@ def generate():
         for index, item in enumerate(_remindmd_file):
 
             # ignore anything outside of [*]
-            if not re.match("\[(.*?)\]", item):
+            if not re.match(r"\[(.*?)\]", item):
                 continue
 
             _item = item
@@ -245,45 +249,42 @@ def generate():
                 else:
                     split_factor = int(split_factor)
 
-                try:
-                    is_epoch_equal_offset_d = epoch_day % split_factor == split_offset
-                    is_epoch_equal_offset_w = epoch_week % split_factor == split_offset
-                    is_epoch_equal_offset_m = epoch_month % split_factor == split_offset
-                    today_dayw = datetime.today().strftime("%a")
-                    if split_type == "d" and is_epoch_equal_offset_d:
+                is_epoch_equal_offset_d = epoch_day % split_factor == split_offset
+                is_epoch_equal_offset_w = epoch_week % split_factor == split_offset
+                is_epoch_equal_offset_m = epoch_month % split_factor == split_offset
+                today_dayw = datetime.today().strftime("%a")
+
+                if split_type == "d" and is_epoch_equal_offset_d:
+                    is_match = True
+                    _send(item.split(' ', 1)[
+                            1], item_notes, is_test, "remind.md")
+                elif split_type == "w" and today_dayw == 'Sun' and is_epoch_equal_offset_w:
+                    is_match = True
+                    _send(item.split(' ', 1)[
+                            1], item_notes, is_test, "remind.md")
+                elif split_type == "m" and TODAY_INDEX == 1 and is_epoch_equal_offset_m:
+                    is_match = True
+                    _send(item.split(' ', 1)[
+                            1], item_notes, is_test, "remind.md")
+                elif split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
+                    if today_dayw.lower() == split_type and is_epoch_equal_offset_w:
                         is_match = True
                         _send(item.split(' ', 1)[
-                              1], item_notes, is_test, "remind.md")
-                    elif split_type == "w" and today_dayw == 'Sun' and is_epoch_equal_offset_w:
-                        is_match = True
-                        _send(item.split(' ', 1)[
-                              1], item_notes, is_test, "remind.md")
-                    elif split_type == "m" and TODAY_INDEX == 1 and is_epoch_equal_offset_m:
-                        is_match = True
-                        _send(item.split(' ', 1)[
-                              1], item_notes, is_test, "remind.md")
-                    elif split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
-                        if today_dayw.lower() == split_type and is_epoch_equal_offset_w:
-                            is_match = True
-                            _send(item.split(' ', 1)[
-                                  1], item_notes, is_test, "remind.md")
-                except Exception as err:
-                    log(
-                        f"Could not send reminder from remind.md: {err}", level="error")
+                                1], item_notes, is_test, "remind.md")
 
             # handle deletion and decrementing
             if is_match:
                 if token_after == 1:
-                    log(f"Deleting item from remind.md: {item}")
+                    _log(f"Deleting item from remind.md: {item}")
                     if not is_test:
                         try:
                             remindmd_file.remove(_item)
                         except ValueError as err:
-                            log(
+                            _log(
                                 f"Could not remove from remind.md: {err}", level="error")
                     else:
-                        log(f"(in test mode- not deleting {item})",
-                            level="debug")
+                        _log(f"(in test mode- not deleting {item})",
+                             level="debug")
                 elif token_after > 1:
                     remindmd_file[index] = (item.replace(
                         f"]{token_after} ", f"]{token_after-1} "))
@@ -293,9 +294,9 @@ def generate():
 
         securedata.log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
         securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
-        log("Generated tasks")
+        _log("Generated tasks")
     else:
-        log("Reminders have already been generated in the past 12 hours.", level="debug")
+        _log("Reminders have already been generated in the past 12 hours.", level="debug")
 
 
 def about():
@@ -713,7 +714,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
             if response == 'r':
                 print("Reporting bad query via email...")
                 QUERY_TRACE.append("Reporting bad query via email...")
-                log(
+                _log(
                     f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
                 _send(f"Bad Query: {TODAY}", '<br>'.join(
                     QUERY_TRACE).replace("\n", "<br>"), False, is_quiet=False)
@@ -726,7 +727,8 @@ def parse_query(manual_reminder_param='', manual_time=''):
                     f"[{query_time}]{'' if is_recurring else 'd'} {query}")
                 securedata.writeFile("remind.md", "notes",
                                      '\n'.join(remind_md), is_quiet=True)
-                log(f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
+                _log(
+                    f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
                 QUERY_TRACE.append(
                     f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
 
@@ -738,7 +740,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
         if response == 'r':
             print("Reporting bad query via email...")
             QUERY_TRACE.append("Reporting bad query via email...")
-            log(
+            _log(
                 f"RemindMail query reported: {' '.join(sys.argv[0:])}", level="warn")
             _send(f"Bad Query: {TODAY}", '<br>'.join(
                 QUERY_TRACE).replace("\n", "<br>"), False)
