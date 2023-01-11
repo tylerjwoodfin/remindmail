@@ -365,7 +365,7 @@ def offset(param=None):
     if param == "help":
         return """Calculates the offset for a certain date (today by default)
 
-		remindmail offset <type> <date (YYYY-MM-DD, optional)> <n>
+		remindmail offset <type (day,week,month)> <target date (YYYY-MM-DD), optional> <n>
 		(type is day, week, month)
 		(n is 'every n days')
 
@@ -391,7 +391,7 @@ def offset(param=None):
 
     if len(sys.argv) < 4:
         print(("Usage: remindmail offset <type (day,week,month)> "
-               "<date (optional, YYYY-MM-DD)> <n, as in 'every n <type>'>\nExample:"
+               "<target date (YYYY-MM-DD), optional> <n, as in 'every n <type>'>\nExample:"
                " remindmail offset week 2021-05-20 2\nFor help: 'remindmail help offset'"))
         return
 
@@ -408,9 +408,12 @@ def offset(param=None):
             raise IndexError
 
         offset_n = int(offset_n)
+        token_example = "d"
         if sys.argv[2] == "month":
+            token_example = "m"
             return_val = _months_since_epoch(epoch_time) % offset_n
         elif sys.argv[2] == "week":
+            token_example = "w"
             return_val = int(epoch_time/60/60/24/7) % offset_n
         elif sys.argv[2] == "day":
             return_val = int(epoch_time/60/60/24) % offset_n
@@ -419,12 +422,14 @@ def offset(param=None):
             return
 
         print(return_val)
+        print(f"""This means you can add '[{token_example}%{offset_n}+{return_val}] <task name>'
+            to {PATH_LOCAL}/remind.md to match the selected date.""")
 
         if offset_n == 1:
             print((f"Note: Anything % 1 is always 0. This is saying "
                    f"'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run"
                    f" for a given {sys.argv[2]}. '%1' means it will always run, so no need for an"
-                   f" offset.\nPlease see the README for details, or just"
+                   f" offset.\nPlease see the README for details, or"
                    f" run 'remindmail help offset'."))
         elif return_val == 0:
             print(("Note: The offset is 0, so a task for this date in remind.md "
