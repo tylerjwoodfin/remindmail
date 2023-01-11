@@ -142,8 +142,8 @@ def list_reminders(param=None):
     print("\n")
 
 
-def generate_reminders_for_later():
-    """Generates reminders with [any] at the start"""
+def mail_reminders_for_later():
+    """Mails a summary of reminders with [any] at the start from remind.md in {PATH_LOCAL}"""
 
     remindmd_file = securedata.getFileAsArray("remind.md", "notes") or []
     reminders_for_later = []
@@ -160,11 +160,17 @@ def generate_reminders_for_later():
         f"Pending Reminder Summary: {date_formatted}", mail_summary, is_quiet=False)
 
 
-def generate():
+def generate(param=None):
     """
-    Generates tasks from the remind.md file in {path_local}.
+    Mails reminders from the remind.md file in {PATH_LOCAL}.
     Intended to be run from crontab (try 'remindmail generate force' to run immediately)
     """
+
+    if param == "help":
+        return f"""
+        Mails remind from the remind.md file in {PATH_LOCAL}.
+        Intended to be run from the crontab (try 'remindmail generate force' to run immediately)
+        """
 
     day_of_month_reminders_generated = securedata.getItem(
         "remindmail", "day_generated")
@@ -172,132 +178,129 @@ def generate():
     if day_of_month_reminders_generated == '':
         day_of_month_reminders_generated = 0
 
-    if (TODAY_INDEX != day_of_month_reminders_generated
+    # do not generate more than once in one day unless `remind generate force`
+    if not (TODAY_INDEX != day_of_month_reminders_generated
             and datetime.today().hour > 3) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
-        _log(
-            f"Generating reminders ({day_of_month_reminders_generated} is not {TODAY_INDEX})")
-
-        is_test = False
-        if len(sys.argv) > 3 and sys.argv[3] == "test":
-            is_test = True
-
-        epoch_day = int(time.time()/60/60/24)
-        epoch_week = int(time.time()/60/60/24/7)
-        epoch_month = int(datetime.today().month)
-
-        remindmd_file = securedata.getFileAsArray("remind.md", "notes") or []
-
-        _remindmd_file = remindmd_file.copy()
-        for index, item in enumerate(_remindmd_file):
-
-            # ignore anything outside of [*]
-            if not re.match(r"\[(.*?)\]", item):
-                continue
-
-            _item = item
-            is_match = False
-
-            # handle notes
-            item_notes = ''
-            if ':' in item:
-                item_notes = ''.join(item.split(":")[1:]).strip()
-                item = item.split(":")[0]
-
-            # handle [*]n, where n is a number or "d"
-            token = item.split("[")[1].split("]")[0]
-            token_after = item.split("]")[1].split(" ")[0]
-
-            if token_after == "d" or token_after == "0":
-                token_after = "1"
-
-            if token_after.isdigit():
-                token_after = int(token_after)
-            else:
-                token_after = -1
-
-            parsed_date = ""
-            if not "%" in token and not "any" in token:
-                try:
-                    parsed_date = parse(token, fuzzy_with_tokens=True)
-                except ValueError:
-                    try:
-                        parsed_date = parse(
-                            f"{token}day", fuzzy_with_tokens=True)
-                    except ValueError as error:
-                        securedata.log(
-                            f"Could not parse token: {token}; {error}", level="error")
-
-            today_zero_time = datetime.today().replace(
-                hour=0, minute=0, second=0, microsecond=0)
-            if parsed_date and today_zero_time == parsed_date[0]:
-                is_match = True
-                _send(item.split(' ', 1)[1], item_notes, is_test, "remind.md")
-
-            elif "%" in token:
-
-                if item[1:4] in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
-                    split_type = item[1:4]
-                else:
-                    split_type = item[1].lower()  # d, w, m
-                split_factor = item.split("%")[1].split("]")[0]
-                split_offset = 0
-
-                # e.g. [D%4+1] for every 4 days, offset 1
-                if "+" in split_factor:
-                    split_offset = int(split_factor.split("+")[1])
-                    split_factor = int(split_factor.split("+")[0])
-                else:
-                    split_factor = int(split_factor)
-
-                is_epoch_equal_offset_d = epoch_day % split_factor == split_offset
-                is_epoch_equal_offset_w = epoch_week % split_factor == split_offset
-                is_epoch_equal_offset_m = epoch_month % split_factor == split_offset
-                today_dayw = datetime.today().strftime("%a")
-
-                if split_type == "d" and is_epoch_equal_offset_d:
-                    is_match = True
-                    _send(item.split(' ', 1)[
-                            1], item_notes, is_test, "remind.md")
-                elif split_type == "w" and today_dayw == 'Sun' and is_epoch_equal_offset_w:
-                    is_match = True
-                    _send(item.split(' ', 1)[
-                            1], item_notes, is_test, "remind.md")
-                elif split_type == "m" and TODAY_INDEX == 1 and is_epoch_equal_offset_m:
-                    is_match = True
-                    _send(item.split(' ', 1)[
-                            1], item_notes, is_test, "remind.md")
-                elif split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
-                    if today_dayw.lower() == split_type and is_epoch_equal_offset_w:
-                        is_match = True
-                        _send(item.split(' ', 1)[
-                                1], item_notes, is_test, "remind.md")
-
-            # handle deletion and decrementing
-            if is_match:
-                if token_after == 1:
-                    _log(f"Deleting item from remind.md: {item}")
-                    if not is_test:
-                        try:
-                            remindmd_file.remove(_item)
-                        except ValueError as err:
-                            _log(
-                                f"Could not remove from remind.md: {err}", level="error")
-                    else:
-                        _log(f"(in test mode- not deleting {item})",
-                             level="debug")
-                elif token_after > 1:
-                    remindmd_file[index] = (item.replace(
-                        f"]{token_after} ", f"]{token_after-1} "))
-
-        securedata.writeFile("remind.md", "notes",
-                             '\n'.join(remindmd_file), is_quiet=True)
-
-        securedata.log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
-        securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
-        _log("Generated tasks")
-    else:
         _log("Reminders have already been generated in the past 12 hours.", level="debug")
+        return
 
+    _log("Generating reminders")
+
+    is_test = False
+    if len(sys.argv) > 3 and sys.argv[3] == "test":
+        is_test = True
+
+    epoch_day = int(time.time()/60/60/24)
+    epoch_week = int(time.time()/60/60/24/7)
+    epoch_month = int(datetime.today().month)
+
+    remindmd_file = securedata.getFileAsArray("remind.md", "notes") or []
+
+    _remindmd_file = remindmd_file.copy()
+    for index, item in enumerate(_remindmd_file):
+
+        today_zero_time = datetime.today().replace(
+            hour=0, minute=0, second=0, microsecond=0)
+
+        # ignore anything outside of [*]
+        if not re.match(r"\[(.*?)\]", item):
+            continue
+
+        _item = item
+        is_match = False
+
+        # handle notes
+        item_notes = ''
+        if ':' in item:
+            item_notes = ''.join(item.split(":")[1:]).strip()
+            item = item.split(":")[0]
+
+        # handle [*]n, where n is a number or "d"
+        token = item.split("[")[1].split("]")[0]
+        token_after = item.split("]")[1].split(" ")[0]
+
+        if token_after == "d" or token_after == "0":
+            token_after = "1"
+
+        if token_after.isdigit():
+            token_after = int(token_after)
+        else:
+            token_after = -1
+
+        parsed_date = ""
+        if not "%" in token and not "any" in token:
+            try:
+                parsed_date = parse(token, fuzzy_with_tokens=True)
+            except ValueError:
+                try:
+                    parsed_date = parse(
+                        f"{token}day", fuzzy_with_tokens=True)
+                except ValueError as error:
+                    securedata.log(
+                        f"Could not parse token: {token}; {error}", level="error")
+
+        if parsed_date and today_zero_time == parsed_date[0]:
+            is_match = True
+            _send(item.split(' ', 1)[1], item_notes, is_test, "remind.md")
+
+        elif "%" in token:
+
+            if item[1:4] in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']:
+                split_type = item[1:4]
+            else:
+                split_type = item[1].lower()  # d, w, m
+            split_factor = item.split("%")[1].split("]")[0]
+            split_offset = 0
+
+            # e.g. [D%4+1] for every 4 days, offset 1
+            if "+" in split_factor:
+                split_offset = int(split_factor.split("+")[1])
+                split_factor = int(split_factor.split("+")[0])
+            else:
+                split_factor = int(split_factor)
+
+            is_epoch_equal_offset = (
+                epoch_day % split_factor == split_offset,
+                epoch_week % split_factor == split_offset,
+                epoch_month % split_factor == split_offset)
+
+            today_dayw = datetime.today().strftime("%a")
+
+            split_types = ['d', 'w', 'm', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+            if split_type in split_types and is_epoch_equal_offset:
+                if split_type == 'd':
+                    is_match = True
+                elif split_type == 'w' and today_dayw == 'Sun':
+                    is_match = True
+                elif split_type == 'm' and TODAY_INDEX == 1:
+                    is_match = True
+                elif (split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+                    and today_dayw.lower() == split_type):
+                    is_match = True
+
+        # handle deletion and decrementing
+        if is_match:
+            _send(item.split(' ', 1)[1], item_notes, is_test, "remind.md")
+            if token_after == 1:
+                _log(f"Deleting item from remind.md: {item}")
+                if not is_test:
+                    try:
+                        remindmd_file.remove(_item)
+                    except ValueError as err:
+                        _log(f"Could not remove from remind.md: {err}", level="error")
+                else:
+                    _log(f"(in test mode- not deleting {item})",
+                            level="debug")
+            elif token_after > 1:
+                remindmd_file[index] = (item.replace(
+                    f"]{token_after} ", f"]{token_after-1} "))
+
+    securedata.writeFile("remind.md", "notes",
+                            '\n'.join(remindmd_file), is_quiet=True)
+
+    securedata.log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
+    securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
+    _log("Generated tasks")
 
 def about():
     """Prints help information returned by passing 'help' as a string into other functions."""
@@ -782,7 +785,7 @@ params = {
     "ls": list_reminders,
     "config": config,
     "generate": generate,
-    "later": generate_reminders_for_later,
+    "later": mail_reminders_for_later,
     "offset": offset,
     "edit": edit
 }
