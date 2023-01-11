@@ -131,7 +131,6 @@ def list_reminders(param=None):
                 f" (in {PATH_LOCAL}),"
                 " formatted with line numbers\n\nUsage: remindmail ls")
 
-
     remindmd_cloud = f"{PATH_CLOUD}/remind.md"
     remindmd_local = f"{PATH_LOCAL}/remind.md"
 
@@ -266,7 +265,8 @@ def generate(param=None):
 
             today_dayw = datetime.today().strftime("%a")
 
-            split_types = ['d', 'w', 'm', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+            split_types = ['d', 'w', 'm', 'sun', 'mon',
+                           'tue', 'wed', 'thu', 'fri', 'sat']
             if split_type in split_types and is_epoch_equal_offset:
                 if split_type == 'd':
                     is_match = True
@@ -275,7 +275,7 @@ def generate(param=None):
                 elif split_type == 'm' and TODAY_INDEX == 1:
                     is_match = True
                 elif (split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
-                    and today_dayw.lower() == split_type):
+                      and today_dayw.lower() == split_type):
                     is_match = True
 
         # handle deletion and decrementing
@@ -287,20 +287,22 @@ def generate(param=None):
                     try:
                         remindmd_file.remove(_item)
                     except ValueError as err:
-                        _log(f"Could not remove from remind.md: {err}", level="error")
+                        _log(
+                            f"Could not remove from remind.md: {err}", level="error")
                 else:
                     _log(f"(in test mode- not deleting {item})",
-                            level="debug")
+                         level="debug")
             elif token_after > 1:
                 remindmd_file[index] = (item.replace(
                     f"]{token_after} ", f"]{token_after-1} "))
 
     securedata.writeFile("remind.md", "notes",
-                            '\n'.join(remindmd_file), is_quiet=True)
+                         '\n'.join(remindmd_file), is_quiet=True)
 
     securedata.log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
     securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
     _log("Generated tasks")
+
 
 def about():
     """Prints help information returned by passing 'help' as a string into other functions."""
@@ -476,12 +478,14 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
     query = manual_reminder_param or ' '.join(sys.argv[1:])
     QUERY_TRACE.append(query)
-    query_time = ''
+    query_time_token = ''  # the 'meat' between [] in remind.md
     query_notes = ''
     query_time_formatted = ''
     query_notes_formatted = ''
     is_recurring = False
     is_noconfirm = False
+    weekdays = ['sunday', 'monday', 'tuesday',
+                'wednesday', 'thursday', 'friday', 'saturday']
 
     if manual_time == 'now':
         manual_time = TODAY
@@ -490,31 +494,30 @@ def parse_query(manual_reminder_param='', manual_time=''):
         is_noconfirm = True
         query = query.replace("noconfirm", "").strip()
 
-    # parse body of email (optional)
+    # parse for notes
     if ':' in query:
         query_notes = ''.join(query.split(":")[1:])
         query = query.split(":")[0]
 
+    # remove filler text
     for item in ['me to ', 'to ', 'me ']:
         if item in query.lower() and len(query.split(item)[0]) < 3:
             query = re.sub(item, '', query, flags=re.IGNORECASE, count=1)
 
     # handle recurring reminders
     is_recurring_options = ["every [0-9]+", "every week", "every month",
-                            "every day", "every sunday", "every monday",
-                            "every tuesday", "every wednesday",
-                            "every thursday", "every friday", "every saturday"]
+                            "every day"] + [f"every {day}" for day in weekdays]
 
     is_recurring = len(re.findall(
         '|'.join(is_recurring_options), query, flags=re.IGNORECASE)) > 0
 
     if is_recurring:
-        weekdays = ['sunday', 'monday', 'tuesday',
-                    'wednesday', 'thursday', 'friday', 'saturday']
         for weekday in weekdays:
             if weekday in query:
-                query_time = weekday[0:3].lower()
+                query_time_token = weekday[0:3].lower()
                 query_time_formatted = f"every {weekday.capitalize()}"
+
+                # remove 'every *day' from query
                 query = re.sub('every', '', query, flags=re.IGNORECASE)
                 query = re.sub(weekday, '', query, flags=re.IGNORECASE)
 
@@ -539,12 +542,12 @@ def parse_query(manual_reminder_param='', manual_time=''):
         query = _larger(_query_match[0], _query_match[1])
 
         if is_recurring:
-            query_time = f"M%{_number_of_months}"
+            query_time_token = f"M%{_number_of_months}"
             _frequency = (f"{f'{_number_of_months} ' if _number_of_months > 1 else ''}"
                           f"{'month' if _number_of_months == 1 else 'months'}")
             query_time_formatted = f"every {_frequency} starting {_newdate.strftime('%B %d')}"
         else:
-            query_time = _newdate
+            query_time_token = _newdate
             query_time_format = '%A, %B %d'
 
             if _newdate.year != datetime.today().year:
@@ -555,6 +558,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
     _weeks = re.findall("in [0-9]+ weeks|in 1 week",
                         query, flags=re.IGNORECASE)
     if _weeks:
+        # reduce into "in n days"
         _number_of_weeks = int(re.search(r'\d+', _weeks[0]).group())
         query = re.sub(_weeks[0], f"in {_number_of_weeks * 7} days", query)
 
@@ -567,51 +571,30 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
         _newdate = datetime.now().date() + timedelta(days=_number_of_days)
         if is_recurring:
-            query_time = f"D%{_number_of_days}"
+            query_time_token = f"D%{_number_of_days}"
             query_time_formatted = (f"every {_number_of_days} days"
                                     f" starting {_newdate.strftime('%B %d')}")
         else:
-            query_time = _newdate
+            query_time_token = _newdate
             query_time_format = '%A, %B %d'
 
+            # if in a different year, append the year
             if _newdate.year != datetime.today().year:
                 query_time_format = '%A, %B %d, %Y'
             query_time_formatted = _newdate.strftime(query_time_format)
 
     if " at " in query or " on " in query or " next " in query:
-        # look for weekdays using 'on {dayw}'
-        for day in ['on sun',
-                    'on mon',
-                    'on tue',
-                    'on wed',
-                    'on thu',
-                    'on fri',
-                    'on sat',
-                    'next sun',
-                    'next mon',
-                    'next tue',
-                    'next wed',
-                    'next thu',
-                    'next fri',
-                    'next sat',
-                    'sunday',
-                    'monday',
-                    'tuesday',
-                    'wednesday',
-                    'thursday',
-                    'friday',
-                    'saturday']:
+
+        # ['on sun', ... , 'on sat', 'next sun', ... , 'next sat']
+        for day in [f"on {day[:3]}" for day in weekdays] + [f"next {day[:3]}" for day in weekdays]:
 
             if re.search(day, query, flags=re.IGNORECASE):
 
                 _query_match = re.split(day, query, flags=re.IGNORECASE)
                 query = _larger(_query_match[0], _query_match[1])
 
-                query_time = day
-                query_time = re.sub('on ', '', query_time, flags=re.IGNORECASE)
-                query_time = re.sub('next ', '', query_time,
-                                    flags=re.IGNORECASE)
-                query_time = re.sub('day', '', query_time, flags=re.IGNORECASE)
+                query_time_token = re.sub(
+                    'on|next|day', '', day, flags=re.IGNORECASE).strip()
 
                 query_time_formatted = {
                     'sun': 'Sunday',
@@ -621,7 +604,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
                     'thurs': 'Thursday',
                     'fri': 'Friday',
                     'satur': 'Saturday'
-                }.get(query_time, f"Error: {query_time} not matched to a weekday")
+                }.get(query_time_token, f"Error: '{query_time_token}' not matched to a weekday")
 
                 break
 
@@ -629,7 +612,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
     parsed_date = _parse_date(query)
 
     # handle "tomorrow"
-    if not query_time and re.search("tomorrow", query, flags=re.IGNORECASE):
+    if not query_time_token and re.search("tomorrow", query, flags=re.IGNORECASE):
         _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
         query = _strip_to(_larger(_query_match[0], _query_match[1]))
 
@@ -638,8 +621,8 @@ def parse_query(manual_reminder_param='', manual_time=''):
         parsed_date = _parse_date(manual_time)
 
     # handle specific dates (found or specified)
-    if parsed_date and (not query_time or manual_time):
-        query_time = parsed_date[0].strftime('%F')
+    if parsed_date and (not query_time_token or manual_time):
+        query_time_token = parsed_date[0].strftime('%F')
 
         if not query_time_formatted and manual_time != TODAY:
             query_time_format = '%A, %B %d'
@@ -689,14 +672,14 @@ def parse_query(manual_reminder_param='', manual_time=''):
             response = 'y'
 
         if response == 'p':
-            query_time = ''
+            query_time_token = ''
             query_time_formatted = ''
             query = ' '.join(sys.argv[1:])
             print("\n------------------------------")
             QUERY_TRACE.append("\n------------------------------")
 
         elif response == 'l':
-            query_time = 'any'
+            query_time_token = 'any'
             is_recurring = True
             query_time_formatted = 'later'
 
@@ -712,12 +695,14 @@ def parse_query(manual_reminder_param='', manual_time=''):
             manual_reminder(query, weekday)
             return
 
+    # send immediate reminders
     if query_time_formatted == 'right now' and response == 'y':
         _send(query.strip(), query_notes, False, is_quiet=True)
         print("\nSent! Check your inbox.")
         return
 
-    if query_time:
+    # scheduled reminders
+    if query_time_token:
         if len(response) > 0 and not response.startswith('n'):
             if response == 'r':
                 print("Reporting bad query via email...")
@@ -727,12 +712,13 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 _send(f"Bad Query: {TODAY}", '<br>'.join(
                     QUERY_TRACE).replace("\n", "<br>"), False, is_quiet=False)
             else:
+                # add to remind.md file
                 query = query.strip()
                 if query_notes:
                     query = f"{query}: {query_notes}"
                 remind_md = securedata.getFileAsArray('remind.md', 'notes')
                 remind_md.append(
-                    f"[{query_time}]{'' if is_recurring else 'd'} {query}")
+                    f"[{query_time_token}]{'' if is_recurring else 'd'} {query}")
                 securedata.writeFile("remind.md", "notes",
                                      '\n'.join(remind_md), is_quiet=True)
                 _log(
@@ -744,7 +730,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
                     f"""\nScheduled "{query.strip()}" for {query_time_formatted}""")
         return
 
-    if len(response) > 0 and not response.startswith('n'):
+    if len(response) > 0:
         if response == 'r':
             print("Reporting bad query via email...")
             QUERY_TRACE.append("Reporting bad query via email...")
@@ -752,7 +738,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 f"RemindMail query reported: {' '.join(sys.argv[0:])}", level="warn")
             _send(f"Bad Query: {TODAY}", '<br>'.join(
                 QUERY_TRACE).replace("\n", "<br>"), False)
-        else:
+        elif not response.startswith('n'):
             # send 'right now' reminder
             _send(query.strip(), query_notes, False, is_quiet=True)
             print("\nSent! Check your inbox.")
