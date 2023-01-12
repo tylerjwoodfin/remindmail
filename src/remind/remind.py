@@ -240,7 +240,6 @@ def generate(param=None):
 
         if parsed_date and today_zero_time == parsed_date[0]:
             is_match = True
-            _send(item.split(' ', 1)[1], item_notes, is_test, "remind.md")
 
         elif "%" in token:
 
