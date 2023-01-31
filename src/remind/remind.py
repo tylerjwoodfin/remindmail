@@ -179,13 +179,17 @@ def generate(param=None):
 
     # do not generate more than once in one day unless `remind generate force`
     if not (TODAY_INDEX != day_of_month_reminders_generated
-            and datetime.today().hour > 3) or (len(sys.argv) > 2 and sys.argv[2] == "force"):
+            and datetime.today().hour > 3) and not (len(sys.argv) > 2 and sys.argv[2] == "force"):
+
         _log("Reminders have already been generated in the past 12 hours.", level="debug")
         return
 
     _log("Generating reminders")
 
     is_test = False
+    is_command = False
+    command = ''
+
     if len(sys.argv) > 3 and sys.argv[3] == "test":
         is_test = True
 
@@ -198,15 +202,21 @@ def generate(param=None):
     _remindmd_file = remindmd_file.copy()
     for index, item in enumerate(_remindmd_file):
 
+        is_match = False
+
         today_zero_time = datetime.today().replace(
             hour=0, minute=0, second=0, microsecond=0)
+
+        # handle commands
+        if "]c" in item:
+            is_command = True
+            command = item.split("]c ")[1]
 
         # ignore anything outside of [*]
         if not re.match(r"\[(.*?)\]", item):
             continue
 
         _item = item
-        is_match = False
 
         # handle notes
         item_notes = ''
@@ -279,7 +289,9 @@ def generate(param=None):
 
         # handle deletion and decrementing
         if is_match:
-            _send(item.split(' ', 1)[1], item_notes, is_test, "remind.md")
+
+            if not is_command:
+                _send(item.split(' ', 1)[1], item_notes, is_test, "remind.md")
             if token_after == 1:
                 _log(f"Deleting item from remind.md: {item}")
                 if not is_test:
@@ -294,6 +306,9 @@ def generate(param=None):
             elif token_after > 1:
                 remindmd_file[index] = (item.replace(
                     f"]{token_after} ", f"]{token_after-1} "))
+
+            if is_command:
+                os.system(command)
 
     securedata.writeFile("remind.md", "notes",
                          '\n'.join(remindmd_file), is_quiet=True)
@@ -768,7 +783,6 @@ def manual_reminder(reminder_param='', reminder_time_param=''):
 
     QUERY_TRACE.append(f"... calling parse_query({reminder},{reminder_time}) ")
     parse_query(reminder, reminder_time)
-
 
 params = {
     "help": about,

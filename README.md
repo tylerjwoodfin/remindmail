@@ -7,6 +7,7 @@
 - easily manage your To Do list from anywhere in the terminal
 - schedule one-time or recurring reminders
 - automatically sync scheduled reminders as a plaintext file with Dropbox, Google Drive, Nextcloud, or any other Cloud Storage provider using [rclone](https://rclone.org/install/)
+- schedule commands (your crontab can't run every 2 weeks as easily!)
 
 # notable dependencies
 
@@ -152,11 +153,13 @@
 [Thursday]d   This reminder is sent, then deleted, if today is Thursday.
 [D01]         This reminder is sent if today is the 1st of the month.
 [D31]d        This reminder is sent, then deleted, if today is the 31st of the month.
+[D31]c        cd /foo/bar && rm -rf / # this reminder is a scheduled command.
 
 [3-5]         This reminder is sent if today is March 5.
 [3/5]d        This reminder is sent, then deleted, if today is March 5.
 [3/5]1        This reminder is sent, then deleted, if today is March 5.
 [2022-3-5]d   This reminder is sent, then deleted, if today is March 5.
+[2022-3-5]c   cd /foo/bar && rm -rf / # this reminder is a scheduled command.
 ```
 
 ### weeks
@@ -173,6 +176,7 @@
 ```
 [M%5]         This reminder is sent every 5 months (_not necessarily May and October! pay attention to offsets_)
 [M%2]d        This reminder is sent at the next even-numbered month, then deleted.
+[M%2]c        cd /foo/bar && rm -rf / # this reminder is a scheduled command.
 ```
 
 ### one-time or n-time reminders
@@ -205,7 +209,7 @@ It is recommended you add `remind later` as a scheduled crontab action.
 [Y%5]         Year is unsupported.
 (thu)         You must use brackets.
 {thu}         You must use brackets.
-   [W%3]      You must start reminders on the first column.
+   [W%3]      You must start reminders at the start of a newline.
 [W%3-1]       This is invalid. To add an offset, you MUST use +.
 [W%3+4]       An offset of 4 makes no sense and won't be triggered because [W%3+3] is the same thing as [W%3+0]. Use [W%3+1] instead.
 
