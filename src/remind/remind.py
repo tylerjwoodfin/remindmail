@@ -180,14 +180,12 @@ def generate(param=None):
     # do not generate more than once in one day unless `remind generate force`
     if not (TODAY_INDEX != day_of_month_reminders_generated
             and datetime.today().hour > 3) and not (len(sys.argv) > 2 and sys.argv[2] == "force"):
-
         _log("Reminders have already been generated in the past 12 hours.", level="debug")
         return
 
     _log("Generating reminders")
 
     is_test = False
-    is_command = False
     command = ''
 
     if len(sys.argv) > 3 and sys.argv[3] == "test":
@@ -203,6 +201,7 @@ def generate(param=None):
     for index, item in enumerate(_remindmd_file):
 
         is_match = False
+        is_command = False
 
         today_zero_time = datetime.today().replace(
             hour=0, minute=0, second=0, microsecond=0)
@@ -268,15 +267,15 @@ def generate(param=None):
                 split_factor = int(split_factor)
 
             is_epoch_equal_offset = (
-                epoch_day % split_factor == split_offset,
-                epoch_week % split_factor == split_offset,
-                epoch_month % split_factor == split_offset)
+                split_type == 'd' and epoch_day % split_factor == split_offset,
+                split_type == 'w' and epoch_week % split_factor == split_offset,
+                split_type == 'm' and epoch_month % split_factor == split_offset)
 
             today_dayw = datetime.today().strftime("%a")
 
             split_types = ['d', 'w', 'm', 'sun', 'mon',
                            'tue', 'wed', 'thu', 'fri', 'sat']
-            if split_type in split_types and is_epoch_equal_offset:
+            if split_type in split_types and any(is_epoch_equal_offset):
                 if split_type == 'd':
                     is_match = True
                 elif split_type == 'w' and today_dayw == 'Sun':
@@ -308,7 +307,12 @@ def generate(param=None):
                     f"]{token_after} ", f"]{token_after-1} "))
 
             if is_command:
-                os.system(command)
+                if not is_test:
+                    print("Executing command:\n", command)
+                    os.system(command)
+                else:
+                    _log(f"(in test mode- not executing {item})",
+                         level="debug")
 
     securedata.writeFile("remind.md", "notes",
                          '\n'.join(remindmd_file), is_quiet=True)
