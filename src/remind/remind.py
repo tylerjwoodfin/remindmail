@@ -269,7 +269,9 @@ def generate(param=None):
             is_epoch_equal_offset = (
                 split_type == 'd' and epoch_day % split_factor == split_offset,
                 split_type == 'w' and epoch_week % split_factor == split_offset,
-                split_type == 'm' and epoch_month % split_factor == split_offset)
+                split_type == 'm' and epoch_month % split_factor == split_offset,
+                split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+                and epoch_week % split_factor == split_offset)
 
             today_dayw = datetime.today().strftime("%a")
 
