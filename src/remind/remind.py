@@ -10,13 +10,13 @@ from datetime import datetime
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
-from securedata import securedata, mail
+from cabinet import cabinet, mail
 
 TODAY = str(datetime.today().strftime('%Y-%m-%d'))
 TODAY_INDEX = datetime.today().day
-PATH_LOCAL = securedata.getItem(
+PATH_LOCAL = cabinet.get(
     'path', 'remindmail', 'local')
-PATH_CLOUD = securedata.getItem(
+PATH_CLOUD = cabinet.get(
     'path', 'remindmail', 'cloud')
 QUERY_TRACE = []
 IS_CLOUD_ENABLED = PATH_LOCAL and PATH_CLOUD
@@ -33,10 +33,10 @@ HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
 
 Parameters (in brackets):
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
-	localPath: Currently {PATH_LOCAL}. Settings are stored in {securedata.getConfigItem('path_securedata')} and should be stored as a JSON object (path -> remindmail -> local).
+	localPath: Currently {PATH_LOCAL}. Settings are stored in {cabinet.get_config('path_cabinet')} and should be stored as a JSON object (path -> remindmail -> local).
 
 Notes Directory:
-	remind.md in {PATH_LOCAL}. Change the path by running "remindmail config notes <fullPath>" (stored in {securedata.getConfigItem('path_securedata')})
+	remind.md in {PATH_LOCAL}. Change the path by running "remindmail config notes <fullPath>" (stored in {cabinet.get_config('path_cabinet')})
 
 remind.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
@@ -78,15 +78,15 @@ def _parse_date(string):
 
 
 def _log(message, level="info"):
-    """A wrapper for securedata.log to handle the remindmail log setting"""
+    """A wrapper for cabinet.log to handle the remindmail log setting"""
 
-    path_log = securedata.getItem("path", "log")
-    path_log_remindmail = securedata.getItem("path", "log")
-    path = path_log_remindmail or securedata.setItem(
+    path_log = cabinet.get("path", "log")
+    path_log_remindmail = cabinet.get("path", "log")
+    path = path_log_remindmail or cabinet.put(
         "path", "remindmail", "log", path_log or "log")
     path = f"{path}/{TODAY}"
 
-    securedata.log(message, level=level, filePath=path,
+    cabinet.log(message, level=level, file_path=path,
                    is_quiet=level == "info")
 
 
@@ -101,8 +101,8 @@ def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
     body += f"<br><br>Sent via {method}"
 
     if not is_test:
-        count_sent = securedata.getItem("remindmail", "sent_today") or 0
-        securedata.setItem("remindmail", "sent_today", count_sent+1)
+        count_sent = cabinet.get("remindmail", "sent_today") or 0
+        cabinet.put("remindmail", "sent_today", count_sent+1)
         _log(f"Incremented reminder count to {count_sent+1}")
         mail.send(f"Reminder - {subject}", body or "", is_quiet=is_quiet)
     else:
@@ -144,7 +144,7 @@ def list_reminders(param=None):
 def mail_reminders_for_later():
     """Mails a summary of reminders with [any] at the start from remind.md in {PATH_LOCAL}"""
 
-    remindmd_file = securedata.getFileAsArray("remind.md", "notes") or []
+    remindmd_file = cabinet.get_file_as_array("remind.md", "notes") or []
     reminders_for_later = []
     for item in remindmd_file:
         if item.startswith("[any] "):
@@ -171,7 +171,7 @@ def generate(param=None):
         Intended to be run from the crontab (try 'remindmail generate force' to run immediately)
         """
 
-    day_of_month_reminders_generated = securedata.getItem(
+    day_of_month_reminders_generated = cabinet.get(
         "remindmail", "day_generated")
 
     if day_of_month_reminders_generated == '':
@@ -195,7 +195,7 @@ def generate(param=None):
     epoch_week = int(time.time()/60/60/24/7)
     epoch_month = int(datetime.today().month)
 
-    remindmd_file = securedata.getFileAsArray("remind.md", "notes") or []
+    remindmd_file = cabinet.get_file_as_array("remind.md", "notes") or []
 
     _remindmd_file = remindmd_file.copy()
     for index, item in enumerate(_remindmd_file):
@@ -244,7 +244,7 @@ def generate(param=None):
                     parsed_date = parse(
                         f"{token}day", fuzzy_with_tokens=True)
                 except ValueError as error:
-                    securedata.log(
+                    cabinet.log(
                         f"Could not parse token: {token}; {error}", level="error")
 
         if parsed_date and today_zero_time == parsed_date[0]:
@@ -316,11 +316,11 @@ def generate(param=None):
                     _log(f"(in test mode- not executing {item})",
                          level="debug")
 
-    securedata.writeFile("remind.md", "notes",
+    cabinet.write_file("remind.md", "notes",
                          '\n'.join(remindmd_file), is_quiet=True)
 
-    securedata.log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
-    securedata.setItem("remindmail", "day_generated", TODAY_INDEX)
+    cabinet.log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
+    cabinet.put("remindmail", "day_generated", TODAY_INDEX)
     _log("Generated tasks")
 
 
@@ -337,7 +337,7 @@ def about():
 
 def config(param=None):
     """
-    An interactive way to set securedata variables. May be removed in a future updatetime.
+    An interactive way to set cabinet variables. May be removed in a future updatetime.
 
     Parameters:
     - param: string; currently unused.
@@ -348,28 +348,28 @@ def config(param=None):
     if param == "help":
         return """remindmail config local <path>: Set your notes path (use full paths)
 		e.g. remindmail config local /home/userdir/Dropbox/Notes
-		(this is stored SecureData; see README)
+		(this is stored in Cabinet; see README)
 
 		remindmail config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
 		e.g. remindmail config cloud
-		(this is stored SecureData; see README)
+		(this is stored in Cabinet; see README)
 
 		remindmail config cloudpath <path>: Set the path in your cloud service to store reminders (remind.md)
 		e.g., if you keep Tasks in Dropbox at Documents/notes/remind.md: remindmail config cloudpath Documents/Notes
-		(this is stored SecureData; see README)"""
+		(this is stored in Cabinet; see README)"""
     if len(sys.argv) < 3:
         print(config("help"))
         return
 
     if sys.argv[2].lower() == "local":
         new_dir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        securedata.setItem("path", "remindmail", "local", new_dir)
+        cabinet.put("path", "remindmail", "local", new_dir)
         print(
             f"remind.md should now be stored in {new_dir}.")
 
     if sys.argv[2].lower() == "cloud":
         new_dir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        securedata.setItem("path", "remindmail", "cloud", new_dir)
+        cabinet.put("path", "remindmail", "cloud", new_dir)
         print(
             f"remind.md should now be synced in rclone through {new_dir}.")
 
@@ -472,22 +472,22 @@ def edit():
     Edits the remind.md file
     You must configure the path to remind.md in
 
-    securedata -> settings.json -> path -> edit -> remind
+    cabinet -> settings.json -> path -> edit -> remind
     """
 
-    status = securedata.editFile("remind")
+    status = cabinet.edit("remind")
     if status == -1:
         print((f"You must configure the path to remind.md in "
-               f"{securedata.PATH_SECUREDATA}/settings.json -> path -> edit -> remind.\n\n"))
+               f"{cabinet.PATH_CABINET}/settings.json -> path -> edit -> remind.\n\n"))
 
         resp = ''
         while resp not in ['y', 'n']:
             resp = input(
                 f"Would you like to set this to {PATH_LOCAL}/remind.md? y/n\n\n")
             if resp == 'y':
-                securedata.setItem("path", "edit", "remind",
+                cabinet.put("path", "edit", "remind",
                                    "value", f"{PATH_LOCAL}/remind.md")
-                print((f"\n\nSet. Open {securedata.PATH_SECUREDATA}/settings.json"
+                print((f"\n\nSet. Open {cabinet.PATH_CABINET}/settings.json"
                        f" and set path -> edit -> remind -> sync to true"
                        f" to enable cloud syncing."))
     sys.exit()
@@ -736,10 +736,10 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 query = query.strip()
                 if query_notes:
                     query = f"{query}: {query_notes}"
-                remind_md = securedata.getFileAsArray('remind.md', 'notes')
+                remind_md = cabinet.get_file_as_array('remind.md', 'notes')
                 remind_md.append(
                     f"[{query_time_token}]{'' if is_recurring else 'd'} {query}")
-                securedata.writeFile("remind.md", "notes",
+                cabinet.write_file("remind.md", "notes",
                                      '\n'.join(remind_md), is_quiet=True)
                 _log(
                     f"""Scheduled "{query.strip()}" for {query_time_formatted}""")

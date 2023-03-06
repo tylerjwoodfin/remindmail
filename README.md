@@ -13,7 +13,7 @@
 
 - use `pip install -r requirements.md` to install all dependencies
 - Linux (Raspberry Pis work great!)
-- [securedata](https://github.com/tylerjwoodfin/securedata)
+- [cabinet](https://pypi.org/project/cabinet/)
 - a unique, non-Gmail address specifically for this project
   - do not use an email address that you use in other areas of your life
   - do not re-use a password you've used anywhere else; use a unique password.
@@ -27,14 +27,14 @@
   # adjust path accordingly
   pip install -r /path/to/requirements.md
 
-  securedata config
+  cabinet config # cabinet must be configured properly
 ```
 
-## securedata config
-- you need to install and configure [securedata](https://github.com/tylerjwoodfin/securedata)
+## cabinet config
+- you need to install and configure [cabinet](https://github.com/tylerjwoodfin/cabinet)
 
-  - initialize using `securedata config`; see securedata's README for details
-  - in securedata's `settings.json`, set the email information using the example below
+  - initialize using `cabinet config`; see cabinet's README for details
+  - in cabinet's `settings.json`, set the email information using the example below
     - note that Gmail will _not_ work due to their security restrictions.
     - it's very bad practice to store your password in plaintext; for this reason, never sync this file.
     - always use a unique email address specifically for this, and _especially_ use a unique password.
@@ -64,7 +64,7 @@
 - complete the steps above in "Setup"
 - install [rclone](https://rclone.org/install/).
 - run `rclone config` to set up a cloud storage provider of your choice
-- set the full directory path of your cloud using `securedata`; set `path -> remindmail -> cloud` (see `Setup` for an example)
+- set the full directory path of your cloud using `cabinet`; set `path -> remindmail -> cloud` (see `Setup` for an example)
 
 ## scheduling reminder checks
 
@@ -85,7 +85,7 @@
 
 # edit
 
-- `remind edit` looks at the `path -> edit -> remind -> value` property in securedata's settings.json:
+- `remind edit` looks at the `path -> edit -> remind -> value` property in cabinet's settings.json:
 
 ```
 {
@@ -104,8 +104,8 @@
 
 # logging
 
-- by defualt, remindmail's log path is set to `securedata`'s default log
-- otherwise, you can set `path -> remindmail -> log` in `securedata` (see Setup above) for a custom directory.
+- by defualt, remindmail's log path is set to `cabinet`'s default log
+- otherwise, you can set `path -> remindmail -> log` in `cabinet` (see Setup above) for a custom directory.
 
 # scheduling reminders with remind.md
 
