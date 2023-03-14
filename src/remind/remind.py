@@ -14,17 +14,14 @@ from cabinet import cabinet, mail
 
 TODAY = str(datetime.today().strftime('%Y-%m-%d'))
 TODAY_INDEX = datetime.today().day
-PATH_LOCAL = cabinet.get(
-    'path', 'remindmail', 'local')
-PATH_CLOUD = cabinet.get(
-    'path', 'remindmail', 'cloud')
+PATH_REMIND_FILE = cabinet.get(
+    'path', 'remindmail', 'file')
 QUERY_TRACE = []
-IS_CLOUD_ENABLED = PATH_LOCAL and PATH_CLOUD
 HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
 	pull
     generate force
     generate force test
-	config local <localPath>
+	config local <filePath>
 	config cloud
 	config cloudpath
 	offset
@@ -33,10 +30,10 @@ HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
 
 Parameters (in brackets):
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
-	localPath: Currently {PATH_LOCAL}. Settings are stored in {cabinet.get_config('path_cabinet')} and should be stored as a JSON object (path -> remindmail -> local).
+	filePath: Currently {PATH_REMIND_FILE}. Settings are stored in {cabinet.get_config('path_cabinet')} and should be stored as a JSON object (path -> remindmail -> file).
 
 Notes Directory:
-	remind.md in {PATH_LOCAL}. Change the path by running "remindmail config notes <fullPath>" (stored in {cabinet.get_config('path_cabinet')})
+	remind.md in {PATH_REMIND_FILE}. Change the path by running "remindmail config notes <fullPath>" (stored in {cabinet.get_config('path_cabinet')})
 
 remind.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
@@ -128,16 +125,16 @@ def list_reminders(param=None):
 
     if param == "help":
         return (f"Displays the scheduled reminders in remind.py"
-                f" (in {PATH_LOCAL}),"
+                f" (in {PATH_REMIND_FILE}),"
                 " formatted with line numbers\n\nUsage: remindmail ls")
 
-    remindmd_cloud = f"{PATH_CLOUD}/remind.md"
-    remindmd_local = f"{PATH_LOCAL}/remind.md"
+    remindmd_local = f"{PATH_REMIND_FILE}/remind.md"
 
-    if IS_CLOUD_ENABLED:
-        os.system(f"rclone copyto {remindmd_cloud} {remindmd_local}")
-
-    os.system(f"cat -n {remindmd_local}")
+    if PATH_REMIND_FILE is not None:
+        os.system(f"cat -n {remindmd_local}")
+    else:
+        print(f"Could not find reminder path; in ${cabinet.PATH_CABINET}/settings.json, set path \
+            set path -> remindmail -> file to the absolute path of the directory of your remind.md file.")
     print("\n")
 
 
@@ -167,7 +164,7 @@ def generate(param=None):
 
     if param == "help":
         return f"""
-        Mails remind from the remind.md file in {PATH_LOCAL}.
+        Mails remind from the remind.md file in {PATH_REMIND_FILE}.
         Intended to be run from the crontab (try 'remindmail generate force' to run immediately)
         """
 
@@ -350,7 +347,6 @@ def config(param=None):
 		e.g. remindmail config local /home/userdir/Dropbox/Notes
 		(this is stored in Cabinet; see README)
 
-		remindmail config cloud: Set your cloud storage provider based on your rclone config (must have rclone- see ReadMe)
 		e.g. remindmail config cloud
 		(this is stored in Cabinet; see README)
 
@@ -366,12 +362,6 @@ def config(param=None):
         cabinet.put("path", "remindmail", "local", new_dir)
         print(
             f"remind.md should now be stored in {new_dir}.")
-
-    if sys.argv[2].lower() == "cloud":
-        new_dir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        cabinet.put("path", "remindmail", "cloud", new_dir)
-        print(
-            f"remind.md should now be synced in rclone through {new_dir}.")
 
 
 def offset(param=None):
@@ -445,7 +435,7 @@ def offset(param=None):
 
         print(return_val)
         print(f"""This means you can add '[{token_example}%{offset_n}+{return_val}] <task name>'
-            to {PATH_LOCAL}/remind.md to match the selected date.""")
+            to {PATH_REMIND_FILE}/remind.md to match the selected date.""")
 
         if offset_n == 1:
             print((f"Note: Anything % 1 is always 0. This is saying "
@@ -483,10 +473,10 @@ def edit():
         resp = ''
         while resp not in ['y', 'n']:
             resp = input(
-                f"Would you like to set this to {PATH_LOCAL}/remind.md? y/n\n\n")
+                f"Would you like to set this to {PATH_REMIND_FILE}/remind.md? y/n\n\n")
             if resp == 'y':
                 cabinet.put("path", "edit", "remind",
-                                   "value", f"{PATH_LOCAL}/remind.md")
+                                   "value", f"{PATH_REMIND_FILE}/remind.md")
                 print((f"\n\nSet. Open {cabinet.PATH_CABINET}/settings.json"
                        f" and set path -> edit -> remind -> sync to true"
                        f" to enable cloud syncing."))
