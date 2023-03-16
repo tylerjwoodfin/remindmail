@@ -74,16 +74,14 @@ def _parse_date(string):
         return False
 
 
-def _log(message, level="info"):
+def _log(message, level="info", path=None):
     """A wrapper for cabinet.log to handle the remindmail log setting"""
 
     path_log = cabinet.get("path", "log")
-    path_log_remindmail = cabinet.get("path", "log")
-    path = path_log_remindmail or cabinet.put(
-        "path", "remindmail", "log", path_log or "log")
+    path = path or path_log
     path = f"{path}/{TODAY}"
 
-    cabinet.log(message, level=level, file_path=path,
+    cabinet.log(f"remindmail: {message}", level=level, file_path=path,
                    is_quiet=level == "info")
 
 
@@ -105,7 +103,6 @@ def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
     else:
         _log(
             f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
-
 
 def _larger(string_a, string_b):
     """A helper function to return the larger string"""
@@ -134,7 +131,7 @@ def list_reminders(param=None):
         os.system(f"cat -n {remindmd_local}")
     else:
         print(f"Could not find reminder path; in ${cabinet.PATH_CABINET}/settings.json, set path \
-            set path -> remindmail -> file to the absolute path of the directory of your remind.md file.")
+            -> remindmail -> file to the absolute path of the directory of your remind.md file.")
     print("\n")
 
 
@@ -241,8 +238,7 @@ def generate(param=None):
                     parsed_date = parse(
                         f"{token}day", fuzzy_with_tokens=True)
                 except ValueError as error:
-                    cabinet.log(
-                        f"Could not parse token: {token}; {error}", level="error")
+                    _log(f"Could not parse token: {token}; {error}", level="error")
 
         if parsed_date and today_zero_time == parsed_date[0]:
             is_match = True
@@ -316,8 +312,12 @@ def generate(param=None):
     cabinet.write_file("remind.md", "notes",
                          '\n'.join(remindmd_file), is_quiet=True)
 
-    cabinet.log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
-    cabinet.put("remindmail", "day_generated", TODAY_INDEX)
+    if not is_test:
+        _log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
+        cabinet.put("remindmail", "day_generated", TODAY_INDEX)
+    else:
+        _log(f"In test mode- would set remindmail -> day_generated to {TODAY_INDEX}", level="debug")
+
     _log("Generated tasks")
 
 
