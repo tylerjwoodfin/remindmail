@@ -84,7 +84,7 @@ def _log(message, level="info", path=None):
     path = f"{path}/{TODAY}"
 
     cab.log(f"remindmail: {message}", level=level, file_path=path,
-                   is_quiet=level == "info")
+            is_quiet=level == "info")
 
 
 def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
@@ -105,6 +105,7 @@ def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
     else:
         _log(
             f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
+
 
 def _larger(string_a, string_b):
     """A helper function to return the larger string"""
@@ -240,7 +241,8 @@ def generate(param=None):
                     parsed_date = parse(
                         f"{token}day", fuzzy_with_tokens=True)
                 except ValueError as error:
-                    _log(f"Could not parse token: {token}; {error}", level="error")
+                    _log(
+                        f"Could not parse token: {token}; {error}", level="error")
 
         if parsed_date and today_zero_time == parsed_date[0]:
             is_match = True
@@ -312,13 +314,14 @@ def generate(param=None):
                          level="debug")
 
     cab.write_file("remind.md", "notes",
-                         '\n'.join(remindmd_file), is_quiet=True)
+                   '\n'.join(remindmd_file), is_quiet=True)
 
     if not is_test:
         _log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
         cab.put("remindmail", "day_generated", TODAY_INDEX)
     else:
-        _log(f"In test mode- would set remindmail -> day_generated to {TODAY_INDEX}", level="debug")
+        _log(
+            f"In test mode- would set remindmail -> day_generated to {TODAY_INDEX}", level="debug")
 
     _log("Generated tasks")
 
@@ -450,7 +453,6 @@ def offset(param=None):
                    "will be added without an offset."))
 
     except ValueError:
-        print(sys.argv[3])
         print("Date must be YYYY-MM-DD.")
     except IndexError:
         print((f"Missing <n>, as in 'every n {sys.argv[2]}s'\n"
@@ -471,7 +473,7 @@ def edit():
         cab.edit_file("remind")
     except FileNotFoundError:
         print((f"You must configure the path to remind.md in "
-                f"{cab.path_cabinet}/settings.json -> path -> edit -> remind.\n\n"))
+               f"{cab.path_cabinet}/settings.json -> path -> edit -> remind.\n\n"))
 
         resp = ''
         while resp not in ['y', 'n']:
@@ -479,10 +481,10 @@ def edit():
                 f"Would you like to set this to {PATH_REMIND_FILE}/remind.md? y/n\n\n")
             if resp == 'y':
                 cab.put("path", "edit", "remind",
-                                    "value", f"{PATH_REMIND_FILE}/remind.md")
+                        "value", f"{PATH_REMIND_FILE}/remind.md")
                 print((f"\n\nSet. Open {cab.path_cabinet}/settings.json"
-                        f" and set path -> edit -> remind -> sync to true"
-                        f" to enable cloud syncing."))
+                       f" and set path -> edit -> remind -> sync to true"
+                       f" to enable cloud syncing."))
     sys.exit()
 
 
@@ -733,7 +735,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 remind_md.append(
                     f"[{query_time_token}]{'' if is_recurring else 'd'} {query}")
                 cab.write_file("remind.md", "notes",
-                                     '\n'.join(remind_md), is_quiet=True)
+                               '\n'.join(remind_md), is_quiet=True)
                 _log(
                     f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
                 QUERY_TRACE.append(
@@ -782,6 +784,7 @@ def manual_reminder(reminder_param='', reminder_time_param=''):
 
     QUERY_TRACE.append(f"... calling parse_query({reminder},{reminder_time}) ")
     parse_query(reminder, reminder_time)
+
 
 params = {
     "help": about,
