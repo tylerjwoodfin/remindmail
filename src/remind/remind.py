@@ -10,11 +10,13 @@ from datetime import datetime
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
-from cabinet import cabinet, mail
+from cabinet import Cabinet, mail
+
+cab = Cabinet()
 
 TODAY = str(datetime.today().strftime('%Y-%m-%d'))
 TODAY_INDEX = datetime.today().day
-PATH_REMIND_FILE = cabinet.get(
+PATH_REMIND_FILE = cab.get(
     'path', 'remindmail', 'file')
 QUERY_TRACE = []
 HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
@@ -30,10 +32,10 @@ HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
 
 Parameters (in brackets):
 	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
-	filePath: Currently {PATH_REMIND_FILE}. Settings are stored in {cabinet.get_config('path_cabinet')} and should be stored as a JSON object (path -> remindmail -> file).
+	filePath: Currently {PATH_REMIND_FILE}. Settings are stored in Cabinet's settings.json and should be stored as a JSON object (path -> remindmail -> file).
 
 Notes Directory:
-	remind.md in {PATH_REMIND_FILE}. Change the path by running "remindmail config notes <fullPath>" (stored in {cabinet.get_config('path_cabinet')})
+	remind.md in {PATH_REMIND_FILE}. Change the path by running "remindmail config notes <fullPath>" (stored in Cabinet's settings.json)
 
 remind.md:
 	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
@@ -75,13 +77,13 @@ def _parse_date(string):
 
 
 def _log(message, level="info", path=None):
-    """A wrapper for cabinet.log to handle the remindmail log setting"""
+    """A wrapper for cab.log to handle the remindmail log setting"""
 
-    path_log = cabinet.get("path", "log")
+    path_log = cab.get("path", "log")
     path = path or path_log
     path = f"{path}/{TODAY}"
 
-    cabinet.log(f"remindmail: {message}", level=level, file_path=path,
+    cab.log(f"remindmail: {message}", level=level, file_path=path,
                    is_quiet=level == "info")
 
 
@@ -96,8 +98,8 @@ def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
     body += f"<br><br>Sent via {method}"
 
     if not is_test:
-        count_sent = cabinet.get("remindmail", "sent_today") or 0
-        cabinet.put("remindmail", "sent_today", count_sent+1)
+        count_sent = cab.get("remindmail", "sent_today") or 0
+        cab.put("remindmail", "sent_today", count_sent+1)
         _log(f"Incremented reminder count to {count_sent+1}")
         mail.send(f"Reminder - {subject}", body or "", is_quiet=is_quiet)
     else:
@@ -130,7 +132,7 @@ def list_reminders(param=None):
     if PATH_REMIND_FILE is not None:
         os.system(f"cat -n {remindmd_local}")
     else:
-        print(f"Could not find reminder path; in ${cabinet.PATH_CABINET}/settings.json, set path \
+        print(f"Could not find reminder path; in ${cab.path_cabinet}/settings.json, set path \
             -> remindmail -> file to the absolute path of the directory of your remind.md file.")
     print("\n")
 
@@ -138,7 +140,7 @@ def list_reminders(param=None):
 def mail_reminders_for_later():
     """Mails a summary of reminders with [any] at the start from remind.md in {PATH_LOCAL}"""
 
-    remindmd_file = cabinet.get_file_as_array("remind.md", "notes") or []
+    remindmd_file = cab.get_file_as_array("remind.md", "notes") or []
     reminders_for_later = []
     for item in remindmd_file:
         if item.startswith("[any] "):
@@ -165,7 +167,7 @@ def generate(param=None):
         Intended to be run from the crontab (try 'remindmail generate force' to run immediately)
         """
 
-    day_of_month_reminders_generated = cabinet.get(
+    day_of_month_reminders_generated = cab.get(
         "remindmail", "day_generated")
 
     if day_of_month_reminders_generated == '':
@@ -189,7 +191,7 @@ def generate(param=None):
     epoch_week = int(time.time()/60/60/24/7)
     epoch_month = int(datetime.today().month)
 
-    remindmd_file = cabinet.get_file_as_array("remind.md", "notes") or []
+    remindmd_file = cab.get_file_as_array("remind.md", "notes") or []
 
     _remindmd_file = remindmd_file.copy()
     for index, item in enumerate(_remindmd_file):
@@ -309,12 +311,12 @@ def generate(param=None):
                     _log(f"(in test mode- not executing {item})",
                          level="debug")
 
-    cabinet.write_file("remind.md", "notes",
+    cab.write_file("remind.md", "notes",
                          '\n'.join(remindmd_file), is_quiet=True)
 
     if not is_test:
         _log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
-        cabinet.put("remindmail", "day_generated", TODAY_INDEX)
+        cab.put("remindmail", "day_generated", TODAY_INDEX)
     else:
         _log(f"In test mode- would set remindmail -> day_generated to {TODAY_INDEX}", level="debug")
 
@@ -359,7 +361,7 @@ def config(param=None):
 
     if sys.argv[2].lower() == "local":
         new_dir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        cabinet.put("path", "remindmail", "local", new_dir)
+        cab.put("path", "remindmail", "local", new_dir)
         print(
             f"remind.md should now be stored in {new_dir}.")
 
@@ -465,21 +467,22 @@ def edit():
     cabinet -> settings.json -> path -> edit -> remind
     """
 
-    status = cabinet.edit("remind")
-    if status == -1:
+    try:
+        cab.edit_file("remind")
+    except FileNotFoundError:
         print((f"You must configure the path to remind.md in "
-               f"{cabinet.PATH_CABINET}/settings.json -> path -> edit -> remind.\n\n"))
+                f"{cab.path_cabinet}/settings.json -> path -> edit -> remind.\n\n"))
 
         resp = ''
         while resp not in ['y', 'n']:
             resp = input(
                 f"Would you like to set this to {PATH_REMIND_FILE}/remind.md? y/n\n\n")
             if resp == 'y':
-                cabinet.put("path", "edit", "remind",
-                                   "value", f"{PATH_REMIND_FILE}/remind.md")
-                print((f"\n\nSet. Open {cabinet.PATH_CABINET}/settings.json"
-                       f" and set path -> edit -> remind -> sync to true"
-                       f" to enable cloud syncing."))
+                cab.put("path", "edit", "remind",
+                                    "value", f"{PATH_REMIND_FILE}/remind.md")
+                print((f"\n\nSet. Open {cab.path_cabinet}/settings.json"
+                        f" and set path -> edit -> remind -> sync to true"
+                        f" to enable cloud syncing."))
     sys.exit()
 
 
@@ -726,10 +729,10 @@ def parse_query(manual_reminder_param='', manual_time=''):
                 query = query.strip()
                 if query_notes:
                     query = f"{query}: {query_notes}"
-                remind_md = cabinet.get_file_as_array('remind.md', 'notes')
+                remind_md = cab.get_file_as_array('remind.md', 'notes')
                 remind_md.append(
                     f"[{query_time_token}]{'' if is_recurring else 'd'} {query}")
-                cabinet.write_file("remind.md", "notes",
+                cab.write_file("remind.md", "notes",
                                      '\n'.join(remind_md), is_quiet=True)
                 _log(
                     f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
