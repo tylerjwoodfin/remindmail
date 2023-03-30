@@ -6,7 +6,6 @@
 
 - easily manage your To Do list from anywhere in the terminal
 - schedule one-time or recurring reminders
-- automatically sync scheduled reminders as a plaintext file with Dropbox, Google Drive, Nextcloud, or any other Cloud Storage provider using [rclone](https://rclone.org/install/)
 - schedule commands (your crontab can't run every 2 weeks as easily!)
 
 # notable dependencies
@@ -14,6 +13,7 @@
 - use `pip install -r requirements.md` to install all dependencies
 - Linux (Raspberry Pis work great!)
 - [cabinet](https://pypi.org/project/cabinet/)
+  - used to store JSON data; specifically, used to store the `remind.md` path and other important variables
 - a unique, non-Gmail address specifically for this project
   - do not use an email address that you use in other areas of your life
   - do not re-use a password you've used anywhere else; use a unique password.
@@ -38,7 +38,7 @@
     - note that Gmail will _not_ work due to their security restrictions.
     - it's very bad practice to store your password in plaintext; for this reason, never sync this file.
     - always use a unique email address specifically for this, and _especially_ use a unique password.
-  - Your settings.json file should look similar to this example:
+  - your settings.json file should look similar to this example:
 
   ```
   {
@@ -59,13 +59,6 @@
   }
   ```
 
-## syncing with rclone (optional)
-
-- complete the steps above in "Setup"
-- install [rclone](https://rclone.org/install/).
-- run `rclone config` to set up a cloud storage provider of your choice
-- set the full directory path of your cloud using `cabinet`; set `path -> remindmail -> cloud` (see `Setup` for an example)
-
 ## scheduling reminder checks
 
 - type "crontab -e" in the terminal
@@ -75,15 +68,34 @@
 
 # usage
 
-- natural language, e.g. `remind me to take the trash out on thursday`
-- scheduling `remindmail generate` in something like crontab to automatically send emails based on date match from `remind.md` (see below)
-  - `remindmail generate force` will override the limitation that reminders can only be generated every 12 hours.
+- `-h` (or `--help`): Displays usage information.
+- `-ls` (or `-l` or `--list`): Lists all current reminders in `remind.md`.
+- `-g` (or `--generate`): Generates all reminders scheduled for today. 
+  - I recommend setting up a crontab (see [generate](##generate))
+- `--later`: Emails reminders that are marked with `[any]`
+- `-o` (or `--offset`): Calculates the offset of a date (see [offset](##offset))
+- `-e` (or `--edit`): Opens `remind.md` in vim
 
-# generate
+## list (-l, -ls, or --list)
+- lists all current reminders in `remind.md`
 
-- `remind generate` generates reminders from `remind.md` (see below)
+## generate (-g or --generate)
+- generates reminders from `remind.md` that match the condition in brackets, 
+such as `[wed]` matching if today is Wednesday
 
-# edit
+- it is highly recommended to schedule this in crontab (Linux, MacOS) by calling `crontab -e` and adding something like
+```
+# runs every hour at 5 minutes past the hour
+5   * * * * python3 /path/to/site-packages/remind/remind.py -g
+```
+
+- reminders are generated only every 12 hours, but this can be overcome with `remind -g --force`
+
+## later (--later)
+
+- emails reminders in `remind.md` marked with `[any]`
+
+## edit (-e or --edit)
 
 - `remind edit` looks at the `path -> edit -> remind -> value` property in cabinet's settings.json:
 
@@ -92,15 +104,56 @@
     "path": {
       "edit": {
         "remind": {
-          "value": "/fullpath/to/remind.md",
-          "sync": false
+          "value": "/fullpath/to/remind.md"
         }
       }
     }
   }
 ```
 
-- Change `sync` to `true` to enable cloud syncing. This is disabled by default.
+## offset (-o or --offset)
+
+- `remind -o <type> <date (YYYY-MM-DD, optional)> <n>`
+- (`type` is day, week, month)
+- (`n` is 'every `n` days')
+
+- Take the results of this function and use it to add an offset.
+
+  - If you want something to happen every 3 days starting tomorrow, use:
+  - `remind -o day <tomorrow's date YYYY-MM-DD> 3`
+
+  - If the answer is 2, then you can add this to remind.md:
+  - [D%3+2] Description here
+
+### how this is calculated
+
+- The Epoch time is the number of seconds since January 1, 1970, UTC.
+- For example, if the current time is 1619394350, then today is Sunday, April 25, 2021 at 11:45:50PM UTC.
+- The "week number" is calculated by {epochTime}/60/60/24/7.
+  - 1619394350 /60/60/24/7 ~= 2677
+  - 2677 % 3 == 1, meaning scheduling a reminder for [W%3] would be sent last week, but not this week (or next week or the week after).
+
+### examples
+
+- e.g. `remind -o day 2022-12-31 12`
+- (find offset for every 12 days intersecting 2022-12-31)
+
+- e.g. `remind -o week 2022-12-31 3`
+- (every 3 weeks intersecting 2022-12-31)
+
+- e.g. `remind -o month 2022-12-31 4`
+- (every 4 months intersecting 2022-12-31)
+
+- e.g. `remind -o day 5`
+
+  - (every 5 days intersecting today)
+
+- e.g. `remind -o week 6`
+
+  - (every 6 weeks intersecting today)
+
+- e.g. `remind -o month 7`
+  - (every 7 months intersecting today)"""
 
 # logging
 
@@ -217,47 +270,7 @@ It is recommended you add `remind later` as a scheduled crontab action.
 
 ## calculating and scheduling "every n weeks", "every n days", "every n months"
 
-- `remind offset <type> <date (YYYY-MM-DD, optional)> <n>`
-- (`type` is day, week, month)
-- (`n` is 'every `n` days')
-
-- Take the results of this function and use it to add an offset.
-
-  - If you want something to happen every 3 days starting tomorrow, use:
-  - `remind offset day <tomorrow's date YYYY-MM-DD> 3`
-
-  - If the answer is 2, then you can add this to remind.md:
-  - [D%3+2] Description here
-
-### how this is calculated
-
-- The Epoch time is the number of seconds since January 1, 1970, UTC.
-- For example, if the current time is 1619394350, then today is Sunday, April 25, 2021 at 11:45:50PM UTC.
-- The "week number" is calculated by {epochTime}/60/60/24/7.
-  - 1619394350 /60/60/24/7 ~= 2677
-  - 2677 % 3 == 1, meaning scheduling a reminder for [W%3] would be sent last week, but not this week (or next week or the week after).
-
-## offset examples
-
-- e.g. `remind offset day 2022-12-31 12`
-- (find offset for every 12 days intersecting 2022-12-31)
-
-- e.g. `remind offset week 2022-12-31 3`
-- (every 3 weeks intersecting 2022-12-31)
-
-- e.g. `remind offset month 2022-12-31 4`
-- (every 4 months intersecting 2022-12-31)
-
-- e.g. `remind offset day 5`
-
-  - (every 5 days intersecting today)
-
-- e.g. `remind offset week 6`
-
-  - (every 6 weeks intersecting today)
-
-- e.g. `remind offset month 7`
-  - (every 7 months intersecting today)"""
+- see [offset](##offset)
 
 ## using "d" to set one-time reminders
 

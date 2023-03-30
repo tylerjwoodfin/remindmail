@@ -1,7 +1,9 @@
+#!/bin/python3
 """
 The main file containing most of the logic.
 """
 
+import argparse
 import os
 import sys
 import re
@@ -19,29 +21,6 @@ TODAY_INDEX = datetime.today().day
 PATH_REMIND_FILE = cab.get(
     'path', 'remindmail', 'file')
 QUERY_TRACE = []
-HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
-	pull
-    generate force
-    generate force test
-	config local <filePath>
-	config cloud
-	config cloudpath
-	offset
-
-	For help with a specific command: remindmail help <command>
-
-Parameters (in brackets):
-	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
-	filePath: Currently {PATH_REMIND_FILE}. Settings are stored in Cabinet's settings.json and should be stored as a JSON object (path -> remindmail -> file).
-
-Notes Directory:
-	remind.md in {PATH_REMIND_FILE}. Change the path by running "remindmail config notes <fullPath>" (stored in Cabinet's settings.json)
-
-remind.md:
-	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
-	See the provided example remind.md in ReadMe.
-
-	"""
 
 
 def _months_since_epoch(epoch):
@@ -324,49 +303,6 @@ def generate(param=None):
             f"In test mode- would set remindmail -> day_generated to {TODAY_INDEX}", level="debug")
 
     _log("Generated tasks")
-
-
-def about():
-    """Prints help information returned by passing 'help' as a string into other functions."""
-
-    if len(sys.argv) > 2:
-        func = params.get(sys.argv[2])
-        if hasattr(func, '__name__'):
-            print(func("help"))
-    else:
-        print(HELP_TEXT)
-
-
-def config(param=None):
-    """
-    An interactive way to set cabinet variables. May be removed in a future updatetime.
-
-    Parameters:
-    - param: string; currently unused.
-
-    Passing 'help' will only return the help information for this function.
-    """
-
-    if param == "help":
-        return """remindmail config local <path>: Set your notes path (use full paths)
-		e.g. remindmail config local /home/userdir/Dropbox/Notes
-		(this is stored in Cabinet; see README)
-
-		e.g. remindmail config cloud
-		(this is stored in Cabinet; see README)
-
-		remindmail config cloudpath <path>: Set the path in your cloud service to store reminders (remind.md)
-		e.g., if you keep Tasks in Dropbox at Documents/notes/remind.md: remindmail config cloudpath Documents/Notes
-		(this is stored in Cabinet; see README)"""
-    if len(sys.argv) < 3:
-        print(config("help"))
-        return
-
-    if sys.argv[2].lower() == "local":
-        new_dir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        cab.put("path", "remindmail", "local", new_dir)
-        print(
-            f"remind.md should now be stored in {new_dir}.")
 
 
 def offset(param=None):
@@ -786,26 +722,41 @@ def manual_reminder(reminder_param='', reminder_time_param=''):
     parse_query(reminder, reminder_time)
 
 
-params = {
-    "help": about,
-    "ls": list_reminders,
-    "config": config,
-    "generate": generate,
-    "later": mail_reminders_for_later,
-    "offset": offset,
-    "edit": edit
-}
-
-
 def main():
     """
     Generally parses all sys.argv parameters (such that `remind me to buy milk` is
     feasible from the terminal
     """
 
-    if len(sys.argv) > 1 and not (len(sys.argv) == 2 and sys.argv[1] == 'me'):
-        func = params.get(sys.argv[1]) or parse_query
-        func()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-m', '--message', action='store_true')
+    parser.add_argument('-d', '--date', action='store_true')
+    parser.add_argument('-ls', '-l', '--list', action='store_true',
+                        help='List all reminders')
+    parser.add_argument('-g', '--generate', action='store_true',
+                        help='Generate reminder messages')
+    parser.add_argument('--later', action='store_true',
+                        help='Mail reminders for later')
+    parser.add_argument('-o', '--offset', type=int,
+                        help='Offset in minutes for reminder')
+    parser.add_argument('-e', '--edit', action='store_true',
+                        help='Edit reminder')
+
+    args = parser.parse_args()
+
+    if args.message or args.date:
+        manual_reminder(args.message or '', args.date or '')
+    elif args.list:
+        list_reminders()
+    elif args.generate:
+        generate()
+    elif args.later:
+        mail_reminders_for_later()
+    elif args.offset is not None:
+        offset(args.offset)
+    elif args.edit:
+        edit()
     else:
         manual_reminder()
 
