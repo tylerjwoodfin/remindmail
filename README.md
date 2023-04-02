@@ -73,6 +73,7 @@
 - `-g` (or `--generate`): Generates all reminders scheduled for today. 
   - I recommend setting up a crontab (see [generate](##generate))
 - `--later`: Emails reminders that are marked with `[any]`
+- `--show-tomorrow`: Lists reminders in remind.md that are marked with tomorrow's date in YYYY-MM-DD
 - `-o` (or `--offset`): Calculates the offset of a date (see [offset](##offset))
 - `-e` (or `--edit`): Opens `remind.md` in vim
 

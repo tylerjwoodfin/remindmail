@@ -19,7 +19,6 @@ cab = Cabinet()
 TODAY = str(datetime.today().strftime('%Y-%m-%d'))
 WEEKDAYS = ['sunday', 'monday', 'tuesday',
             'wednesday', 'thursday', 'friday', 'saturday']
-TODAY_INDEX = datetime.today().day
 PATH_REMIND_FILE = cab.get(
     'path', 'remindmail', 'file')
 QUERY_TRACE = []
@@ -28,13 +27,6 @@ QUERY_TRACE = []
 def _months_since_epoch(epoch):
     epoch_time = time.localtime(epoch)
     return ((epoch_time.tm_year - 1970) * 12) + epoch_time.tm_mon
-
-
-def _strip_to(query):
-    if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
-        return ''.join(query.split('to')[1:]).strip()
-
-    return query.strip()
 
 
 def parse_date(query):
@@ -98,12 +90,6 @@ def send_email(subject, body, is_test=False, method="Terminal", is_quiet=False):
             f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
 
 
-def _larger(string_a, string_b):
-    """A helper function to return the larger string between string_a and string_b"""
-
-    return string_a if len(string_a) > len(string_b) else string_b
-
-
 def list_reminders(param=None):
     """
     Displays the scheduled reminders in remind.py, formatted with line numbers
@@ -153,6 +139,8 @@ def generate(force=False, dry_run=False):
     Intended to be run from crontab (try 'remindmail generate force' to run immediately)
     """
 
+    today_index = datetime.today().day
+
     day_of_month_reminders_generated = cab.get(
         "remindmail", "day_generated")
 
@@ -160,7 +148,7 @@ def generate(force=False, dry_run=False):
         day_of_month_reminders_generated = 0
 
     # do not generate more than once in one day unless `remind generate force`
-    if not (TODAY_INDEX != day_of_month_reminders_generated
+    if not (today_index != day_of_month_reminders_generated
             and datetime.today().hour > 3) and not force and not dry_run:
         log_msg(
             "Reminders have already been generated in the past 12 hours.", level="debug")
@@ -261,7 +249,7 @@ def generate(force=False, dry_run=False):
                     is_match = True
                 elif split_type == 'w' and today_dayw == 'Sun':
                     is_match = True
-                elif split_type == 'm' and TODAY_INDEX == 1:
+                elif split_type == 'm' and today_index == 1:
                     is_match = True
                 elif (split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
                       and today_dayw.lower() == split_type):
@@ -300,11 +288,11 @@ def generate(force=False, dry_run=False):
                    '\n'.join(remindmd_file), is_quiet=True)
 
     if not dry_run:
-        log_msg(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
-        cab.put("remindmail", "day_generated", TODAY_INDEX)
+        log_msg(f"Setting remindmail -> day_generated to {today_index}")
+        cab.put("remindmail", "day_generated", today_index)
     else:
         log_msg(
-            f"In test mode- would set remindmail -> day_generated to {TODAY_INDEX}", level="debug")
+            f"In test mode- would set remindmail -> day_generated to {today_index}", level="debug")
 
     log_msg("Generated tasks")
 
@@ -396,6 +384,19 @@ def edit():
     sys.exit()
 
 
+def show_tomorrow():
+    """
+    Prints reminders from remind.md tagged with tomorow's date in YYYY-MM-DD format
+    """
+
+    tomorrow = str((datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d'))
+    remindmd_file = cab.get_file_as_array("remind.md", "notes") or []
+
+    for item in remindmd_file:
+        if f"[{tomorrow}]" in item:
+            print(item)
+
+
 def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
     """
     Parses arguments to determine what to email or what to write to a file for later.
@@ -406,6 +407,19 @@ def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
         manual_date (str): The manual date to use (default: '').
         noconfirm (bool, optional): If True, bypass the confirmation screen.
     """
+
+    # helper functions
+    def get_larger(string_a, string_b):
+        """A helper function to return the larger string between string_a and string_b"""
+
+        return string_a if len(string_a) > len(string_b) else string_b
+
+    def strip_to(query):
+        """A helper function to remove the portion after 'to' or 'day to'"""
+        if query.startswith(' to ') or query.startswith('to ') or query.startswith('day to '):
+            return ''.join(query.split('to')[1:]).strip()
+
+        return query.strip()
 
     query = query or manual_message
     query_original = query
@@ -471,7 +485,7 @@ def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
         _newdate = (datetime.now().date() +
                     relativedelta(months=_number_of_months))
         _query_match = query.split(_months[0])
-        query = _larger(_query_match[0], _query_match[1])
+        query = get_larger(_query_match[0], _query_match[1])
 
         if is_recurring:
             query_time_token = f"M%{_number_of_months}"
@@ -499,7 +513,7 @@ def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
     if _days:
         _number_of_days = int(re.search(r'\d+', _days[0]).group())
         _query_match = query.split(_days[0])
-        query = _larger(_query_match[0], _query_match[1])
+        query = get_larger(_query_match[0], _query_match[1])
 
         _newdate = datetime.now().date() + timedelta(days=_number_of_days)
         if is_recurring:
@@ -523,7 +537,7 @@ def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
             if re.search(day, query, flags=re.IGNORECASE):
 
                 _query_match = re.split(day, query, flags=re.IGNORECASE)
-                query = _larger(_query_match[0], _query_match[1])
+                query = get_larger(_query_match[0], _query_match[1])
 
                 query_time_token = re.sub(
                     'on|next|day', '', day, flags=re.IGNORECASE).strip()
@@ -550,7 +564,7 @@ def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
     # handle "tomorrow"
     if not query_time_token and re.search("tomorrow", query, flags=re.IGNORECASE):
         _query_match = re.split("tomorrow", query, flags=re.IGNORECASE)
-        query = _strip_to(_larger(_query_match[0], _query_match[1]))
+        query = strip_to(get_larger(_query_match[0], _query_match[1]))
 
     # handle manual time
     if manual_date:
@@ -575,10 +589,10 @@ def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
                 _join_operator = ''
                 if len(parsed_date[1]) > 1:
                     _join_operator = parsed_date[1][1]
-                query = ''.join(_larger(parsed_date[1][0], _join_operator))
-                query = _strip_to(''.join(query.rsplit(' on ', 1)) or query)
+                query = ''.join(get_larger(parsed_date[1][0], _join_operator))
+                query = strip_to(''.join(query.rsplit(' on ', 1)) or query)
             elif len(parsed_date) > 1:
-                parsed_date_formatted = _strip_to(''.join(parsed_date[1]))
+                parsed_date_formatted = strip_to(''.join(parsed_date[1]))
                 if parsed_date_formatted:
                     query = parsed_date_formatted
 
@@ -587,7 +601,7 @@ def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
         query_notes_formatted = f"\nNotes: {query_notes.strip()}\n"
 
     response = ''
-    query = _strip_to(query.strip())
+    query = strip_to(query.strip())
 
     if manual_message:
         query = manual_message
@@ -726,6 +740,8 @@ def main():
                         help=help_offset)
     parser.add_argument('-e', '--edit', action='store_true',
                         help='Edits remind.md through the terminal')
+    parser.add_argument('--show-tomorrow', action='store_true',
+                        help='Shows a list of reminders scheduled for tomorrow')
     parser.add_argument('manual_reminder_args', nargs='*')
 
     args = parser.parse_args()
@@ -740,6 +756,8 @@ def main():
         offset(args.offset.split(" "))
     elif args.edit:
         edit()
+    elif args.show_tomorrow:
+        show_tomorrow()
     elif args.manual_reminder_args:
         parse_query(query=' '.join(args.manual_reminder_args),
                     noconfirm=args.noconfirm)
