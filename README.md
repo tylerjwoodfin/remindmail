@@ -90,6 +90,9 @@ such as `[wed]` matching if today is Wednesday
 ```
 
 - reminders are generated only every 12 hours, but this can be overcome with `remind -g --force`
+- to test your `remind.md` without actually sending reminders, use `remind -g --dry-run`
+
+- this function requires use of SMTP; please ensure you've configured this correctly.
 
 ## later (--later)
 
