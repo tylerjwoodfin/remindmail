@@ -1,7 +1,9 @@
+#!/bin/python3
 """
 The main file containing most of the logic.
 """
 
+import argparse
 import os
 import sys
 import re
@@ -15,33 +17,12 @@ from cabinet import Cabinet, mail
 cab = Cabinet()
 
 TODAY = str(datetime.today().strftime('%Y-%m-%d'))
+WEEKDAYS = ['sunday', 'monday', 'tuesday',
+            'wednesday', 'thursday', 'friday', 'saturday']
 TODAY_INDEX = datetime.today().day
 PATH_REMIND_FILE = cab.get(
     'path', 'remindmail', 'file')
 QUERY_TRACE = []
-HELP_TEXT = f"""\nUsage: remindmail <command>\n\n<command>:
-	pull
-    generate force
-    generate force test
-	config local <filePath>
-	config cloud
-	config cloudpath
-	offset
-
-	For help with a specific command: remindmail help <command>
-
-Parameters (in brackets):
-	taskInfo: enter any task you want to complete. Enclose in quotes, e.g. remindmail add 'take the trash out'
-	filePath: Currently {PATH_REMIND_FILE}. Settings are stored in Cabinet's settings.json and should be stored as a JSON object (path -> remindmail -> file).
-
-Notes Directory:
-	remind.md in {PATH_REMIND_FILE}. Change the path by running "remindmail config notes <fullPath>" (stored in Cabinet's settings.json)
-
-remind.md:
-	when generate() is run (from crontab or similar task scheduler; not intended to be run directly), matching tasks are emailed.
-	See the provided example remind.md in ReadMe.
-
-	"""
 
 
 def _months_since_epoch(epoch):
@@ -56,14 +37,18 @@ def _strip_to(query):
     return query.strip()
 
 
-def _parse_date(string):
+def parse_date(query):
+    """
+    Parses a date from the input query
+    """
+
     # handle 'tomorrow'
-    if 'tomorrow' in string:
+    if 'tomorrow' in query:
         _days = 0 if datetime.today().hour < 3 else 1
-        string = (datetime.now() + timedelta(days=_days)).strftime('%F')
+        query = (datetime.now() + timedelta(days=_days)).strftime('%F')
 
     try:
-        parsed_date = parse(string, fuzzy_with_tokens=True)
+        parsed_date = parse(query, fuzzy_with_tokens=True)
 
         # handle dates in the past
         days_from_now = (parsed_date[0] - datetime.today()).days
@@ -76,18 +61,23 @@ def _parse_date(string):
         return False
 
 
-def _log(message, level="info", path=None):
+def log_msg(message, level="info", path=None, print_msg=False):
     """A wrapper for cab.log to handle the remindmail log setting"""
 
     path_log = cab.get("path", "log")
     path = path or path_log
     path = f"{path}/{TODAY}"
 
+    QUERY_TRACE.append(message)
+
+    if print_msg:
+        print(message)
+
     cab.log(f"remindmail: {message}", level=level, file_path=path,
             is_quiet=level == "info")
 
 
-def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
+def send_email(subject, body, is_test=False, method="Terminal", is_quiet=False):
     """A helper function to call mail.send"""
 
     print(f"Sending: {subject}")
@@ -100,15 +90,16 @@ def _send(subject, body, is_test=False, method="Terminal", is_quiet=False):
     if not is_test:
         count_sent = cab.get("remindmail", "sent_today") or 0
         cab.put("remindmail", "sent_today", count_sent+1)
-        _log(f"Incremented reminder count to {count_sent+1}")
+        log_msg(f"Incremented reminder count to {count_sent+1}")
         mail.send(f"Reminder - {subject}", body or "", is_quiet=is_quiet)
+        print("\nSent! Check your inbox.")
     else:
-        _log(
+        log_msg(
             f"In test mode- mail would send subject '{subject}' and body '{body}'", level="debug")
 
 
 def _larger(string_a, string_b):
-    """A helper function to return the larger string"""
+    """A helper function to return the larger string between string_a and string_b"""
 
     return string_a if len(string_a) > len(string_b) else string_b
 
@@ -152,21 +143,15 @@ def mail_reminders_for_later():
     mail_summary += "<br><br>To remove these, edit <b>remind.md</b>."
 
     date_formatted = datetime.today().strftime('%B %d, %Y')
-    _send(
+    send_email(
         f"Pending Reminder Summary: {date_formatted}", mail_summary, is_quiet=False)
 
 
-def generate(param=None):
+def generate(force=False, dry_run=False):
     """
     Mails reminders from the remind.md file in {PATH_LOCAL}.
     Intended to be run from crontab (try 'remindmail generate force' to run immediately)
     """
-
-    if param == "help":
-        return f"""
-        Mails remind from the remind.md file in {PATH_REMIND_FILE}.
-        Intended to be run from the crontab (try 'remindmail generate force' to run immediately)
-        """
 
     day_of_month_reminders_generated = cab.get(
         "remindmail", "day_generated")
@@ -176,17 +161,14 @@ def generate(param=None):
 
     # do not generate more than once in one day unless `remind generate force`
     if not (TODAY_INDEX != day_of_month_reminders_generated
-            and datetime.today().hour > 3) and not (len(sys.argv) > 2 and sys.argv[2] == "force"):
-        _log("Reminders have already been generated in the past 12 hours.", level="debug")
+            and datetime.today().hour > 3) and not force and not dry_run:
+        log_msg(
+            "Reminders have already been generated in the past 12 hours.", level="debug")
         return
 
-    _log("Generating reminders")
+    log_msg("Generating reminders")
 
-    is_test = False
     command = ''
-
-    if len(sys.argv) > 3 and sys.argv[3] == "test":
-        is_test = True
 
     epoch_day = int(time.time()/60/60/24)
     epoch_week = int(time.time()/60/60/24/7)
@@ -241,7 +223,7 @@ def generate(param=None):
                     parsed_date = parse(
                         f"{token}day", fuzzy_with_tokens=True)
                 except ValueError as error:
-                    _log(
+                    log_msg(
                         f"Could not parse token: {token}; {error}", level="error")
 
         if parsed_date and today_zero_time == parsed_date[0]:
@@ -289,135 +271,61 @@ def generate(param=None):
         if is_match:
 
             if not is_command:
-                _send(item.split(' ', 1)[1], item_notes, is_test, "remind.md")
+                send_email(item.split(' ', 1)[1],
+                           item_notes, dry_run, "remind.md")
             if token_after == 1:
-                _log(f"Deleting item from remind.md: {item}")
-                if not is_test:
+                log_msg(f"Deleting item from remind.md: {item}")
+                if not dry_run:
                     try:
                         remindmd_file.remove(_item)
                     except ValueError as err:
-                        _log(
+                        log_msg(
                             f"Could not remove from remind.md: {err}", level="error")
                 else:
-                    _log(f"(in test mode- not deleting {item})",
-                         level="debug")
+                    log_msg(f"(in test mode- not deleting {item})",
+                            level="debug")
             elif token_after > 1:
                 remindmd_file[index] = (item.replace(
                     f"]{token_after} ", f"]{token_after-1} "))
 
             if is_command:
-                if not is_test:
+                if not dry_run:
                     print("Executing command:\n", command)
                     os.system(command)
                 else:
-                    _log(f"(in test mode- not executing {item})",
-                         level="debug")
+                    log_msg(f"(in test mode- not executing {item})",
+                            level="debug")
 
     cab.write_file("remind.md", "notes",
                    '\n'.join(remindmd_file), is_quiet=True)
 
-    if not is_test:
-        _log(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
+    if not dry_run:
+        log_msg(f"Setting remindmail -> day_generated to {TODAY_INDEX}")
         cab.put("remindmail", "day_generated", TODAY_INDEX)
     else:
-        _log(
+        log_msg(
             f"In test mode- would set remindmail -> day_generated to {TODAY_INDEX}", level="debug")
 
-    _log("Generated tasks")
+    log_msg("Generated tasks")
 
 
-def about():
-    """Prints help information returned by passing 'help' as a string into other functions."""
-
-    if len(sys.argv) > 2:
-        func = params.get(sys.argv[2])
-        if hasattr(func, '__name__'):
-            print(func("help"))
-    else:
-        print(HELP_TEXT)
-
-
-def config(param=None):
-    """
-    An interactive way to set cabinet variables. May be removed in a future updatetime.
-
-    Parameters:
-    - param: string; currently unused.
-
-    Passing 'help' will only return the help information for this function.
-    """
-
-    if param == "help":
-        return """remindmail config local <path>: Set your notes path (use full paths)
-		e.g. remindmail config local /home/userdir/Dropbox/Notes
-		(this is stored in Cabinet; see README)
-
-		e.g. remindmail config cloud
-		(this is stored in Cabinet; see README)
-
-		remindmail config cloudpath <path>: Set the path in your cloud service to store reminders (remind.md)
-		e.g., if you keep Tasks in Dropbox at Documents/notes/remind.md: remindmail config cloudpath Documents/Notes
-		(this is stored in Cabinet; see README)"""
-    if len(sys.argv) < 3:
-        print(config("help"))
-        return
-
-    if sys.argv[2].lower() == "local":
-        new_dir = sys.argv[3] if sys.argv[3][-1] == '/' else sys.argv[3] + '/'
-        cab.put("path", "remindmail", "local", new_dir)
-        print(
-            f"remind.md should now be stored in {new_dir}.")
-
-
-def offset(param=None):
+def offset(args):
     """
     Calculates the offset for a certain date (today by default)
-
-    Parameters:
-    - param: string; currently unused.
-
-    Passing 'help' will only return the help information for this function.
     """
 
-    if param == "help":
-        return """Calculates the offset for a certain date (today by default)
-
-		remindmail offset <type (day,week,month)> <target date (YYYY-MM-DD), optional> <n>
-		(type is day, week, month)
-		(n is 'every n days')
-
-		Take the results of this function and use it to add an offset to a function.
-		If you want something to happen every 3 days starting tomorrow, use:
-		remindmail offset day <tomorrow's date YYYY-MM-DD> 3
-
-		If the answer is 2, then you can add this to remind.md:
-		[D%3+2] Task here
-
-		e.g. remindmail offset day 2022-12-31 12
-		(find offset for every 12 days intersecting 2022-12-31)
-
-		e.g. remindmail offset week 2022-12-31 3
-		(every 3 weeks intersecting 2022-12-31)
-
-		e.g. remindmail offset month 2022-12-31 4
-		(every 4 months intersecting 2022-12-31)
-
-		e.g. remindmail offset day 2022-12-31 5
-		e.g. remindmail offset week 2022-12-31 6
-		e.g. remindmail offset month 2022-12-31 7"""
-
-    if len(sys.argv) < 4:
-        print(("Usage: remindmail offset <type (day,week,month)> "
-               "<target date (YYYY-MM-DD), optional> <n, as in 'every n <type>'>\nExample:"
-               " remindmail offset week 2021-05-20 2\nFor help: 'remindmail help offset'"))
+    if len(args) < 2:
+        print(f"""Error: 'remind -o {args[0] or ''}' missing required arguments:
+remind -o '<type (day,week,month)> <target date (YYYY-MM-DD), optional> <n>'\
+\n\nRun `remind -h` for details.""")
         return
 
-    if len(sys.argv) > 4:
+    if len(args) >= 2:
         epoch_time = int(datetime.strptime(
-            sys.argv[3], "%Y-%m-%d").timestamp())
-        offset_n = sys.argv[4]
+            args[1], "%Y-%m-%d").timestamp())
+        offset_n = args[2]
     else:
-        offset_n = sys.argv[-1]
+        offset_n = args[-1]
         epoch_time = int(time.time())
 
     try:
@@ -426,26 +334,26 @@ def offset(param=None):
 
         offset_n = int(offset_n)
         token_example = "d"
-        if sys.argv[2] == "month":
+        if args[0] == "month":
             token_example = "m"
             return_val = _months_since_epoch(epoch_time) % offset_n
-        elif sys.argv[2] == "week":
+        elif args[0] == "week":
             token_example = "w"
             return_val = int(epoch_time/60/60/24/7) % offset_n
-        elif sys.argv[2] == "day":
+        elif args[0] == "day":
             return_val = int(epoch_time/60/60/24) % offset_n
         else:
-            print(f"'{sys.argv[2]}' must be 'day', 'week', or 'month'.")
+            print(f"'{args[0]}' must be 'day', 'week', or 'month'.")
             return
 
         print(return_val)
-        print(f"""This means you can add '[{token_example}%{offset_n}+{return_val}] <task name>'
-            to {PATH_REMIND_FILE}/remind.md to match the selected date.""")
+        print(f"""This means you can add '[{token_example}%{offset_n}+{return_val}] <task name>' \
+to {PATH_REMIND_FILE}/remind.md to match the selected date.""")
 
         if offset_n == 1:
             print((f"Note: Anything % 1 is always 0. This is saying "
-                   f"'every single {sys.argv[2]}'.\nOffsets are used to make sure a task will run"
-                   f" for a given {sys.argv[2]}. '%1' means it will always run, so no need for an"
+                   f"'every single {args[0]}'.\nOffsets are used to make sure a task will run"
+                   f" for a given {args[0]}. '%1' means it will always run, so no need for an"
                    f" offset.\nPlease see the README for details, or"
                    f" run 'remindmail help offset'."))
         elif return_val == 0:
@@ -455,8 +363,8 @@ def offset(param=None):
     except ValueError:
         print("Date must be YYYY-MM-DD.")
     except IndexError:
-        print((f"Missing <n>, as in 'every n {sys.argv[2]}s'\n"
-               f"Usage: remindmail offset {sys.argv[2]} {sys.argv[3]} n"
+        print((f"Missing <n>, as in 'every n {args[0]}s'\n"
+               f"Usage: remindmail offset {args[0]} {args[1]} n"
                f"\nFor help: 'remindmail help offset'"))
         return
 
@@ -487,27 +395,35 @@ def edit():
                        f" to enable cloud syncing."))
     sys.exit()
 
+def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
+    """
+    Parses arguments to determine what to email or what to write to a file for later.
 
-def parse_query(manual_reminder_param='', manual_time=''):
-    """Parses sys.argv to determine what to email or what to write to a file for later"""
+    Args:
+        query (str): The query string to parse (default: None).
+        manual_message (str): The manual message to use if query is None (default: '').
+        manual_date (str): The manual date to use (default: '').
+        noconfirm (bool, optional): If True, bypass the confirmation screen.
+    """
 
-    query = manual_reminder_param or ' '.join(sys.argv[1:])
+    query = query or manual_message
+    query_original = query
     QUERY_TRACE.append(query)
     query_time_token = ''  # the 'meat' between [] in remind.md
     query_notes = ''
     query_time_formatted = ''
     query_notes_formatted = ''
     is_recurring = False
-    is_noconfirm = False
-    weekdays = ['sunday', 'monday', 'tuesday',
-                'wednesday', 'thursday', 'friday', 'saturday']
 
-    if manual_time == 'now':
-        manual_time = TODAY
+    def report_query():
+        print("Reporting bad query via email...")
+        log_msg(
+            f"RemindMail query reported: {query_original}", level="warn")
+        send_email(f"Bad Query: {TODAY}", '<br>'.join(
+            QUERY_TRACE).replace("\n", "<br>"), False, is_quiet=False)
 
-    if "noconfirm" in query:
-        is_noconfirm = True
-        query = query.replace("noconfirm", "").strip()
+    if manual_date == 'now':
+        manual_date = TODAY
 
     # parse for notes
     if ':' in query:
@@ -521,13 +437,13 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
     # handle recurring reminders
     is_recurring_options = ["every [0-9]+", "every week", "every month",
-                            "every day"] + [f"every {day}" for day in weekdays]
+                            "every day"] + [f"every {day}" for day in WEEKDAYS]
 
-    is_recurring = len(re.findall(
-        '|'.join(is_recurring_options), query, flags=re.IGNORECASE)) > 0
+    is_recurring = any(re.findall(
+        '|'.join(is_recurring_options), query, flags=re.IGNORECASE))
 
     if is_recurring:
-        for weekday in weekdays:
+        for weekday in WEEKDAYS:
             if weekday in query:
                 query_time_token = weekday[0:3].lower()
                 query_time_formatted = f"every {weekday.capitalize()}"
@@ -601,7 +517,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
     if " at " in query or " on " in query or " next " in query:
 
         # ['on sun', ... , 'on sat', 'next sun', ... , 'next sat']
-        for day in [f"on {day[:3]}" for day in weekdays] + [f"next {day[:3]}" for day in weekdays]:
+        for day in [f"on {day[:3]}" for day in WEEKDAYS] + [f"next {day[:3]}" for day in WEEKDAYS]:
 
             if re.search(day, query, flags=re.IGNORECASE):
 
@@ -619,12 +535,16 @@ def parse_query(manual_reminder_param='', manual_time=''):
                     'thurs': 'Thursday',
                     'fri': 'Friday',
                     'satur': 'Saturday'
-                }.get(query_time_token, f"Error: '{query_time_token}' not matched to a weekday")
+                }.get(query_time_token, None)
+
+                if query_time_formatted is None:
+                    raise KeyError(
+                        f"Error: '{query_time_token}' not matched to a weekday")
 
                 break
 
     # handle other dates
-    parsed_date = _parse_date(query)
+    parsed_date = parse_date(query)
 
     # handle "tomorrow"
     if not query_time_token and re.search("tomorrow", query, flags=re.IGNORECASE):
@@ -632,14 +552,14 @@ def parse_query(manual_reminder_param='', manual_time=''):
         query = _strip_to(_larger(_query_match[0], _query_match[1]))
 
     # handle manual time
-    if manual_time:
-        parsed_date = _parse_date(manual_time)
+    if manual_date:
+        parsed_date = parse_date(manual_date)
 
     # handle specific dates (found or specified)
-    if parsed_date and (not query_time_token or manual_time):
+    if parsed_date and (not query_time_token or manual_date):
         query_time_token = parsed_date[0].strftime('%F')
 
-        if not query_time_formatted and manual_time != TODAY:
+        if not query_time_formatted and manual_date != TODAY:
             query_time_format = '%A, %B %d'
 
             if parsed_date[0].year != datetime.today().year:
@@ -647,8 +567,8 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
             query_time_formatted = parsed_date[0].strftime(query_time_format)
 
-        if manual_reminder_param:
-            query = manual_reminder_param
+        if manual_message:
+            query = manual_message
         else:
             if len(parsed_date[1]) > 1:
                 _join_operator = ''
@@ -668,15 +588,15 @@ def parse_query(manual_reminder_param='', manual_time=''):
     response = ''
     query = _strip_to(query.strip())
 
-    if manual_reminder_param:
-        query = manual_reminder_param
+    if manual_message:
+        query = manual_message
 
     while response not in ['y', 'n', 'r', 'l', 'm']:
         options = "(y)es\n(n)o\n(p)arse entire query\n(r)eport\n(l)ater\n(t)omorrow\n(m)anual"
 
         query_time_formatted = query_time_formatted or 'right now'
 
-        if not is_noconfirm:
+        if not noconfirm:
             prompt = (f"""\nYour reminder for {query_time_formatted}:"""
                       f"\n{query}\n{query_notes_formatted or ''}\nOK?\n\n{options}\n\n")
             QUERY_TRACE.append(prompt)
@@ -689,7 +609,7 @@ def parse_query(manual_reminder_param='', manual_time=''):
         if response == 'p':
             query_time_token = ''
             query_time_formatted = ''
-            query = ' '.join(sys.argv[1:])
+            query = query_original
             print("\n------------------------------")
             QUERY_TRACE.append("\n------------------------------")
 
@@ -712,20 +632,14 @@ def parse_query(manual_reminder_param='', manual_time=''):
 
     # send immediate reminders
     if query_time_formatted == 'right now' and response == 'y':
-        _send(query.strip(), query_notes, False, is_quiet=True)
-        print("\nSent! Check your inbox.")
+        send_email(query.strip(), query_notes, False, is_quiet=True)
         return
 
     # scheduled reminders
     if query_time_token:
         if len(response) > 0 and not response.startswith('n'):
             if response == 'r':
-                print("Reporting bad query via email...")
-                QUERY_TRACE.append("Reporting bad query via email...")
-                _log(
-                    f"RemindMail query reported: {' '.join(sys.argv[1:])}", level="warn")
-                _send(f"Bad Query: {TODAY}", '<br>'.join(
-                    QUERY_TRACE).replace("\n", "<br>"), False, is_quiet=False)
+                report_query()
             else:
                 # add to remind.md file
                 query = query.strip()
@@ -736,78 +650,99 @@ def parse_query(manual_reminder_param='', manual_time=''):
                     f"[{query_time_token}]{'' if is_recurring else 'd'} {query}")
                 cab.write_file("remind.md", "notes",
                                '\n'.join(remind_md), is_quiet=True)
-                _log(
-                    f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
-                QUERY_TRACE.append(
-                    f"""Scheduled "{query.strip()}" for {query_time_formatted}""")
-
-                print(
-                    f"""\nScheduled "{query.strip()}" for {query_time_formatted}""")
+                log_msg(
+                    f"""Scheduled "{query.strip()}" for {query_time_formatted}""", print_msg=True)
         return
 
     if len(response) > 0:
         if response == 'r':
-            print("Reporting bad query via email...")
-            QUERY_TRACE.append("Reporting bad query via email...")
-            _log(
-                f"RemindMail query reported: {' '.join(sys.argv[0:])}", level="warn")
-            _send(f"Bad Query: {TODAY}", '<br>'.join(
-                QUERY_TRACE).replace("\n", "<br>"), False)
+            report_query()
         elif not response.startswith('n'):
             # send 'right now' reminder
-            _send(query.strip(), query_notes, False, is_quiet=True)
-            print("\nSent! Check your inbox.")
+            send_email(query.strip(), query_notes, False, is_quiet=True)
 
 
-def manual_reminder(reminder_param='', reminder_time_param=''):
-    """Used to avoid errors, particularly when numbers are used that interfere with date parsing"""
+def manual_reminder(manual_message='', manual_date=''):
+    """
+    Creates a reminder with a message and a date.
+    If manual_message and/or manual_date are not provided,
+        prompts the user to input them. 
 
-    if reminder_param:
-        reminder = reminder_param
-    else:
-        QUERY_TRACE.append("What's the reminder?\n")
-        reminder = input("What's the reminder?\n")
-        QUERY_TRACE.append(reminder)
+    Args:
+        manual_message (str): Optional. The reminder message.
+        manual_date (str): Optional. The reminder date in a string format.
 
-    if reminder_time_param:
-        reminder_time = reminder_time_param
-    else:
-        QUERY_TRACE.append(
-            "When do you want to be reminded? (blank for now)\n")
-        reminder_time = input(
-            "\nWhen do you want to be reminded? (blank for now)\n")
+    Returns:
+        None
 
-        if not reminder_time:
-            reminder_time = "now"
+    Example:
+        manual_reminder('Buy groceries', '2023-04-03')
+    """
 
-        QUERY_TRACE.append(reminder_time)
-
-    QUERY_TRACE.append(f"... calling parse_query({reminder},{reminder_time}) ")
-    parse_query(reminder, reminder_time)
-
-
-params = {
-    "help": about,
-    "ls": list_reminders,
-    "config": config,
-    "generate": generate,
-    "later": mail_reminders_for_later,
-    "offset": offset,
-    "edit": edit
-}
+    reminder_message = manual_message or input("What's the reminder?\n")
+    reminder_date = manual_date or input(
+        "\nWhen do you want to be reminded? (blank for now)\n") or "now"
+    QUERY_TRACE.append(
+        f"... calling parse_query({reminder_message},{reminder_date}) ")
+    parse_query(manual_message=reminder_message, manual_date=reminder_date)
 
 
 def main():
     """
-    Generally parses all sys.argv parameters (such that `remind me to buy milk` is
-    feasible from the terminal
+    Parses command line arguments and performs the appropriate action based on the arguments passed.
     """
 
-    if len(sys.argv) > 1 and not (len(sys.argv) == 2 and sys.argv[1] == 'me'):
-        func = params.get(sys.argv[1]) or parse_query
-        func()
-    else:
-        manual_reminder()
+    help_offset = """Calculates the offset for a certain date (today by default)
+
+		`remind -o <type (day,week,month)> <target date (YYYY-MM-DD), optional> <n>`
+		(type is day, week, month)
+		(n is 'every n days')
+
+		Take the results of this function and use it to add an offset to a function.
+		If you want something to happen every 3 days starting tomorrow, use:
+		`remind -o day <tomorrow's date YYYY-MM-DD> 3`. See README.md for other examples."""
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-m', '--message', nargs='?',
+                        const='', help='Specify reminder message')
+    parser.add_argument('-d', '--date', nargs='?', const='',
+                        help='Specify reminder date')
+    parser.add_argument('-ls', '-l', '--list', action='store_true',
+                        help='List all reminders')
+    parser.add_argument('-g', '--generate', action='store_true',
+                        help='Generate reminders. By default, only generates every 12 hours.')
+    parser.add_argument('--force', action='store_true',
+                        help='Force reminders to be generated. Only used with -g.')
+    parser.add_argument('--noconfirm', action='store_true',
+                        help='Skip the confirmation before a reminder is scheduled/sent.')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Print generated reminders without sending them. Only used with -g.')
+    parser.add_argument('--later', action='store_true',
+                        help='Mail reminders for later')
+    parser.add_argument('-o', '--offset', nargs='?',
+                        help=help_offset)
+    parser.add_argument('-e', '--edit', action='store_true',
+                        help='Edits remind.md through the terminal')
+    parser.add_argument('manual_reminder_args', nargs='*')
+
+    args = parser.parse_args()
+
+    if args.message or args.date:
+        manual_reminder(args.message or '', args.date or '')
+    elif args.list:
+        list_reminders()
+    elif args.generate:
+        generate(force=args.force, dry_run=args.dry_run)
+    elif args.later:
+        mail_reminders_for_later()
+    elif args.offset is not None:
+        offset(args.offset.split(" "))
+    elif args.edit:
+        edit()
+    elif args.manual_reminder_args:
+        parse_query(query=' '.join(args.manual_reminder_args),
+                    noconfirm=args.noconfirm)
 
 
 if __name__ == '__main__':
