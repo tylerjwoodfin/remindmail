@@ -395,6 +395,7 @@ def edit():
                        f" to enable cloud syncing."))
     sys.exit()
 
+
 def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
     """
     Parses arguments to determine what to email or what to write to a file for later.
@@ -662,7 +663,7 @@ def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
             send_email(query.strip(), query_notes, False, is_quiet=True)
 
 
-def manual_reminder(manual_message='', manual_date=''):
+def manual_reminder(manual_message='', manual_date='', noconfirm=False):
     """
     Creates a reminder with a message and a date.
     If manual_message and/or manual_date are not provided,
@@ -684,7 +685,8 @@ def manual_reminder(manual_message='', manual_date=''):
         "\nWhen do you want to be reminded? (blank for now)\n") or "now"
     QUERY_TRACE.append(
         f"... calling parse_query({reminder_message},{reminder_date}) ")
-    parse_query(manual_message=reminder_message, manual_date=reminder_date)
+    parse_query(manual_message=reminder_message,
+                manual_date=reminder_date, noconfirm=noconfirm)
 
 
 def main():
@@ -729,7 +731,8 @@ def main():
     args = parser.parse_args()
 
     if args.message or args.date:
-        manual_reminder(args.message or '', args.date or '')
+        manual_reminder(manual_message=args.message or '',
+                        manual_date=args.date or '', noconfirm=args.noconfirm)
     elif args.list:
         list_reminders()
     elif args.generate:
