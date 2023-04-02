@@ -730,10 +730,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.message or args.date:
-        manual_reminder(manual_message=args.message or '',
-                        manual_date=args.date or '', noconfirm=args.noconfirm)
-    elif args.list:
+    if args.list:
         list_reminders()
     elif args.generate:
         generate(force=args.force, dry_run=args.dry_run)
@@ -746,6 +743,9 @@ def main():
     elif args.manual_reminder_args:
         parse_query(query=' '.join(args.manual_reminder_args),
                     noconfirm=args.noconfirm)
+    else:
+        manual_reminder(manual_message=args.message or '',
+                        manual_date=args.date or '', noconfirm=args.noconfirm)
 
 
 if __name__ == '__main__':
