@@ -12,9 +12,10 @@ from datetime import datetime
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
-from cabinet import Cabinet, mail
+from cabinet import Cabinet, Mail
 
 cab = Cabinet()
+mail = Mail()
 
 TODAY = str(datetime.today().strftime('%Y-%m-%d'))
 WEEKDAYS = ['sunday', 'monday', 'tuesday',
