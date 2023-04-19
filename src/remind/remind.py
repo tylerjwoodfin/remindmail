@@ -8,11 +8,24 @@ import os
 import sys
 import re
 import time
+from enum import Enum
 from datetime import datetime
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
 from cabinet import Cabinet, Mail
+
+
+class GenerateType(Enum):
+    """
+    The options available for the `generate` function
+
+    EMAIL will send each matching reminder
+    LIST will print each matching reminder to the console
+    """
+    EMAIL = 'email'
+    LIST = 'list'
+
 
 cab = Cabinet()
 mail = Mail()
@@ -134,13 +147,17 @@ def mail_reminders_for_later():
         f"Pending Reminder Summary: {date_formatted}", mail_summary, is_quiet=False)
 
 
-def generate(force=False, dry_run=False):
+def generate(force: bool = False, dry_run: bool = False,
+             generate_date: int = None, generate_type: GenerateType = GenerateType.EMAIL):
     """
     Mails reminders from the remind.md file in {PATH_LOCAL}.
     Intended to be run from crontab (try 'remindmail generate force' to run immediately)
     """
 
-    today_index = datetime.today().day
+    if generate_date is None:
+        generate_date = datetime.today()
+
+    today_index = generate_date.day
 
     day_of_month_reminders_generated = cab.get(
         "remindmail", "day_generated")
@@ -150,7 +167,7 @@ def generate(force=False, dry_run=False):
 
     # do not generate more than once in one day unless `remind generate force`
     if not (today_index != day_of_month_reminders_generated
-            and datetime.today().hour > 3) and not force and not dry_run:
+            and generate_date.hour > 3) and not force and not dry_run:
         log_msg(
             "Reminders have already been generated in the past 12 hours.", level="debug")
         return
@@ -161,7 +178,7 @@ def generate(force=False, dry_run=False):
 
     epoch_day = int(time.time()/60/60/24)
     epoch_week = int(time.time()/60/60/24/7)
-    epoch_month = int(datetime.today().month)
+    epoch_month = int(generate_date.month)
 
     remindmd_file = cab.get_file_as_array("remind.md", "notes") or []
 
@@ -171,7 +188,7 @@ def generate(force=False, dry_run=False):
         is_match = False
         is_command = False
 
-        today_zero_time = datetime.today().replace(
+        today_zero_time = generate_date.replace(
             hour=0, minute=0, second=0, microsecond=0)
 
         # handle commands
@@ -241,7 +258,7 @@ def generate(force=False, dry_run=False):
                 split_type in ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
                 and epoch_week % split_factor == split_offset)
 
-            today_dayw = datetime.today().strftime("%a")
+            today_dayw = generate_date.strftime("%a")
 
             split_types = ['d', 'w', 'm', 'sun', 'mon',
                            'tue', 'wed', 'thu', 'fri', 'sat']
@@ -260,8 +277,11 @@ def generate(force=False, dry_run=False):
         if is_match:
 
             if not is_command:
-                send_email(item.split(' ', 1)[1],
-                           item_notes, dry_run, "remind.md")
+                if generate_type == GenerateType.EMAIL:
+                    send_email(item.split(' ', 1)[1],
+                               item_notes, dry_run, "remind.md")
+                elif generate_type == GenerateType.LIST:
+                    print(item)
             if token_after == 1:
                 log_msg(f"Deleting item from remind.md: {item}")
                 if not dry_run:
@@ -270,7 +290,7 @@ def generate(force=False, dry_run=False):
                     except ValueError as err:
                         log_msg(
                             f"Could not remove from remind.md: {err}", level="error")
-                else:
+                elif generate_type != GenerateType.LIST:
                     log_msg(f"(in test mode- not deleting {item})",
                             level="debug")
             elif token_after > 1:
@@ -291,7 +311,7 @@ def generate(force=False, dry_run=False):
     if not dry_run:
         log_msg(f"Setting remindmail -> day_generated to {today_index}")
         cab.put("remindmail", "day_generated", today_index)
-    else:
+    elif generate_type != GenerateType.LIST:
         log_msg(
             f"In test mode- would set remindmail -> day_generated to {today_index}", level="debug")
 
@@ -390,12 +410,9 @@ def show_tomorrow():
     Prints reminders from remind.md tagged with tomorow's date in YYYY-MM-DD format
     """
 
-    tomorrow = str((datetime.today() + timedelta(days=1)).strftime('%Y-%m-%d'))
-    remindmd_file = cab.get_file_as_array("remind.md", "notes") or []
-
-    for item in remindmd_file:
-        if f"[{tomorrow}]" in item:
-            print(item)
+    tomorrow = datetime.today() + timedelta(days=1)
+    generate(force=True, dry_run=True, generate_date=tomorrow,
+             generate_type=GenerateType.LIST)
 
 
 def parse_query(query=None, manual_message='', manual_date='', noconfirm=False):
