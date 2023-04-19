@@ -1,3 +1,3 @@
-from remind import remind
+import remind
 
 remind.main()
