@@ -2,9 +2,12 @@
 The main entrypoint
 """
 
+from pathlib import Path
+import sys
 import argparse
-from .remindmail import RemindMail
-from .remindmail_utils import RemindMailUtils
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from remind.remindmail import RemindMail #pylint: disable=wrong-import-position
+from remind.remindmail_utils import RemindMailUtils #pylint: disable=wrong-import-position
 
 def main():
     """
