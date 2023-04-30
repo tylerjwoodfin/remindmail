@@ -11,6 +11,7 @@ from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
 from .remindmail_utils import RemindMailUtils
 
+
 class GenerateType(Enum):
     """
     The options available for the `generate` function
@@ -20,6 +21,7 @@ class GenerateType(Enum):
     """
     EMAIL = 'email'
     LIST = 'list'
+
 
 class RemindMail:
     """
@@ -176,7 +178,7 @@ class RemindMail:
                 if not is_command:
                     if generate_type == GenerateType.EMAIL and not dry_run:
                         RemindMailUtils().send_email(item.split(' ', 1)[1],
-                                                item_notes, "remind.md")
+                                                     item_notes, "remind.md")
                     if dry_run and generate_type == GenerateType.EMAIL:
                         RemindMail().log_msg(
                             f"Test Mode. Not Sending: {item.split(' ', 1)[1]}", level="debug")
@@ -246,7 +248,7 @@ class RemindMail:
                     'wednesday', 'thursday', 'friday', 'saturday']
 
         # helper functions
-        def get_larger(string_a, string_b):
+        def get_larger(string_a: str, string_b: str):
             """A helper function to return the larger string between string_a and string_b"""
 
             return string_a if len(string_a) > len(string_b) else string_b
@@ -258,9 +260,23 @@ class RemindMail:
 
             return query.strip()
 
-        def parse_date(query):
+        def parse_date(query: str):
             """
-            Parses a date from the input query
+            Parses a date from the input query.
+
+            Args:
+                query (str): The input query containing the date information.
+
+            Returns:
+                tuple or bool: A tuple containing the parsed date and tokens, or False if parsing fails.
+
+            Raises:
+                ValueError: If an error occurs during date parsing.
+
+            Notes:
+                - The function supports parsing various date formats.
+                - If the query contains the word 'tomorrow', it returns the date for the next day.
+                - If a date is parsed into before 90 days ago, it is assumed the user means next year.
             """
 
             # handle 'tomorrow'
