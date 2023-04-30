@@ -14,27 +14,36 @@ from cabinet import Cabinet, Mail
 
 class RemindMailUtils:
     """
-    Contains standalone helper functions
+    A utility class for handling reminders and email operations.
     """
 
+    # instance of the Cabinet class for configuration management
     cab = Cabinet()
-    path_remind_file = cab.get(
-        'path', 'remindmail', 'file')
+
+    # file path for reminders
+    path_remind_file = cab.get('path', 'remindmail', 'file')
+
+    # for sending emails
     mail = Mail()
+
+    # to store query trace information
     query_trace: List[str] = []
 
     def get_user_time(self):
         """
-        A helper function to return the epoch seconds based on the user's timezone
+        A helper function to return the epoch seconds based on the user's timezone.
+
+        Returns:
+            int: The epoch seconds representing the current time in the user's timezone.
         """
 
         user_timezone = self.cab.get("remindmail", "timezone")
         if user_timezone is None:
-            # get timezone based on IP
+            # user's timezone not saved in `cab`; get timezone based on IP
             print("Checking timezone...")
             response = requests.get('https://ipapi.co/json/', timeout=10)
 
-            # Parse the response JSON to get the user's timezone
+            # parse the response JSON to get the user's timezone
             if response.status_code == 200:
                 data = response.json()
                 user_timezone = self.cab.put("remindmail", "timezone", data.get('timezone'))
@@ -47,16 +56,16 @@ class RemindMailUtils:
 
         now = datetime.datetime.now(timezone)
 
-        # Get the UTC time
+        # get the UTC time
         utc_now = datetime.datetime.utcnow()
 
-        # Calculate the time difference between the specified timezone and UTC
+        # calculate the time difference between the specified timezone and UTC
         offset = timezone.utcoffset(utc_now).total_seconds()
 
-        # Subtract the offset from the current time
+        # subtract the offset from the current time
         utc_time = now + datetime.timedelta(seconds=offset)
 
-        # Convert the UTC time to the number of seconds since January 1, 1970
+        # convert the UTC time to the number of seconds since January 1, 1970
         unix_time = int(utc_time.timestamp())
 
         return unix_time
