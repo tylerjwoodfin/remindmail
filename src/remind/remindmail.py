@@ -122,7 +122,8 @@ class RemindMail:
             parsed_date = ""
             if not "%" in token and not "any" in token:
                 try:
-                    parsed_date = parse(token, fuzzy_with_tokens=True)
+                    parsed_date = parse(
+                        token, fuzzy_with_tokens=True, default=generate_date)
                 except ValueError:
                     try:
                         parsed_date = parse(
@@ -175,7 +176,6 @@ class RemindMail:
 
             # handle deletion and decrementing
             if is_match:
-
                 if not is_command:
                     if generate_type == GenerateType.EMAIL and not dry_run:
                         RemindMailUtils().send_email(item.split(' ', 1)[1],
@@ -251,6 +251,9 @@ class RemindMail:
         # 'tomorrow' is 'today' if between 12AM and 3AM
         if datetime.now().hour < 3:
             tomorrow = datetime.today()
+
+        tomorrow = tomorrow.replace(
+            hour=0, minute=0, second=0, microsecond=0)
 
         RemindMail().generate(force=True, dry_run=True, generate_date=tomorrow,
                               generate_type=GenerateType.LIST)
