@@ -186,9 +186,9 @@ class RemindMail:
                     elif generate_type == GenerateType.LIST:
                         print(item)
                 if token_after == 1:
-                    RemindMail().log_msg(
-                        f"Deleting item from remind.md: {item}", level="debug")
                     if not dry_run:
+                        RemindMail().log_msg(
+                            f"Deleting item from remind.md: {item}", level="debug")
                         try:
                             remindmd_file.remove(_item)
                         except ValueError as err:
@@ -218,7 +218,8 @@ class RemindMail:
                                 f"Results: {cmd_output}", level="debug")
                         except subprocess.CalledProcessError as error:
                             RemindMail().log_msg(
-                                f"Command execution failed with exit code: {error.returncode}", level="error")
+                                f"Command execution failed with exit code: {error.returncode}",
+                                level="error")
                             RemindMail().log_msg(
                                 f"Error output: {error.output}", level="error")
                     else:
@@ -246,6 +247,11 @@ class RemindMail:
         """
 
         tomorrow = datetime.today() + timedelta(days=1)
+
+        # 'tomorrow' is 'today' if between 12AM and 3AM
+        if datetime.now().hour < 3:
+            tomorrow = datetime.today()
+
         RemindMail().generate(force=True, dry_run=True, generate_date=tomorrow,
                               generate_type=GenerateType.LIST)
 
@@ -298,7 +304,7 @@ class RemindMail:
 
             # handle 'tomorrow'
             if 'tomorrow' in query:
-                _days = 0 if datetime.today().hour < 3 else 1
+                _days = 0 if datetime.now().hour < 3 else 1
                 query = (datetime.now() + timedelta(days=_days)).strftime('%F')
 
             try:
