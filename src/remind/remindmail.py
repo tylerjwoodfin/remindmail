@@ -4,6 +4,7 @@ The main class
 
 import os
 import re
+import subprocess
 from enum import Enum
 from datetime import datetime
 from datetime import timedelta
@@ -186,7 +187,7 @@ class RemindMail:
                         print(item)
                 if token_after == 1:
                     RemindMail().log_msg(
-                        f"Deleting item from remind.md: {item}")
+                        f"Deleting item from remind.md: {item}", level="debug")
                     if not dry_run:
                         try:
                             remindmd_file.remove(_item)
@@ -202,10 +203,26 @@ class RemindMail:
 
                 if is_command:
                     if not dry_run:
-                        print("Executing command:\n", command)
-                        os.system(command)
+                        RemindMail().log_msg(
+                            f"Executing command: {command}", level="debug")
+                        try:
+                            # add path so things like `cabinet` calls work from crontab
+                            home_dir = os.path.expanduser("~")
+                            path_local_bin = os.path.join(
+                                home_dir, ".local/bin")
+                            os.environ['PATH'] = f"{path_local_bin}:{os.environ['PATH']}"
+
+                            cmd_output = subprocess.check_output(
+                                command, shell=True, universal_newlines=True)
+                            RemindMail().log_msg(
+                                f"Results: {cmd_output}", level="debug")
+                        except subprocess.CalledProcessError as error:
+                            RemindMail().log_msg(
+                                f"Command execution failed with exit code: {error.returncode}", level="error")
+                            RemindMail().log_msg(
+                                f"Error output: {error.output}", level="error")
                     else:
-                        RemindMail().log_msg(f"Test Mode. Not executing {item})",
+                        RemindMail().log_msg(f"Test Mode. Not executing {command})",
                                              level="debug")
 
         RemindMailUtils.cab.write_file("remind.md", "notes",
@@ -268,7 +285,7 @@ class RemindMail:
                 query (str): The input query containing the date information.
 
             Returns:
-                tuple or bool: A tuple containing the parsed date and tokens, or False if parsing fails.
+                tuple or bool: A tuple containing the parsed date/tokens, or False if parsing fails.
 
             Raises:
                 ValueError: If an error occurs during date parsing.
@@ -276,7 +293,7 @@ class RemindMail:
             Notes:
                 - The function supports parsing various date formats.
                 - If the query contains the word 'tomorrow', it returns the date for the next day.
-                - If a date is parsed into before 90 days ago, it is assumed the user means next year.
+                - If a date is parsed into before 90 days ago, it is returns a date for next year.
             """
 
             # handle 'tomorrow'
