@@ -52,7 +52,8 @@ class RemindMail:
         """
 
         if generate_date is None:
-            generate_date = datetime.today()
+            generate_date = datetime.today().replace(
+                hour=0, minute=0, second=0, microsecond=0)
 
         today_index = generate_date.day
 
