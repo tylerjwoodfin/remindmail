@@ -65,9 +65,9 @@ class RemindMail:
 
         # do not generate more than once in one day unless `remind generate force`
         if not (today_index != day_of_month_reminders_generated
-                and generate_date.hour > 3) and not force and not dry_run:
+                and datetime.today().hour > 3) and not force and not dry_run:
             RemindMail().log_msg(
-                "Reminders have already been generated in the past 12 hours.", level="debug")
+                "Reminders have already been generated today.", level="debug")
             return
 
         RemindMail().log_msg("Generating reminders")
