@@ -46,7 +46,8 @@ class RemindMailUtils:
             # parse the response JSON to get the user's timezone
             if response.status_code == 200:
                 data = response.json()
-                user_timezone = self.cab.put("remindmail", "timezone", data.get('timezone'))
+                user_timezone = self.cab.put(
+                    "remindmail", "timezone", data.get('timezone'))
                 print(f"Set timezone: {user_timezone}")
             else:
                 print("Could not parse timezone; using UTC")
@@ -69,7 +70,6 @@ class RemindMailUtils:
         unix_time = int(utc_time.timestamp())
 
         return unix_time
-
 
     def print_reminders_file(self, param=None):
         """
@@ -207,6 +207,9 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
 
     def send_email(self, subject, body, method="Terminal", is_quiet=False):
         """A helper function to call mail.send"""
+
+        sent_today = self.cab.get("remindmail", "sent_today") or 0
+        self.cab.put("remindmail", "sent_today", sent_today + 1)
 
         print(f"Sending: {subject}")
 
