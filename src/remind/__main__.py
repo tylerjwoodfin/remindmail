@@ -6,8 +6,9 @@ from pathlib import Path
 import sys
 import argparse
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from remind.remindmail import RemindMail #pylint: disable=wrong-import-position
-from remind.remindmail_utils import RemindMailUtils #pylint: disable=wrong-import-position
+from remind.remindmail import RemindMail  # pylint: disable=wrong-import-position
+from remind.remindmail_utils import RemindMailUtils  # pylint: disable=wrong-import-position
+
 
 def main():
     """
@@ -42,12 +43,16 @@ def main():
                         help='Print generated reminders without sending them. Only used with -g.')
     parser.add_argument('--later', action='store_true',
                         help='Mail reminders for later')
+    parser.add_argument('--stats', action='store_true',
+                        help='Prints RemindMail usage statistics')
     parser.add_argument('-o', '--offset', nargs='?',
                         help=help_offset)
     parser.add_argument('-e', '--edit', action='store_true',
                         help='Edits remind.md through the terminal')
     parser.add_argument('--show-tomorrow', action='store_true',
                         help='Shows a list of reminders scheduled for tomorrow')
+    parser.add_argument('--sent-today', action='store_true',
+                        help='Prints the sum of reminders sent today (yesterday, if before 4AM)')
     parser.add_argument('manual_reminder_args', nargs='*')
 
     args = parser.parse_args()
@@ -58,12 +63,16 @@ def main():
         RemindMail().generate(force=args.force, dry_run=args.dry_run)
     elif args.later:
         RemindMailUtils().mail_reminders_for_later()
+    elif args.stats:
+        RemindMailUtils().print_stats()
     elif args.offset is not None:
         RemindMailUtils().offset(args.offset.split(" "))
     elif args.edit:
         RemindMailUtils().edit_reminders_file()
     elif args.show_tomorrow:
         RemindMail().show_tomorrow()
+    elif args.sent_today:
+        print(RemindMailUtils().get_sent_today())
     elif args.manual_reminder_args:
         RemindMail().parse_query(query=' '.join(args.manual_reminder_args),
                                  noconfirm=args.noconfirm)
