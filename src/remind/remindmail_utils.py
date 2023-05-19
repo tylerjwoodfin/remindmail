@@ -71,6 +71,34 @@ class RemindMailUtils:
 
         return unix_time
 
+    def get_sent_today(self):
+        """
+        Returns the number of reminders that have been sent today,
+        based on today's log file.
+
+        "Today", for these purposes, starts at 4AM.
+        """
+
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        yesterday = (datetime.datetime.now() -
+                     datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+
+        if datetime.datetime.now().hour < 4:
+            today = yesterday
+
+        today_log = self.cab.get_file_as_array(
+            f"{today}/LOG_DAILY_{today}.log", self.cab.path_log)
+
+        return sum(log.count(': Reminder - ') for log in today_log)
+
+    def print_stats(self):
+        """
+        Prints RemindMail Usage Statistics
+        """
+
+        print("RemindMail Stats:\n")
+        print(f"Sent Today: {self.get_sent_today()}")
+
     def print_reminders_file(self, param=None):
         """
         Displays the scheduled reminders in remind.py, formatted with line numbers
@@ -92,7 +120,7 @@ class RemindMailUtils:
             os.system(f"cat -n {remindmd_local}")
         else:
             print(f"Could not find reminder path; in "
-                  f"${RemindMailUtils.cab.path_cabinet}/settings.json, "
+                  f"${self.cab.path_cabinet}/settings.json, "
                   f"set path -> remindmail -> file to the absolute path of "
                   f"the directory of your remind.md file.")
             print("\n")
@@ -100,7 +128,7 @@ class RemindMailUtils:
     def mail_reminders_for_later(self):
         """Mails a summary of reminders with [any] at the start from remind.md in {PATH_LOCAL}"""
 
-        remindmd_file = RemindMailUtils.cab.get_file_as_array(
+        remindmd_file = self.cab.get_file_as_array(
             "remind.md", "notes") or []
         reminders_for_later = []
         for item in remindmd_file:
@@ -187,10 +215,10 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
         """
 
         try:
-            RemindMailUtils.cab.edit_file("remind")
+            self.cab.edit_file("remind")
         except FileNotFoundError:
             print((f"You must configure the path to remind.md in "
-                   f"{RemindMailUtils.cab.path_cabinet}/settings.json -> "
+                   f"{self.cab.path_cabinet}/settings.json -> "
                    f"path -> edit -> remind.\n\n"))
 
             resp = ''
@@ -198,18 +226,15 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
                 resp = input((f"Would you like to set this to "
                              f"{RemindMailUtils.path_remind_file}/remind.md? y/n\n\n"))
                 if resp == 'y':
-                    RemindMailUtils.cab.put("path", "edit", "remind", "value",
-                                            f"{RemindMailUtils.path_remind_file}/remind.md")
-                    print((f"\n\nSet. Open {RemindMailUtils.cab.path_cabinet}/settings.json"
+                    self.cab.put("path", "edit", "remind", "value",
+                                 f"{RemindMailUtils.path_remind_file}/remind.md")
+                    print((f"\n\nSet. Open {self.cab.path_cabinet}/settings.json"
                            f" and set path -> edit -> remind -> sync to true"
                            f" to enable cloud syncing."))
         sys.exit()
 
     def send_email(self, subject, body, method="Terminal", is_quiet=False):
         """A helper function to call mail.send"""
-
-        sent_today = self.cab.get("remindmail", "sent_today") or 0
-        self.cab.put("remindmail", "sent_today", sent_today + 1)
 
         print(f"Sending: {subject}")
 
