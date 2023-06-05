@@ -6,6 +6,7 @@
 
 - easily manage your To Do list from anywhere in the terminal
 - schedule one-time or recurring reminders
+- create issues for your Jira board
 - schedule commands (your crontab can't run every 2 weeks as easily!)
 
 # notable dependencies
@@ -78,6 +79,7 @@
 - `--stats`: Prints usage statistics about RemindMail
 - `-o` (or `--offset`): Calculates the offset of a date (see [offset](##offset))
 - `-e` (or `--edit`): Opens `remind.md` in vim
+- `-j` (or `--jira`): Sends your reminder to a new Jira task for your desired board (see [Jira](#jira))
 
 ## list (-l, -ls, or --list)
 - lists all current reminders in `remind.md`
@@ -282,3 +284,38 @@ It is recommended you add `remind later` as a scheduled crontab action.
 
 - an item with `]d`, such as `[D%5]d`, will add the reminder and remove it from remind.md, meaning it will only generate once until you add it again.
   - this is useful for scheduling a reminder in the future that you don't need to repeat.
+
+# Jira Integration
+
+RemindMail provides a barebones integration with Jira to create issues directly from the application. To enable this integration, you need to configure the required Jira settings in the Cabinet configuration file.
+
+## configuration
+
+Before using the Jira integration, ensure that you have the following information available:
+
+- Jira project URL: The base URL of your Jira project.
+- Jira email: The email associated with your Jira account.
+- Jira API token: The API token generated for your Jira account.
+  - obtain through [these instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+- Jira project key: The key of the Jira project where you want to create issues.
+
+Using [Cabinet](https://pypi.org/project/cabinet/), set the values by running:
+
+```
+cabinet --put jira email <your Jira email>
+cabinet --put jira project-url <your project url, e.g. https://username.atlassian.net>
+cabinet --put jira project-key <your project key prefix that all issues have, e.g. USR>
+cabinet --put keys jira <your Jira API token>
+```
+
+Make sure to replace values in brackets with your own values.
+
+## Usage
+
+```
+# creates a ticket directly with no confirmation
+remind -m this is a new ticket --jira
+
+# select '(j)' in confirmation menu
+remind -m this is a new jira ticket
+```
