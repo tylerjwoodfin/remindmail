@@ -5,9 +5,9 @@ The main entrypoint
 from pathlib import Path
 import sys
 import argparse
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from remind.remindmail import RemindMail  # pylint: disable=wrong-import-position
 from remind.remindmail_utils import RemindMailUtils  # pylint: disable=wrong-import-position
+from remind.remindmail import RemindMail  # pylint: disable=wrong-import-position
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def main():
@@ -31,6 +31,8 @@ def main():
                         const='', help='Specify reminder message')
     parser.add_argument('-d', '--date', nargs='?', const='',
                         help='Specify reminder date')
+    parser.add_argument('-n', '--notes', action='store_true',
+                        help='Notes for the body of the email (or description of Jira task)')
     parser.add_argument('-ls', '-l', '--list', action='store_true',
                         help='List all reminders')
     parser.add_argument('-g', '--generate', action='store_true',
@@ -54,6 +56,8 @@ def main():
     parser.add_argument('--sent-today', action='store_true',
                         help='Prints the sum of reminders sent today (yesterday, if before 4AM)')
     parser.add_argument('manual_reminder_args', nargs='*')
+    parser.add_argument('-j', '--jira', action='store_true',
+                        help='Creates an issue through Jira rather than using email.')
 
     args = parser.parse_args()
 
@@ -73,6 +77,9 @@ def main():
         RemindMail().show_tomorrow()
     elif args.sent_today:
         print(RemindMailUtils().get_sent_today())
+    elif args.jira:
+        RemindMailUtils().create_jira_issue(
+            args.message or ' '.join(args.manual_reminder_args), args.notes or '')
     elif args.manual_reminder_args:
         RemindMail().parse_query(query=' '.join(args.manual_reminder_args),
                                  noconfirm=args.noconfirm)

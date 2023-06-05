@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import datetime
+import base64
 from typing import List
 import requests
 import pytz
@@ -246,3 +247,79 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
         RemindMailUtils.mail.send(
             f"Reminder - {subject}", body or "", is_quiet=is_quiet)
         print("\nSent! Check your inbox.")
+
+    def create_jira_issue(self, summary, description):
+        """
+        A barebones integration with Jira.
+
+        Requires Cabinet to be configured as described in README.
+
+        Parameters:
+            summary(str): issue title
+            description(str): issue description
+        """
+
+        api_url_base = self.cab.get('jira', 'project-url')
+
+        if api_url_base is None:
+            self.cab.log(
+                "RemindMail - Cannot create Jira issue; cabinet -> jira -> project-url is unset",
+                level="warn")
+            return
+        api_url = f"{str(api_url_base).rstrip('/')}/rest/api/2/issue"
+
+        # Set your Jira credentials
+        jira_email = self.cab.get("jira", "email")
+        jira_api_token = self.cab.get("keys", "jira")
+
+        # Set the project key and issue details
+        project_key = self.cab.get("jira", "project-key")
+        issue_type = 'Task'
+
+        if not jira_api_token or not jira_email:
+            self.cab.log(
+                "RemindMail - cannot create Jira issue; cabinet is missing "
+                "`keys -> jira` or `jira -> email` (see README)",
+                level="warn"
+            )
+            return
+
+        if not summary:
+            self.cab.log("RemindMail - cannot create Jira issue; summary cannot be blank",
+                         level="warn")
+            return
+
+        # Create the authentication header
+        credentials = f'{jira_email}:{jira_api_token}'
+        encoded_credentials = base64.b64encode(
+            credentials.encode('utf-8')).decode('utf-8')
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Basic {encoded_credentials}'
+        }
+
+        # Create the issue payload
+        payload = {
+            'fields': {
+                'project': {'key': project_key},
+                'summary': summary,
+                'description': f"Added via RemindMail\n\n{description}",
+                'issuetype': {'name': issue_type}
+            }
+        }
+
+        # Send the POST request to create the issue
+        response = requests.post(
+            api_url, headers=headers, json=payload, timeout=10)
+
+        # Check the response
+        if response.status_code == 201:
+            created_issue = response.json()
+            print(f'{created_issue["key"]} created successfully.')
+            self.cab.log(
+                f"Created Jira issue {created_issue['key']}", is_quiet=True)
+        else:
+            print('Failed to create the issue.')
+            print(f'Response: {response.text}')
+            self.cab.log(
+                f"RemindMail unable to create Jira issue: {response}", level="warn")

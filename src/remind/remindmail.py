@@ -515,8 +515,17 @@ class RemindMail:
         if manual_message:
             query = manual_message
 
-        while response not in ['y', 'n', 'r', 'l', 'm']:
-            options = "(y)es\n(n)o\n(p)arse entire query\n(r)eport\n(l)ater\n(t)omorrow\n(m)anual"
+        while response not in ['y', 'n', 'r', 'l', 't', 'j', 'm']:
+            options = (
+                "(y)es\n"
+                "(n)o\n"
+                "(p)arse entire query\n"
+                "(r)eport\n"
+                "(l)ater\n"
+                "(t)omorrow\n"
+                "(j)ira\n"
+                "(m)anual"
+            )
 
             query_time_formatted = query_time_formatted or 'right now'
 
@@ -553,6 +562,11 @@ class RemindMail:
                         "Thursday", "Friday", "Saturday", "Sunday"]
                 weekday = days[(datetime.now() + timedelta(days=1)).weekday()]
                 RemindMail().manual_reminder(query, weekday)
+                return
+
+            elif response == 'j':
+                print("Creating Jira issue...")
+                RemindMailUtils().create_jira_issue(summary=query, description=query_notes or '')
                 return
 
         # send immediate reminders
