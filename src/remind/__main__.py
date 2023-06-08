@@ -58,6 +58,12 @@ def main():
     parser.add_argument('manual_reminder_args', nargs='*')
     parser.add_argument('-j', '--jira', action='store_true',
                         help='Creates an issue through Jira rather than using email.')
+    parser.add_argument('-t', '--type', nargs='?', const='task',
+                        help='Specify the issue type ("story", "task", "bug", "spike", "epic")')
+    parser.add_argument('--desc', '--description', nargs='?',
+                        help='Jira issue description')
+    parser.add_argument('--label', nargs='?',
+                        help='Jira label')
 
     args = parser.parse_args()
 
@@ -79,7 +85,8 @@ def main():
         print(RemindMailUtils().get_sent_today())
     elif args.jira:
         RemindMailUtils().create_jira_issue(
-            args.message or ' '.join(args.manual_reminder_args), args.notes or '')
+            args.message or ' '.join(args.manual_reminder_args),
+            args.desc or None, args.type or None, args.label)
     elif args.manual_reminder_args:
         RemindMail().parse_query(query=' '.join(args.manual_reminder_args),
                                  noconfirm=args.noconfirm)
