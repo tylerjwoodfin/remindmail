@@ -313,9 +313,14 @@ Make sure to replace values in brackets with your own values.
 ## Usage
 
 ```
-# creates a ticket directly with no confirmation
+# creates a ticket (with prompts for description, label, issue type)
 remind -m this is a new ticket --jira
+
+# creates a ticket without prompts
+remind --jira "this is a story 4" -t task --desc "Testing description" --label "testing"
 
 # select '(j)' in confirmation menu
 remind -m this is a new jira ticket
 ```
+
+After the issue has been created, a success message and link to the new issue will appear.

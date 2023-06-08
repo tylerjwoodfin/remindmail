@@ -248,7 +248,7 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
             f"Reminder - {subject}", body or "", is_quiet=is_quiet)
         print("\nSent! Check your inbox.")
 
-    def create_jira_issue(self, summary, description):
+    def create_jira_issue(self, summary, description, issue_type: str = None, label: str = None):
         """
         A barebones integration with Jira.
 
@@ -257,31 +257,28 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
         Parameters:
             summary(str): issue title
             description(str): issue description
+            issue_type(str): issue type ("story", "task", "bug", "spike", "epic")
+            label(str): label
         """
 
         api_url_base = self.cab.get('jira', 'project-url')
 
         if api_url_base is None:
-            self.cab.log(
-                "RemindMail - Cannot create Jira issue; cabinet -> jira -> project-url is unset",
-                level="warn")
+            self.cab.log("RemindMail - Cannot create Jira issue; cabinet",
+                         "-> jira -> project-url is unset",
+                         level="warn")
             return
+
         api_url = f"{str(api_url_base).rstrip('/')}/rest/api/2/issue"
 
         # Set your Jira credentials
         jira_email = self.cab.get("jira", "email")
         jira_api_token = self.cab.get("keys", "jira")
 
-        # Set the project key and issue details
-        project_key = self.cab.get("jira", "project-key")
-        issue_type = 'Task'
-
         if not jira_api_token or not jira_email:
-            self.cab.log(
-                "RemindMail - cannot create Jira issue; cabinet is missing "
-                "`keys -> jira` or `jira -> email` (see README)",
-                level="warn"
-            )
+            self.cab.log("RemindMail - cannot create Jira issue; cabinet is missing "
+                         "`keys -> jira` or `jira -> email` (see README)",
+                         level="warn")
             return
 
         if not summary:
@@ -301,23 +298,47 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
         # Create the issue payload
         payload = {
             'fields': {
-                'project': {'key': project_key},
-                'summary': summary,
-                'description': f"Added via RemindMail\n\n{description}",
-                'issuetype': {'name': issue_type}
+                'project': {'key': self.cab.get("jira", "project-key")},
+                'summary': f"RMMJ: {summary}",
+                'issuetype': {'name': issue_type.capitalize() if issue_type else ''},
+                'labels': [label] if label else None,
             }
         }
 
+        # Prompt for missing fields
+        if not issue_type:
+            issue_type_input = input('Please enter an issue type:\n'
+                                     'story\nbug\ntask\nspike\nepic\n\n').capitalize()
+            payload['fields']['issuetype']['name'] = issue_type_input
+
+        if description is None:
+            description_input = input(
+                '\nPlease enter a description (or Enter for none)\n')
+            payload['fields']['description'] = description_input
+        else:
+            payload['fields']['description'] = description
+
+        issue_type_lower = payload['fields']['issuetype']['name'].lower()
+        if issue_type_lower in ['story', 'bug']:
+            if issue_type_lower == 'story':
+                a_c = input('\nPlease enter an AC:\n')
+                payload['fields']['customfield_10035'] = a_c
+
+        if label is None:
+            label_input = input('\nPlease enter a Label:\n')
+            payload['fields']['labels'] = [label_input]
+
         # Send the POST request to create the issue
-        response = requests.post(
-            api_url, headers=headers, json=payload, timeout=10)
+        response = requests.post(api_url, headers=headers,
+                                 json=payload, timeout=10)
 
         # Check the response
         if response.status_code == 201:
             created_issue = response.json()
-            print(f'{created_issue["key"]} created successfully.')
-            self.cab.log(
-                f"Created Jira issue {created_issue['key']}", is_quiet=True)
+            issue_key = created_issue['key']
+            print(f"{issue_key} has been created.")
+            print(f"{api_url_base}/browse/{issue_key}")
+            self.cab.log(f"\n{issue_key} has been created.", is_quiet=True)
         else:
             print('Failed to create the issue.')
             print(f'Response: {response.text}')
