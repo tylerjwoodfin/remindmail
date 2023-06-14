@@ -306,10 +306,22 @@ class RemindMail:
                 - If a date is parsed into before 90 days ago, it is returns a date for next year.
             """
 
+            # if before 4AM, a request for a reminder 'tomorrow' will
+            # appear as a request for today
+            is_after_4am = datetime.now().hour > 4
+
             # handle 'tomorrow'
             if 'tomorrow' in query:
-                _days = 0 if datetime.now().hour < 3 else 1
-                query = (datetime.now() + timedelta(days=_days)).strftime('%F')
+                query = (datetime.now() +
+                         timedelta(days=int(is_after_4am))).strftime('%F')
+
+            # handle current day
+            current_day = datetime.now().strftime('%A')
+            if is_after_4am and current_day.lower() in query.lower():
+                query_date = (datetime.now() +
+                              timedelta(days=7)).strftime('%F')
+                query = re.sub(r'\b' + re.escape(current_day) + r'\b',
+                               query_date, query, flags=re.IGNORECASE)
 
             try:
                 parsed_date = parse(query, fuzzy_with_tokens=True)
