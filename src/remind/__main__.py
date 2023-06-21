@@ -147,8 +147,6 @@ def main():
             RemindMailUtils().create_jira_issue(
                 args.message or ' '.join(args.manual_reminder_args),
                 args.desc or None, args.type or None, args.label)
-        elif args.trello:
-            TrelloManager()
         elif args.manual_reminder_args:
             RemindMail().parse_query(query=' '.join(args.manual_reminder_args),
                                      noconfirm=args.noconfirm)
