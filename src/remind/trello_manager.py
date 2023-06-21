@@ -10,12 +10,17 @@ class TrelloManager:
     A class for managing Trello boards and lists.
     """
 
-    def __init__(self):
+    def __init__(self, board_name: str = None):
         self.cab = Cabinet()
         self.api_key = self.cab.get("keys", "trello")
         self.api_secret = self.cab.get("trello", "secret")
         self.api_token = self.cab.get("trello", "token")
-        self.board_name = "Shopping"
+        self.board_name = board_name or self.cab.get("trello", "board")
+
+        if self.board_name is None:
+            boards = self.list_all_boards()
+            self.board_name = boards[int(
+                input("\nWhich board would you like to use?\n")) - 1]['name']
 
     def obtain_token(self):
         """
@@ -45,6 +50,7 @@ class TrelloManager:
         Returns:
             str: The ID of the Trello board if found, None otherwise.
         """
+
         url = (f"https://api.trello.com/1/members/me/boards?"
                f"key={self.api_key}&token={self.api_token}")
         response = requests.get(url, timeout=10)
@@ -102,6 +108,8 @@ class TrelloManager:
             list: A list of dictionaries representing the lists on the Trello board.
         """
         board_id = self.get_board_id(self.board_name)
+        lists = None
+
         if board_id:
             lists = self.get_lists_on_board(board_id)
             if not is_quiet:
@@ -155,6 +163,25 @@ class TrelloManager:
                 print("Invalid list index.")
         else:
             print(f"Board '{self.board_name}' not found.")
+
+    def list_all_boards(self):
+        """
+        Lists all available Trello boards for the authorized user.
+
+        Returns:
+            list: A list of dictionaries representing the available boards.
+        """
+        url = (f"https://api.trello.com/1/members/me/boards"
+               f"?key={self.api_key}&token={self.api_token}")
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+
+        boards = response.json()
+        for index, board in enumerate(boards, start=1):
+            board_name = board['name']
+            print(f"{index}. {board_name}")
+
+        return boards
 
     def main(self):
         """

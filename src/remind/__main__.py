@@ -59,8 +59,6 @@ def main():
     parser.add_argument('manual_reminder_args', nargs='*')
     parser.add_argument('-j', '--jira', action='store_true',
                         help='Creates an issue through Jira rather than using email.')
-    parser.add_argument('-t', '--trello', action='store_true',
-                        help='Creates an issue through Trello rather than using email.')
     parser.add_argument('--type', nargs='?', const='task',
                         help=('Specify the Jira issue '
                               'type ("story", "task", "bug", "spike", "epic")'))
@@ -79,6 +77,8 @@ def main():
     parser.add_argument(
         "--trello-add", "-ta", dest="add_item",
         action="store_true", help="Add an item to the selected list.")
+    parser.add_argument("--board", "-b", dest="trello_board",
+                        type=str, nargs="?", help="Trello Board")
     parser.add_argument(
         "--list_index", dest="list_index", type=int, nargs="?", help="Index of the list.")
     parser.add_argument(
@@ -87,29 +87,30 @@ def main():
     args = parser.parse_args()
 
     # handle Trello
-    trello = TrelloManager()
     if args.trello_lists:
-        trello.show_lists()
+        TrelloManager(board_name=args.trello_board).show_lists()
     elif args.add_item:
         print("Choose a list:\n")
-        trello.show_lists()
+        TrelloManager(board_name=args.trello_board).show_lists()
         list_index = int(input("\n")) - 1
         item_name = args.item_name or input(
             "\nWhat would you like to add?\n")
-        trello.add_item(list_index, item_name)
-    elif args.trello_items is not None and args.trello_items != "":
+        TrelloManager(board_name=args.trello_board).add_item(
+            list_index, item_name)
+    elif args.trello_items and args.trello_items != "":
         list_index = args.list_index
         list_name = args.trello_items
         if list_index is None:
             if list_name is not None:
-                for index, list_item in enumerate(trello.show_lists(is_quiet=True)):
+                for index, list_item in enumerate(TrelloManager(board_name=args.trello_board)
+                                                  .show_lists(is_quiet=True)):
                     if list_item['name'].lower() == list_name:
                         list_index = index
             if list_index is None:
                 print("Choose a list:\n")
-                trello.show_lists()
+                TrelloManager(board_name=args.trello_board).show_lists()
                 list_index = int(input("\n")) - 1
-        trello.show_items(list_index)
+        TrelloManager(board_name=args.trello_board).show_items(list_index)
 
     # handle other arguments
     else:

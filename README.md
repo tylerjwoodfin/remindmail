@@ -81,6 +81,15 @@
 - `-e` (or `--edit`): Opens `remind.md` in vim
 - `-j` (or `--jira`): Sends your reminder to a new Jira task for your desired board (see [Jira](#jira))
 
+## Trello
+- `-b` (or `--board`): An argument; the name of the Trello board to use
+- `-ti` (or `--trello-items`): Prints items within a Trello list (accepts `-b` or `--board`)
+  - If a board is not specified, a list of boards appears and the user is prompted to choose one
+- `-tl` (or `--trello-list`): Prints the lists within a Trello board (accepts `-b` or `--board`)
+  - If a board is not specified, a list of boards appears and the user is prompted to choose one
+- `-ta` (or `--trello-add`): Adds an item to a Trello list (accepts `-b` or `--board`)
+  - If a board is not specified, a list of boards appears and the user is prompted to choose one
+
 ## list (-l, -ls, or --list)
 - lists all current reminders in `remind.md`
 
@@ -324,3 +333,30 @@ remind -m this is a new jira ticket
 ```
 
 After the issue has been created, a success message and link to the new issue will appear.
+
+## Trello Integration
+
+## configuration
+
+Before using the Trello integration, [obtain a Trello API Key](https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/).
+
+Using [Cabinet](https://pypi.org/project/cabinet/), set the API key by running:
+
+```
+cabinet --put keys trello <api key here>
+```
+
+Upon first running a Trello-related command, you will be prompted to authorize your application in the browser.
+
+## usage
+
+```
+# prints all lists in the `Shopping` board
+remind -tl Shopping
+
+# prints all items from the specified list (displays the lists to choose from)
+remind -ti
+
+# select '(j)' in confirmation menu
+remind -m this is a new jira ticket
+```
