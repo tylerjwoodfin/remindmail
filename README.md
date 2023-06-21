@@ -83,12 +83,15 @@
 
 ## Trello
 - `-b` (or `--board`): An argument; the name of the Trello board to use
-- `-ti` (or `--trello-items`): Prints items within a Trello list (accepts `-b` or `--board`)
-  - If a board is not specified, a list of boards appears and the user is prompted to choose one
-- `-tl` (or `--trello-list`): Prints the lists within a Trello board (accepts `-b` or `--board`)
-  - If a board is not specified, a list of boards appears and the user is prompted to choose one
-- `-ta` (or `--trello-add`): Adds an item to a Trello list (accepts `-b` or `--board`)
-  - If a board is not specified, a list of boards appears and the user is prompted to choose one
+- `--list-name`: An argument; the name of the Trello list to use
+- `-ti` (or `--trello-items`): Prints items within a Trello list (accepts `-b` or `--board`, `--list-name`)
+  - If a board is not specified, the user is prompted to choose one
+  - If a list is not specified, the user is prompted to choose one
+- `-tl` (or `--trello-list`): Prints the lists within a Trello board (accepts `-b` or `--board`, `--list-name`)
+  - If a board is not specified, the user is prompted to choose one
+- `-ta` (or `--trello-add`): Adds an item to a Trello list (accepts `-b` or `--board`, `--list-name`)
+  - If a board is not specified, the user is prompted to choose one
+  - If a list is not specified, the user is prompted to choose one
 
 ## list (-l, -ls, or --list)
 - lists all current reminders in `remind.md`
@@ -354,8 +357,11 @@ Upon first running a Trello-related command, you will be prompted to authorize y
 # prints all lists in the `Shopping` board
 remind -tl Shopping
 
-# prints all items from the specified list (displays the lists to choose from)
+# prints all items from a list (interactive)
 remind -ti
+
+# prints all items from the `Tyler` list in the `Shopping` board
+remind -ti --board Shopping --list-name Tyler
 
 # select '(j)' in confirmation menu
 remind -m this is a new jira ticket

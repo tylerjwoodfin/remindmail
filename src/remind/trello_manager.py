@@ -19,8 +19,14 @@ class TrelloManager:
 
         if self.board_name is None:
             boards = self.list_all_boards()
-            self.board_name = boards[int(
-                input("\nWhich board would you like to use?\n")) - 1]['name']
+            board_index = -1
+            while board_index < 0:
+                board_input = input("\nWhich board would you like to use?\n")
+                try:
+                    board_index = int(board_input) - 1
+                except ValueError:
+                    print("Enter a valid number.")
+            self.board_name = boards[board_index]['name']
 
     def obtain_token(self):
         """
