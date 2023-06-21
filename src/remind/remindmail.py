@@ -619,7 +619,7 @@ class RemindMail:
         """
         Creates a reminder with a message and a date.
         If manual_message and/or manual_date are not provided,
-            prompts the user to input them. 
+            prompts the user to input them.
 
         Args:
             manual_message (str): Optional. The reminder message.
