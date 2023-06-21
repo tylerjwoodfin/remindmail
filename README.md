@@ -89,9 +89,10 @@
   - If a list is not specified, the user is prompted to choose one
 - `-tl` (or `--trello-list`): Prints the lists within a Trello board (accepts `-b` or `--board`, `--list-name`)
   - If a board is not specified, the user is prompted to choose one
-- `-ta` (or `--trello-add`): Adds an item to a Trello list (accepts `-b` or `--board`, `--list-name`)
+- `-ta` (or `--trello-add`): Adds an item to a Trello list (accepts `-b` or `--board`, `--list-name`, `--item-name`)
   - If a board is not specified, the user is prompted to choose one
   - If a list is not specified, the user is prompted to choose one
+  - If an item is not specified, the user is prompted to enter one
 
 ## list (-l, -ls, or --list)
 - lists all current reminders in `remind.md`
