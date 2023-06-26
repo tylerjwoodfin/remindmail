@@ -84,7 +84,7 @@ def main():
     parser.add_argument(
         "--list-name", dest="list_name", type=str, nargs="?", help="Name of the list.")
     parser.add_argument(
-        "--item-name", "-i", dest="item_name", nargs="?", help="Name of the item to add.")
+        "--item-name", "-i", dest="item_name", nargs="*", help="Name of the item to add.")
 
     args = parser.parse_args()
 
@@ -104,7 +104,7 @@ def main():
             trello.show_lists()
             list_index = int(input("\n")) - 1
 
-        item_name = args.item_name or input(
+        item_name = ' '.join(args.item_name) or input(
             "\nWhat would you like to add?\n")
 
         TrelloManager(board_name=args.trello_board).add_item(
