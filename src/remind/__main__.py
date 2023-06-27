@@ -86,73 +86,77 @@ def main():
     parser.add_argument(
         "--item-name", "-i", dest="item_name", nargs="*", help="Name of the item to add.")
 
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
 
-    # handle Trello
-    if args.trello_lists:
-        TrelloManager(board_name=args.trello_board).show_lists()
-    elif args.add_item:
-        trello = TrelloManager(board_name=args.trello_board)
-        list_name = args.list_name
-        if list_name is not None:
-            for index, list_item in enumerate(trello
-                                              .show_lists(is_quiet=True)):
-                if list_item['name'].lower() == list_name.lower():
-                    list_index = index
-        if list_index is None:
-            print("Choose a list:\n")
-            trello.show_lists()
-            list_index = int(input("\n")) - 1
+        # handle Trello
+        if args.trello_lists:
+            TrelloManager(board_name=args.trello_board).show_lists()
+        elif args.add_item:
+            trello = TrelloManager(board_name=args.trello_board)
+            list_name = args.list_name
+            if list_name is not None:
+                for index, list_item in enumerate(trello
+                                                .show_lists(is_quiet=True)):
+                    if list_item['name'].lower() == list_name.lower():
+                        list_index = index
+            if list_index is None:
+                print("Choose a list:\n")
+                trello.show_lists()
+                list_index = int(input("\n")) - 1
 
-        item_name = ' '.join(args.item_name) or input(
-            "\nWhat would you like to add?\n")
+            item_name = ' '.join(args.item_name) or input(
+                "\nWhat would you like to add?\n")
 
-        TrelloManager(board_name=args.trello_board).add_item(
-            list_index, item_name)
-    elif args.trello_items and args.trello_items != "":
-        trello = TrelloManager(board_name=args.trello_board)
-        list_index = args.list_index
-        list_name = args.list_name
-        if list_name is not None:
-            for index, list_item in enumerate(trello
-                                              .show_lists(is_quiet=True)):
-                if list_item['name'].lower() == list_name.lower():
-                    list_index = index
-        if list_index is None:
-            print("Choose a list:\n")
-            trello.show_lists()
-            list_index = int(input("\n")) - 1
+            TrelloManager(board_name=args.trello_board).add_item(
+                list_index, item_name)
+        elif args.trello_items and args.trello_items != "":
+            trello = TrelloManager(board_name=args.trello_board)
+            list_index = args.list_index
+            list_name = args.list_name
+            if list_name is not None:
+                for index, list_item in enumerate(trello
+                                                .show_lists(is_quiet=True)):
+                    if list_item['name'].lower() == list_name.lower():
+                        list_index = index
+            if list_index is None:
+                print("Choose a list:\n")
+                trello.show_lists()
+                list_index = int(input("\n")) - 1
 
-        trello.show_items(list_index)
+            trello.show_items(list_index)
 
-    # handle other arguments
-    else:
-        if args.list:
-            RemindMailUtils().print_reminders_file()
-        elif args.generate:
-            RemindMail().generate(force=args.force, dry_run=args.dry_run)
-        elif args.later:
-            RemindMailUtils().mail_reminders_for_later()
-        elif args.stats:
-            RemindMailUtils().print_stats()
-        elif args.offset is not None:
-            RemindMailUtils().offset(args.offset.split(" "))
-        elif args.edit:
-            RemindMailUtils().edit_reminders_file()
-        elif args.show_tomorrow:
-            RemindMail().show_tomorrow()
-        elif args.sent_today:
-            print(RemindMailUtils().get_sent_today())
-        elif args.jira:
-            RemindMailUtils().create_jira_issue(
-                args.message or ' '.join(args.manual_reminder_args),
-                args.desc or None, args.type or None, args.label)
-        elif args.manual_reminder_args:
-            RemindMail().parse_query(query=' '.join(args.manual_reminder_args),
-                                     noconfirm=args.noconfirm)
+        # handle other arguments
         else:
-            RemindMail().manual_reminder(manual_message=args.message or '',
-                                         manual_date=args.date or '', noconfirm=args.noconfirm)
+            if args.list:
+                RemindMailUtils().print_reminders_file()
+            elif args.generate:
+                RemindMail().generate(force=args.force, dry_run=args.dry_run)
+            elif args.later:
+                RemindMailUtils().mail_reminders_for_later()
+            elif args.stats:
+                RemindMailUtils().print_stats()
+            elif args.offset is not None:
+                RemindMailUtils().offset(args.offset.split(" "))
+            elif args.edit:
+                RemindMailUtils().edit_reminders_file()
+            elif args.show_tomorrow:
+                RemindMail().show_tomorrow()
+            elif args.sent_today:
+                print(RemindMailUtils().get_sent_today())
+            elif args.jira:
+                RemindMailUtils().create_jira_issue(
+                    args.message or ' '.join(args.manual_reminder_args),
+                    args.desc or None, args.type or None, args.label)
+            elif args.manual_reminder_args:
+                RemindMail().parse_query(query=' '.join(args.manual_reminder_args),
+                                        noconfirm=args.noconfirm)
+            else:
+                RemindMail().manual_reminder(manual_message=args.message or '',
+                                            manual_date=args.date or '', noconfirm=args.noconfirm)
+    except KeyboardInterrupt:
+        print("\n")
+        sys.exit()
 
 
 if __name__ == '__main__':

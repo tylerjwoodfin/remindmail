@@ -281,11 +281,6 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
                          level="warn")
             return
 
-        if not summary:
-            self.cab.log("RemindMail - cannot create Jira issue; summary cannot be blank",
-                         level="warn")
-            return
-
         # Create the authentication header
         credentials = f'{jira_email}:{jira_api_token}'
         encoded_credentials = base64.b64encode(
@@ -306,10 +301,15 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
         }
 
         # Prompt for missing fields
-        if not issue_type:
-            issue_type_input = input('Please enter an issue type:\n'
-                                     'story\nbug\ntask\nspike\nepic\n\n').capitalize()
-            payload['fields']['issuetype']['name'] = issue_type_input
+        if not summary:
+            summary = input("Enter the summary for your Jira ticket:\n")
+
+        valid_issue_types = ['Story', 'Bug', 'Task', 'Spike', 'Epic']
+        valid_issue_types_str = '\n'.join(valid_issue_types)
+        while issue_type not in valid_issue_types:
+            issue_type = input(f'\nPlease enter an issue type:\n'
+                                     f'{valid_issue_types_str}\n\n').capitalize()
+            payload['fields']['issuetype']['name'] = issue_type
 
         if description is None:
             description_input = input(
