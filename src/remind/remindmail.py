@@ -274,6 +274,14 @@ class RemindMail:
         weekdays = ['sunday', 'monday', 'tuesday',
                     'wednesday', 'thursday', 'friday', 'saturday']
 
+        def extract_url(string):
+            """
+            Returns any URLs from a string
+            """
+            pattern = r'(https?://\S+)'
+            urls = re.findall(pattern, string)
+            return urls
+
         # helper functions
         def get_larger(string_a: str, string_b: str):
             """A helper function to return the larger string between string_a and string_b"""
@@ -358,9 +366,16 @@ class RemindMail:
             manual_date = today
 
         # parse for notes
-        if ':' in query:
-            query_notes = ''.join(query.split(":")[1:])
-            query = query.split(":")[0]
+        query_remove_urls = query.replace("http://", "").replace("https://", "")
+        if ':' in query_remove_urls:
+            query_notes = ''.join(query_remove_urls.split(":")[1:])
+            query = query_remove_urls.split(":")[0]
+
+        # parse for URLs
+        urls = extract_url(query)
+        if len(urls) > 0:
+            link_tags = ' '.join([f'<a href="{url}">{url}</a>' for url in urls])
+            query_notes += f"<br>Your link: {link_tags}"
 
         # remove filler text
         for item in ['me to ', 'to ', 'me ']:
@@ -583,7 +598,7 @@ class RemindMail:
 
         # send immediate reminders
         if query_time_formatted == 'right now' and response == 'y':
-            RemindMailUtils().send_email(query.strip(), query_notes, False, is_quiet=True)
+            RemindMailUtils().send_email(query.strip(), query_notes, 'RemindMail', is_quiet=True)
             return
 
         # scheduled reminders
