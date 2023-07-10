@@ -474,7 +474,7 @@ class RemindMail:
                     query = get_larger(_query_match[0], _query_match[1])
 
                     query_time_token = re.sub(
-                        'on|next|day', '', day, flags=re.IGNORECASE).strip()
+                        'on|next|day', '', day, flags=re.IGNORECASE, count=1).strip()
 
                     query_time_formatted = {
                         'sun': 'Sunday',
