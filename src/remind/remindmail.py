@@ -521,11 +521,9 @@ class RemindMail:
                 query = manual_message
             else:
                 if len(parsed_date[1]) > 1:
-                    _join_operator = ''
-                    if len(parsed_date[1]) > 1:
-                        _join_operator = parsed_date[1][1]
+                    print(parsed_date)
                     query = ''.join(get_larger(
-                        parsed_date[1][0], _join_operator))
+                        parsed_date[1][0], parsed_date[1][1]))
                     query = strip_to(''.join(query.rsplit(' on ', 1)) or query)
                 elif len(parsed_date) > 1:
                     parsed_date_formatted = strip_to(''.join(parsed_date[1]))
