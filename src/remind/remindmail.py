@@ -242,22 +242,44 @@ class RemindMail:
 
         RemindMail().log_msg("Generated tasks")
 
-    def show_tomorrow(self):
+    def show_date(self, date: str = None):
         """
-        Prints reminders from remind.md tagged with tomorow's date in YYYY-MM-DD format
+        Prints reminders from remind.md tagged with a certain date in YYYY-MM-DD format or a weekday
         """
 
         tomorrow = datetime.today() + timedelta(days=1)
-
+        
         # 'tomorrow' is 'today' if between 12AM and 3AM
         if datetime.now().hour < 3:
             tomorrow = datetime.today()
+            
+        date_to_show = date or tomorrow
 
-        tomorrow = tomorrow.replace(
+        date_to_show = date_to_show.replace(
             hour=0, minute=0, second=0, microsecond=0)
 
-        RemindMail().generate(force=True, dry_run=True, generate_date=tomorrow,
+        RemindMail().generate(force=True, dry_run=True, generate_date=date_to_show,
                               generate_type=GenerateType.LIST)
+        
+    def show_week(self):
+        """
+        Prints scheduled reminders through show_date for the next 6 days, starting with 'tomorrow'
+        """
+        
+        # Start with tomorrow
+        date_to_show = datetime.today() + timedelta(days=1)
+
+        # Loop for the next 6 days
+        for _ in range(7):
+            
+            # Print the weekday name
+            print(f"\n{date_to_show.strftime('%A, %B %d')}:")
+            
+            # Call show_date for each day
+            self.show_date(date=date_to_show)
+
+            # Move to the next day
+            date_to_show += timedelta(days=1)
 
     def parse_query(self, query=None, manual_message='', manual_date='', noconfirm=False):
         """

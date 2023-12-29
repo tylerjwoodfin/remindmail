@@ -141,7 +141,9 @@ def main():
             elif args.edit:
                 RemindMailUtils().edit_reminders_file()
             elif args.show_tomorrow:
-                RemindMail().show_tomorrow()
+                RemindMail().show_date()
+            elif args.show_week:
+                RemindMail().show_week()
             elif args.sent_today:
                 print(RemindMailUtils().get_sent_today())
             elif args.jira:
