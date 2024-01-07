@@ -54,6 +54,8 @@ def main():
                         help='Edits remind.md through the terminal')
     parser.add_argument('--show-tomorrow', action='store_true',
                         help='Shows a list of reminders scheduled for tomorrow')
+    parser.add_argument('--show-week', action='store_true',
+                        help='Shows a list of reminders scheduled for the next 7 days')
     parser.add_argument('--sent-today', action='store_true',
                         help='Prints the sum of reminders sent today (yesterday, if before 4AM)')
     parser.add_argument('manual_reminder_args', nargs='*')

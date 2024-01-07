@@ -74,7 +74,8 @@
 - `-g` (or `--generate`): Generates all reminders scheduled for today. 
   - I recommend setting up a crontab (see [generate](##generate))
 - `--later`: Emails reminders that are marked with `[any]`
-- `--show-tomorrow`: Lists reminders in remind.md that are marked with tomorrow's date in YYYY-MM-DD
+- `--show-tomorrow`: Lists reminders in remind.md that target tomorrow's date
+- `--show-week`: Lists reminders for the next 7 days
 - `--sent-today`: Prints the number of reminders sent today (or yesterday, if before 4AM)
 - `--stats`: Prints usage statistics about RemindMail
 - `-o` (or `--offset`): Calculates the offset of a date (see [offset](##offset))
