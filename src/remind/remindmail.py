@@ -45,7 +45,7 @@ class RemindMail:
         RemindMailUtils.cab.log(
             f"remindmail: {message}",
             level=level,
-            file_path=path,
+            log_folder_path=path,
             is_quiet=level == "info",
         )
 
