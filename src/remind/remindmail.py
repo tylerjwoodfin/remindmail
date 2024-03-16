@@ -69,7 +69,7 @@ class RemindMail:
         today_index = generate_date.day
 
         day_of_month_reminders_generated = RemindMailUtils.cab.get(
-            "remindmail", "day_generated"
+            "remindmail", "day_generated", no_cache=True
         )
 
         if day_of_month_reminders_generated == "":
