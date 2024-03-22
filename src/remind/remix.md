@@ -16,6 +16,10 @@
 [d,1] 40 Daily Pushups
 - every day
 
+[d,2] every 2 days
+[d,3] every 3 days
+[d,4] every 5 days
+
 [later] play diplomacy board game
 - any time
 
