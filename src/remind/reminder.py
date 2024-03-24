@@ -4,7 +4,6 @@ The main class
 from datetime import datetime, date
 from typing import Optional
 from cabinet import Cabinet, Mail
-from . import remix_utils
 
 class Reminder:
     """
@@ -115,7 +114,5 @@ class Reminder:
         email_icons = f"{email_icons} " if email_icons else email_icons
         email_title = f"Reminder {email_icons}- {self.title}"
 
-        self.mail.send(email_title, self.notes, is_quiet=is_quiet)
-
-if __name__ == "__main__":
-    remix_utils.generate()
+        # self.mail.send(email_title, self.notes, is_quiet=is_quiet)
+        self.cabinet.log(f"DEBUG: pretending to send {email_title}, {self.notes}, {is_quiet}")

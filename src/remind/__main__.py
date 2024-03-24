@@ -2,18 +2,19 @@
 The main entrypoint
 """
 
-from . import remix_utils
+from . import reminder_manager
 
 def main():
     """
     The main function
     """
 
-    utils = remix_utils.RemindmailUtils()
+    utils = reminder_manager.RemindmailUtils()
 
     # generate
     print("DEBUG")
-    utils.generate()
+    # utils.generate(True)
+    utils.show_later()
 
 if __name__ == "__main__":
     main()
