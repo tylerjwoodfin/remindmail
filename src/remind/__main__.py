@@ -12,6 +12,7 @@ def main():
     utils = remix_utils.RemindmailUtils()
 
     # generate
+    print("DEBUG")
     utils.generate()
 
 if __name__ == "__main__":

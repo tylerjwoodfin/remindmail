@@ -10,7 +10,7 @@ from datetime import datetime
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil.parser import parse
-from .remindmail_utils import RemindMailUtils
+from .old_remindmail_utils import RemindMailUtils
 
 
 class GenerateType(Enum):

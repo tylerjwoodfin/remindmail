@@ -212,15 +212,15 @@ to {RemindMailUtils.path_remind_file}/remind.md to match the selected date.")
         Edits the remind.md file
         You must configure the path to remind.md in
 
-        cabinet -> settings.json -> path -> edit -> remind
+        cabinet -> path -> edit -> remind
         """
 
         try:
             self.cab.edit_file("remind")
         except FileNotFoundError:
-            print((f"You must configure the path to remind.md in "
-                   f"{self.cab.path_cabinet}/settings.json -> "
-                   f"path -> edit -> remind.\n\n"))
+            print(("You must configure the path to remind.md in "
+                   "cabinet -> "
+                   "path -> edit -> remind.\n\n"))
 
             resp = ''
             while resp not in ['y', 'n']:

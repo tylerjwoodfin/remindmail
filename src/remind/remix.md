@@ -13,7 +13,7 @@
 [thu,1]c cabinet --mail -s "Huy Takes out Trash Until Next Thursday" -b "" -t "email"
 - every Thursday, starting next week, execute this command
 
-[d,1] 40 Daily Pushups
+[d,1]d 40 Daily Pushups
 - every day
 
 [d,2] every 2 days

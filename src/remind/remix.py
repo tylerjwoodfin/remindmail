@@ -3,6 +3,7 @@ The main class
 """
 from datetime import datetime, date
 from typing import Optional
+from cabinet import Cabinet, Mail
 from . import remix_utils
 
 class Reminder:
@@ -19,7 +20,8 @@ class Reminder:
         notes (str): Additional notes associated with the reminder.
     """
     def __init__(self, reminder_type: str, reminder_date: Optional[str], cycle: Optional[int],
-                 offset: int, modifiers: str, title: str, notes: Optional[str]):
+                 offset: int, modifiers: str, title: str,
+                 notes: Optional[str], cabinet: Cabinet, mail: Mail):
         self.reminder_type: str = reminder_type
         self.date: Optional[str] = reminder_date
         self.cycle: Optional[int] = cycle
@@ -28,6 +30,8 @@ class Reminder:
         self.title: str = title
         self.notes: Optional[str] = notes
         self.should_send_today: Optional[bool] = False
+        self.cabinet: Cabinet = cabinet
+        self.mail: Mail = mail
 
     def __repr__(self) -> str:
         return (
@@ -93,12 +97,25 @@ class Reminder:
             except ValueError:
                 # Handle MM-DD format or other date format mismatches
                 return False
-        elif self.reminder_type == "later":
-            # 'later' type reminders do not have a specific send date
-            return False
-
         # Default case if none of the conditions match
         return False
+
+    def send_email(self, is_quiet: bool = False):
+        """
+        Sends the reminder as an email using Cabinet's `Mail()` module
+        """
+
+        email_icons = ""
+
+        if self.notes:
+            email_icons += "🗒️"
+
+        # add more icons in future iterations
+
+        email_icons = f"{email_icons} " if email_icons else email_icons
+        email_title = f"Reminder {email_icons}- {self.title}"
+
+        self.mail.send(email_title, self.notes, is_quiet=is_quiet)
 
 if __name__ == "__main__":
     remix_utils.generate()

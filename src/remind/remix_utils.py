@@ -3,15 +3,35 @@ Utils for groups of reminders
 """
 
 import re
+import os
+import sys
 from typing import List, Optional, Dict
+from cabinet import Cabinet, Mail
 from . import remix
 
 class RemindmailUtils:
     """
-    Utils for groups of reminders
+    A utility class for handling reminders and email operations.
     """
 
-    def parse_reminders_file(self, filename: str) -> List[remix.Reminder]:
+    def __init__(self) -> None:
+
+        # instance of the Cabinet class for configuration management
+        self.cab = Cabinet()
+
+        # file path for reminders
+        self.path_remind_file = self.cab.get('path', 'remindmail', 'file')
+
+        # for sending emails
+        self.mail = Mail()
+
+        # parse reminders file for later access
+
+        # DEBUG
+        # self.parsed_reminders = self.parse_reminders_file()
+        self.parsed_reminders = self.parse_reminders_file('src/remind/remix.md')
+
+    def parse_reminders_file(self, filename: str = None) -> List[remix.Reminder]:
         """
         Parses a markdown file containing reminders into an array of Reminder objects.
 
@@ -20,15 +40,38 @@ class RemindmailUtils:
         Comments and empty lines are ignored.
         The reminders are parsed based on predefined formats and
         accumulated into Reminder objects, which are then returned in a list.
+        
+        After parsing Reminders into a List, delete
+        reminders scheduled for today with a "d" modifier from the file.
 
         Args:
-            filename (str): The path to the markdown file containing the reminders.
+            filename (str, optional): The path to the markdown file containing the reminders.
+                If unset, defaults to self.path_remind_file
 
         Returns:
             List[Reminder]: A list of Reminder objects parsed from the file.
         """
+
         reminders: List[remix.Reminder] = []
         current_notes: List[str] = []
+
+        # handle filename
+        if filename is None:
+            filename = self.path_remind_file
+
+            if os.path.isdir(filename):
+                old_value = filename
+                if filename.endswith('/'):
+                    filename = filename.rstrip('/')
+                new_value = f"{filename}/remind.md"
+                filename = new_value
+                self.cab.log(
+                    "Updating path -> remindmail -> file in "
+                    f"Cabinet from '{old_value}' to '{new_value}'"
+                )
+                self.cab.put("path", "remindmail", "file", filename)
+                print(self.cab.get("path", "remindmail", "file", no_cache=True))
+
 
         # Mapping from day names to their integer representation (Monday=0)
         day_to_int: Dict[str, int] = {
@@ -49,7 +92,8 @@ class RemindmailUtils:
                     line.startswith("%%") or
                     not line):
 
-                    continue  # Skip comments or empty lines
+                    # skip comments or empty lines
+                    continue
 
                 if line.startswith("["):
                     if current_notes:  # save previous reminder notes
@@ -80,8 +124,15 @@ class RemindmailUtils:
                         else:
                             reminder_date = details[0]  # for specific dates
 
-                        reminder = remix.Reminder(reminder_type, reminder_date, cycle, offset,
-                                                modifiers, title.strip(), '')
+                        reminder = remix.Reminder(reminder_type,
+                                                  reminder_date,
+                                                  cycle,
+                                                  offset,
+                                                  modifiers,
+                                                  title.strip(),
+                                                  '',
+                                                  self.cab,
+                                                  self.mail)
                         reminder.should_send_today = reminder.get_should_send_today()
                         reminders.append(reminder)
                 else:
@@ -94,23 +145,73 @@ class RemindmailUtils:
 
     def generate(self):
         """
-        Generates reminders from the file.
+        Sends or executes reminders from the file that are scheduled to send today 
+        (per parse_reminders_file).
+        
+        Afterwards, delete the reminders from the file.
         """
 
-        parsed_reminders = self.parse_reminders_file('remix.md')
+        count_sent = 0
 
-        for r in parsed_reminders:
+        for r in self.parsed_reminders:
             if r.should_send_today:
-                print(r.title)
+                print(f"DEBUG: {r.title}")
                 if 'd' in r.modifiers:
                     print("Deleting")
 
                 if 'c' in r.modifiers:
                     print("Executing")
+                    continue
 
-                print("Sending")
+                r.send_email()
+
+                count_sent += 1
+
+        self.cab.put("remindmail", "sent_today", count_sent)
 
     def show_week(self):
         """
         Shows upcoming reminders for the week
         """
+
+    def edit_reminders_file(self):
+        """
+        Edits the remind.md file
+        You must configure the path to remind.md in
+
+        cabinet -> path -> edit -> remind
+        """
+
+        try:
+            self.cab.edit_file("remind")
+        except FileNotFoundError:
+            resolved = self.help_set_path_remindmd()
+            if resolved:
+                self.edit_reminders_file()
+            else:
+                sys.exit()
+
+
+    def help_set_path_remindmd(self):
+        """
+        A fallback function when remind.md is not found.
+        
+        Returns:
+            bool: whether the path to remind.md has been set
+        """
+        print(("You must configure the path to remind.md in "
+                   "Cabinet. Run\n\n"
+                   "`cabinet -p path edit remind value </full/path/to/remind.md>\n\n"))
+
+        resp = ''
+        while resp not in ['y', 'n']:
+            resp = input((f"RemindMail can do this for you."
+                            "Would you like to set this to "
+                            f"{self.path_remind_file}/remind.md? y/n\n\n"))
+            if resp == 'y':
+                self.cab.put("path", "edit", "remind", "value",
+                                f"{self.path_remind_file}/remind.md")
+                print(("\n\nSet."))
+                return True
+
+            return False
