@@ -5,10 +5,22 @@ Utils for groups of reminders
 import re
 import os
 import sys
+import glob
+import readline
+from datetime import date, timedelta
 from typing import List, Optional, Dict
 from rich.console import Console
 from cabinet import Cabinet, Mail
 from . import reminder, error_handler
+
+def complete_file_input(text, state):
+    """
+    Enables tab completion when entering file locations
+    """
+    text = os.path.expanduser(os.path.expandvars(text))
+
+    # List all files that match the current input
+    return [x for x in glob.glob(text + '*')][state]
 
 class ReminderManager:
     """
@@ -18,19 +30,24 @@ class ReminderManager:
     def __init__(self) -> None:
 
         # file and data management
-        self.cab = Cabinet()
+        self.cabinet = Cabinet()
 
         # DEBUG
         # file path for reminders
         # self.path_remind_file: str = self.cab.get('path', 'remindmail', 'file')
-        # self.path_remind_file: str = 'src/remind/remind.md'
-        self.path_remind_file: str = None
+        self.path_remind_file: str = 'src/remind/remind.md'
+        # self.path_remind_file: str = None
 
         # for sending emails
         self.mail = None
 
         # colors 🎨
         self.console = Console()
+
+        # tab completion
+        readline.set_completer_delims(' \t\n;')
+        readline.set_completer(complete_file_input)
+        readline.parse_and_bind('tab: complete')
 
         self.parsed_reminders: List[reminder.Reminder] = []
 
@@ -67,10 +84,12 @@ class ReminderManager:
         delete_current_reminder: bool = False
 
         # handle filename
+        filename = filename or self.path_remind_file
+
         if filename is None:
             raise FileNotFoundError
 
-        self.cab.log(f"Parsing reminders in {filename}")
+        self.cabinet.log(f"Parsing reminders in {filename}", is_quiet=True)
 
         # Mapping from day names to their integer representation (Monday=0)
         day_to_int: Dict[str, int] = {
@@ -127,13 +146,13 @@ class ReminderManager:
                                                   modifiers,
                                                   title.strip(),
                                                   '',
-                                                  self.cab,
+                                                  self.cabinet,
                                                   self.mail)
                         r.should_send_today = r.get_should_send_today()
 
                         if is_delete and r.should_send_today and 'd' in modifiers:
                             delete_current_reminder = True
-                            self.cab.log(f"Will Delete: {r}")
+                            self.cabinet.log(f"Will Delete: {r}")
                         else:
                             new_lines.append(line)  # Add non-deleted reminders back
 
@@ -174,10 +193,10 @@ class ReminderManager:
         if self.mail is None:
             self.mail = Mail()
 
-        self.cab.log("Generating Reminders")
+        self.cabinet.log("Generating Reminders")
         for r in self.parsed_reminders:
             if r.should_send_today:
-                self.cab.log(r)
+                self.cabinet.log(r)
 
                 if 'c' in r.modifiers:
                     print("Executing")
@@ -188,7 +207,7 @@ class ReminderManager:
 
                 count_sent += 1
 
-        self.cab.put("remindmail", "sent_today", count_sent, is_print=True)
+        self.cabinet.put("remindmail", "sent_today", count_sent, is_print=True)
 
     def show_later(self) -> None:
         """
@@ -203,10 +222,44 @@ class ReminderManager:
                 self.console.print(r.title, style="bold green")
                 print(r.notes)
 
-    def show_week(self):
+    def show_week(self) -> None:
         """
-        Shows upcoming reminders for the week
+        Displays reminders scheduled for the upcoming week.
+
+        This method calculates the dates for the next 7 days, starting from tomorrow,
+        and checks each day for scheduled reminders. For each day, it prints the date
+        and any corresponding reminders. If there are no reminders for a specific day,
+        it indicates so. Reminders with specific modifiers change the display style
+        to highlight their importance or category.
         """
+        # Prepare the next 7 days
+        dates = [date.today() + timedelta(days=i) for i in range(1, 8)]
+
+        # Parse reminders file if necessary
+        if not self.parsed_reminders:
+            self.parse_reminders_file()
+
+        # Iterate through each upcoming day
+        for day in dates:
+            formatted_date = day.strftime("%A, %Y-%m-%d")
+            self.console.print(f"[bold blue on white]{formatted_date}", highlight=False)
+
+            # Track the number of reminders shown for the day
+            reminder_shown = False
+
+            # Display each reminder scheduled for this day
+            for r in self.parsed_reminders:
+                if r.get_should_send_today(day):
+                    reminder_style = f"bold {'purple' if 'c' in r.modifiers else 'green'}"
+                    self.console.print(r.title, style=reminder_style, highlight=False)
+                    if r.notes:
+                        self.console.print(r.notes, style="italic")
+                    reminder_shown = True
+
+            if not reminder_shown:
+                self.console.print("No Reminders", style="dim")
+
+            self.console.print("")
 
     @error_handler.ErrorHandler.exception_handler
     def edit_reminders_file(self) -> None:
@@ -219,7 +272,7 @@ class ReminderManager:
 
         if self.path_remind_file is None:
             raise FileNotFoundError
-        self.cab.edit_file(self.path_remind_file)
+        self.cabinet.edit_file(self.path_remind_file)
 
     def help_set_path_remindmd(self) -> bool:
         """
@@ -274,11 +327,11 @@ class ReminderManager:
             old_value = self.path_remind_file
             new_value = f"{self.path_remind_file}/remind.md"
             self.path_remind_file = new_value
-            self.cab.log(
+            self.cabinet.log(
                 "Updating path -> remindmail -> file in "
                 f"Cabinet from '{old_value}' to '{new_value}'"
             )
-            self.cab.put("path", "remindmail", "file",
+            self.cabinet.put("path", "remindmail", "file",
                          self.path_remind_file,
                          is_print=True
             )

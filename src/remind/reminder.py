@@ -63,8 +63,8 @@ class Reminder:
                     return True
                 else:
                     # Handle reminders that occur every 'n' weeks with an optional offset
-                    start_date = datetime(1970, 1, 1)
-                    weeks_since_start = (today - start_date).days // 7
+                    start_date = datetime(1970, 1, 1).date()
+                    weeks_since_start = (today - start_date).days // 7 # THIS LINE
                     return (weeks_since_start + self.offset) % self.cycle == 0
             return False
         if self.reminder_type == "d":

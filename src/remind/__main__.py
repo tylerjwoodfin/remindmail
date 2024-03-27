@@ -2,12 +2,12 @@
 The main entrypoint
 """
 
-import sys
 import argparse
 
 from . import reminder_manager
+from . import query_manager
 
-def handle_args(manager: reminder_manager.ReminderManager) -> None:
+def handle_args(manager_r: reminder_manager.ReminderManager, manager_q: query_manager.QueryManager) -> None:
     """
     Parse arguments passed to RemindMail
     """
@@ -34,24 +34,27 @@ def handle_args(manager: reminder_manager.ReminderManager) -> None:
         "--edit",
         action="store_true",
         help="edits the remindmail file")
+    parser.add_argument("-sw",
+        "--show-week",
+        action="store_true",
+        help="show reminders through next 7 days",
+    )
 
     try:
         args = parser.parse_args()
 
         if args.list:
-            manager.print_reminders_file()
+            manager_r.print_reminders_file()
         elif args.generate:
-            manager.generate()
+            manager_r.generate()
         elif args.later:
-            manager.show_later()
+            manager_r.show_later()
         elif args.edit:
-            manager.edit_reminders_file()
-
-        # no arguments
-        if len(sys.argv) == 1:
-            parser.print_help()
-
-            sys.exit(1)
+            manager_r.edit_reminders_file()
+        elif args.show_week:
+            manager_r.show_week()
+        else:
+            manager_q.wizard_manual_reminder()
 
     except KeyboardInterrupt as exc:
         raise KeyboardInterrupt from exc
@@ -61,10 +64,11 @@ def main():
     The main function
     """
 
-    utils = reminder_manager.ReminderManager()
+    manager_remind = reminder_manager.ReminderManager()
+    manager_query = query_manager.QueryManager(manager_remind)
 
     try:
-        handle_args(utils)
+        handle_args(manager_remind, manager_query)
     except KeyboardInterrupt:
         print("\n")
 
