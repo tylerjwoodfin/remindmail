@@ -2,6 +2,7 @@
 Handles errors and data integrity issues
 """
 
+import traceback
 from typing import Callable
 from functools import wraps
 import sys
@@ -34,5 +35,6 @@ class ErrorHandler:
             # pylint: disable=W0718
             except Exception as e:
                 print(f"An unexpected error occurred while processing '{e}': {e}")
+                traceback.print_exc()
 
         return wrapper

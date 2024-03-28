@@ -121,6 +121,12 @@ class ReminderManager:
 
                         details = details.split(",")
                         reminder_type: str = details[0]
+
+                        # checks if key is YYYY-MM-DD or MM-DD
+                        date_key_pattern = r"\d{4}-\d{2}-\d{2}"
+                        if re.match(date_key_pattern, details[0]):
+                            reminder_type = 'date'
+
                         reminder_date: Optional[str] = None
                         cycle: Optional[int] = None
                         offset: int = 0
@@ -148,6 +154,8 @@ class ReminderManager:
                                                   '',
                                                   self.cabinet,
                                                   self.mail)
+
+                        print(r)
                         r.should_send_today = r.get_should_send_today()
 
                         if is_delete and r.should_send_today and 'd' in modifiers:
@@ -173,6 +181,8 @@ class ReminderManager:
                 file.writelines(new_lines)
 
         self.parsed_reminders = reminders
+
+        print(reminders)
 
         return reminders
 
@@ -218,7 +228,7 @@ class ReminderManager:
             self.parse_reminders_file()
 
         for r in self.parsed_reminders:
-            if r.reminder_type == 'later':
+            if r.key == 'later':
                 self.console.print(r.title, style="bold green")
                 print(r.notes)
 

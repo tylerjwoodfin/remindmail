@@ -35,18 +35,16 @@ class QueryManager:
         """
 
         def _format_input(text: str) -> str:
-            return input(f"Enter {text}:\n")
+            return input(f"{text}?\n")
 
-        print("Let's create a new reminder.")
-
-        reminder_type = _format_input("reminder type (d, w, m, dow, dom, later)").strip()
+        title = _format_input("What's the reminder").strip()
         reminder_date = _format_input(
-            "reminder date (YYYY-MM-DD or MM-DD, optional)").strip() or None
+            "When do you want to be reminded").strip() or None
+        reminder_type = _format_input("reminder type (d, w, m, dow, dom, later)").strip()
         cycle_input = _format_input("cycle or interval (number of days, optional)").strip()
         cycle = int(cycle_input) if cycle_input.isdigit() else None
         offset = int(_format_input("offset (default is 0)") or 0)
         modifiers = _format_input("any modifiers (e.g., 'd' for delete, 'c' for command)").strip()
-        title = _format_input("the title of the reminder").strip()
         notes = _format_input("any notes for the reminder (optional)").strip() or None
 
         reminder = Reminder(reminder_type=reminder_type,

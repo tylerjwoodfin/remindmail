@@ -1,7 +1,7 @@
 """
 The main class
 """
-from datetime import datetime, date
+from datetime import datetime, timedelta
 from typing import Optional
 from cabinet import Cabinet, Mail
 
@@ -10,20 +10,24 @@ class Reminder:
     Represents a reminder with various attributes defining its schedule and actions.
 
     Attributes:
-        reminder_type (str): Type of reminder (e.g., 'd', 'w', 'm', 'dow', 'dom', 'later').
-        reminder_date (Optional[str]): Specific date for one-time reminders in YYYY-MM-DD or MM-DD.
+        key (str): Type of reminder (e.g., 'date', 'd', 'w', 'm', 'dow', 'dom', 'later').
+        value (Optional[str]): Specific value, depending on the `key`. 
+            - if key is "date", expect YYYY-MM-DD str
+            - if key is "dow", expect "sun" - "sat"
+            - if key is "dom", expect 1-30 as string
+            - otherwise, value is ignored
         cycle (Optional[int]): Defines the cycle or interval for the reminder.
         offset (int): Adjusts the starting point of the reminder.
         modifiers (str): Contains actions for the reminder, such as delete ('d') or command ('c').
         title (str): The title or main content of the reminder.
         notes (str): Additional notes associated with the reminder.
     """
-    def __init__(self, reminder_type: str, reminder_date: Optional[str], cycle: Optional[int],
+    def __init__(self, key: str, value: Optional[str], frequency: Optional[int],
                  offset: int, modifiers: str, title: str,
                  notes: Optional[str], cabinet: Cabinet, mail: Mail):
-        self.reminder_type: str = reminder_type
-        self.date: Optional[str] = reminder_date
-        self.cycle: Optional[int] = cycle
+        self.key: str = key
+        self.value: Optional[str] = value
+        self.frequency: Optional[int] = frequency
         self.offset: int = offset
         self.modifiers: str = modifiers
         self.title: str = title
@@ -34,69 +38,81 @@ class Reminder:
 
     def __repr__(self) -> str:
         return (
-            f"Reminder(type={self.reminder_type}, "
-            f"date={self.date}, "
-            f"cycle={self.cycle}, "
+            f"Reminder(key={self.key}, "
+            f"value={self.value}, "
+            f"frequency={self.frequency}, "
             f"offset={self.offset}, "
             f"modifiers='{self.modifiers}', "
             f"title='{self.title}', "
             f"notes='{self.notes}')"
+            "\n"
         )
 
-    def get_should_send_today(self, date_override: date = None) -> bool:
+    def get_should_send_today(self, date_override: datetime.date = None) -> bool:
         """
-        Determines whether a given Reminder should send today based on its scheduling details.
+        Determines whether the reminder should be sent today based on its scheduling configuration.
+
+        This method evaluates the reminder's key, value, frequency, and offset to calculate whether
+        the current day matches the scheduled day for the reminder to be sent. It supports various
+        reminder keys, including specific dates, days of the week, daily intervals, weekly
+        intervals, monthly intervals, and specific days of the month. The calculation considers the
+        current date, or an optional override date, to determine if the conditions for sending
+        the reminder are met today.
 
         Args:
-            reminder (Reminder): The reminder to check, containing its schedule and any conditions.
-            date_override (date): Check whether a reminder should send on another date
+            date_override (datetime.date, optional): A specific date to evaluate the reminder
+            against, instead of the current date.
 
         Returns:
-            bool: True if the reminder is scheduled to send today, False otherwise.
+            bool:   True if the reminder should be sent today based on its scheduling details
+                    False otherwise.
         """
         today = date_override or datetime.now().date()
+        # Handle date-specific reminders
+        if self.key == 'date' and self.value:
+            return datetime.strptime(self.value, '%Y-%m-%d').date() == today
 
-        if isinstance(self.reminder_type, int) and self.reminder_type in range(7):
-            # For weekly reminders set on a specific day of the week
-            if today.weekday() == self.reminder_type:
-                if self.cycle is None or self.cycle == 1:
-                    return True
-                else:
-                    # Handle reminders that occur every 'n' weeks with an optional offset
-                    start_date = datetime(1970, 1, 1).date()
-                    weeks_since_start = (today - start_date).days // 7 # THIS LINE
-                    return (weeks_since_start + self.offset) % self.cycle == 0
-            return False
-        if self.reminder_type == "d":
-            # Daily reminders, possibly with a cycle (every 'n' days)
-            if self.cycle is None or self.cycle == 1:
+        # Handle day of the week reminders
+        elif self.key == 'dow' and self.value:
+            dow_mapping = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
+            target_dow = dow_mapping.get(self.value.lower())
+            if today.weekday() == target_dow:
+                if self.frequency:
+                    start_date = today - timedelta(days=today.weekday()) + timedelta(
+                        days=target_dow, weeks=-self.offset)
+                    weeks_diff = (today - start_date).days // 7
+                    return weeks_diff % self.frequency == 0
                 return True
-            else:
-                # Use the provided date or Unix epoch as the start date
-                unix_epoch = datetime(1970, 1, 1).date()
-                if self.date:
-                    start_date = datetime.strptime(self.date, '%Y-%m-%d').date()
-                else:
-                    start_date = unix_epoch
-                days_since_start = (today - start_date).days
-                # Adjust for the offset, if any
-                adjusted_days = days_since_start + (self.offset if self.offset else 0)
-                return adjusted_days % self.cycle == 0
-        elif self.reminder_type == "m":
-            # Monthly reminders, occurring on the first of each month
-            if self.cycle is None or self.cycle == 1:
-                return today.day == 1
-            else:
-                return False
-        elif self.date:
-            # Specific date reminders
+
+        # Handle daily reminders with optional frequency
+        elif self.key == 'd':
+            if self.frequency:
+                start_date = today - timedelta(days=self.offset)
+                days_diff = (today - start_date).days
+                return days_diff % self.frequency == 0
+            return True
+
+        # Handle weekly reminders
+        elif self.key == 'w':
+            if self.frequency:
+                start_date = today - timedelta(weeks=self.offset)
+                weeks_diff = (today - start_date).days // 7
+                return weeks_diff % self.frequency == 0
+            return True
+
+        # Handle monthly reminders using standard datetime calculations
+        elif self.key == 'm' and self.frequency:
             try:
-                specific_date = datetime.strptime(self.date, '%Y-%m-%d')
-                return today == specific_date.date()
+                months_since_start = today.month + (today.year - 1970) * 12 - self.offset
+                return months_since_start % self.frequency == 0
             except ValueError:
-                # Handle MM-DD format or other date format mismatches
                 return False
-        # Default case if none of the conditions match
+
+        # Handle day of the month reminders
+        elif self.key == 'dom' and self.value:
+            day_of_month = int(self.value)
+            return today.day == day_of_month
+
         return False
 
     def send_email(self, is_quiet: bool = False):
