@@ -3,14 +3,34 @@ The main class
 """
 from datetime import datetime, timedelta
 from typing import Optional
+from enum import Enum
 from cabinet import Cabinet, Mail
+
+class ReminderKeyType(Enum):
+    """
+    for `Reminder.key`
+    """
+    DATE = "date"
+    DAY = "d"
+    WEEK = "w"
+    MONTH = "m"
+    DAY_OF_WEEK = "dow"
+    DAY_OF_MONTH = "dom"
+    LATER = "later"
+
+def screaming_snake_to_sentence_case(enum_key: str):
+    """
+    Modifies an enum key, such as DAY_OF_WEEK, to
+    human-friendly sentence case, such as "Day of Week"
+    """
+    return ' '.join(word.capitalize() for word in enum_key.split('_'))
 
 class Reminder:
     """
     Represents a reminder with various attributes defining its schedule and actions.
 
     Attributes:
-        key (str): Type of reminder (e.g., 'date', 'd', 'w', 'm', 'dow', 'dom', 'later').
+        key (KeyType). This is the type of reminder, such as on a certain day, date, or month.
         value (Optional[str]): Specific value, depending on the `key`. 
             - if key is "date", expect YYYY-MM-DD str
             - if key is "dow", expect "sun" - "sat"
@@ -22,10 +42,17 @@ class Reminder:
         title (str): The title or main content of the reminder.
         notes (str): Additional notes associated with the reminder.
     """
-    def __init__(self, key: str, value: Optional[str], frequency: Optional[int],
-                 offset: int, modifiers: str, title: str,
-                 notes: Optional[str], cabinet: Cabinet, mail: Mail):
-        self.key: str = key
+    def __init__(self,
+                 key: ReminderKeyType,
+                 value: Optional[str],
+                 frequency: Optional[int],
+                 offset: int,
+                 modifiers: str,
+                 title: str,
+                 notes: Optional[str],
+                 cabinet: Cabinet,
+                 mail: Mail):
+        self.key: ReminderKeyType = key
         self.value: Optional[str] = value
         self.frequency: Optional[int] = frequency
         self.offset: int = offset

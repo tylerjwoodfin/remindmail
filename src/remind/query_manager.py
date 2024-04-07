@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta, MO, TU, WE, TH, FR, SA, SU
 from remind.reminder import Reminder
+from remind.reminder_confirmation import ReminderConfirmation
 from remind.reminder_manager import ReminderManager
 from cabinet import Cabinet, Mail
 
@@ -200,7 +201,10 @@ class QueryManager:
             except ValueError as e:
                 print(e)
 
+        # display confirmation form
+        ReminderConfirmation(reminder).run()
+        
+        print("Updated reminder:")
         print(reminder)
-        # self.write_reminder_to_file(reminder)
 
         return reminder
