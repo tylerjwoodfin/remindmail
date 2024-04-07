@@ -42,12 +42,6 @@ class QueryManager:
         
         Raises:
         - ValueError: If the input string cannot be parsed into a known date format.
-
-        TODO
-        - support for other formats like `1/2`, `3/6/2029`, etc
-        - every n days
-        - every n months
-        - offset
         """
 
         weekdays = {
@@ -67,12 +61,22 @@ class QueryManager:
             'day_of_month': re.compile(r'\b(?:the )?(\d{1,2})(st|nd|rd|th)?\b', re.IGNORECASE),
             'every_weeks': re.compile(r'every (\d+) weeks?', re.IGNORECASE),
             'specific_date': re.compile((r'(?i)\b(january|february|march|april|may|june|july|august'
-                            r'|september|october|november|december) (\d{1,2})(?:,? (\d{4}))?\b'))
+                                         r'|september|october|november|december)'
+                                         r'(\d{1,2})(?:,? (\d{4}))?\b')),
+            'mm_dd': re.compile(r'(\d{1,2})/(\d{1,2})'),
+            'mm_dd_yyyy': re.compile(r'(\d{1,2})/(\d{1,2})/(\d{4})'),
+            'yyyy_mm_dd': re.compile(r'(\d{4})-(\d{1,2})-(\d{1,2})'),
+            'every_n_days': re.compile(r'every (\d+) day?s?', re.IGNORECASE),
+            'every_n_months': re.compile(r'every (\d+) month?s?', re.IGNORECASE),
+            'every_n_dows': re.compile(r'every (\d+) (monday|mon|tuesday|tue|wednesday'
+                                       r'|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)s?',
+                                       re.IGNORECASE),
         }
 
         start_date = datetime.now() + timedelta(days=1)
         key, value, frequency, modifiers = '', '', None, 'd'
 
+        # parse input_str
         if 'every' not in input_str:
             # relative
             if match := regex_patterns['relative'].search(input_str):
@@ -87,6 +91,25 @@ class QueryManager:
                     raise ValueError((f"{future_date.strftime('%Y-%m-%d')}"
                                       " is in the past."))
                 key, value = 'date', future_date.strftime('%Y-%m-%d')
+
+            # mm/dd, mm/dd/yyyy
+            elif match := regex_patterns['mm_dd'].match(input_str) or \
+            regex_patterns['mm_dd_yyyy'].match(input_str):
+                month, day = int(match.group(1)), int(match.group(2))
+                year = int(match.group(3)) if match.lastindex == 3 else start_date.year
+                proposed_date = datetime(year, month, day)
+                # if the date is in the past, find the next occurrence
+                if proposed_date <= start_date:
+                    proposed_date = proposed_date + relativedelta(years=1)
+                key, value = 'date', proposed_date.strftime('%Y-%m-%d')
+
+            # yyyy-mm-dd
+            elif match := regex_patterns['yyyy_mm_dd'].match(input_str):
+                year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
+                proposed_date = datetime(year, month, day)
+                if proposed_date <= start_date:
+                    proposed_date = proposed_date + relativedelta(years=1)
+                key, value = 'date', proposed_date.strftime('%Y-%m-%d')
 
             # day of month
             elif match := regex_patterns['day_of_month'].match(input_str):
@@ -111,7 +134,27 @@ class QueryManager:
                     date_formatted = date_formatted + relativedelta(years=1)
                 key, value = 'date', date_formatted.strftime('%Y-%m-%d')
         else:
-            if match := regex_patterns['every_weeks'].search(input_str):
+            # 'every'
+            modifiers = ''
+
+            # every n days
+            if match := regex_patterns['every_n_days'].match(input_str):
+                key, frequency, modifiers = 'd', int(match.group(1)), ''
+
+            # every n months
+            elif match := regex_patterns['every_n_months'].match(input_str):
+                key, frequency, modifiers = 'm', int(match.group(1)), ''
+
+            # every n {dow}s (e.g., 'every 3 mondays')
+            elif match := regex_patterns['every_n_dows'].match(input_str):
+                dow = match.group(2).lower()
+                if dow in weekdays:
+                    key = 'dow'
+                    value = dow
+                    frequency = int(match.group(1))
+
+            # every n weeks
+            elif match := regex_patterns['every_weeks'].match(input_str):
                 key, frequency, modifiers = 'w', int(match.group(1)), ''
 
         if not key:
