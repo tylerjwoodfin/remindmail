@@ -7,13 +7,27 @@ import argparse
 from . import reminder_manager
 from . import query_manager
 
-def handle_args(manager_r: reminder_manager.ReminderManager, manager_q: query_manager.QueryManager) -> None:
+def handle_args(manager_r: reminder_manager.ReminderManager,
+                manager_q: query_manager.QueryManager) -> None:
     """
     Parse arguments passed to RemindMail
     """
 
     parser = argparse.ArgumentParser(description="A tool to schedule and organize reminders")
 
+    # parameter arguments
+    parser.add_argument("--title",
+        help="the title of your reminder",
+        nargs="?",
+        const=""
+    )
+
+    parser.add_argument("--when",
+        help="when the reminder should send, as natural language",
+        nargs="?",
+        const="")
+
+    # action arguments
     parser.add_argument("-ls",
         "--list",
         action="store_true",
@@ -54,7 +68,10 @@ def handle_args(manager_r: reminder_manager.ReminderManager, manager_q: query_ma
         elif args.show_week:
             manager_r.show_week()
         else:
-            manager_q.wizard_manual_reminder()
+            manager_q.wizard_manual_reminder(
+                title=args.title,
+                when=args.when
+            )
 
     except KeyboardInterrupt as exc:
         raise KeyboardInterrupt from exc

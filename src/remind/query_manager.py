@@ -173,25 +173,28 @@ class QueryManager:
                         cabinet=self.cabinet,
                         mail=self.mail)
 
-    def wizard_manual_reminder(self) -> Reminder:
+    def wizard_manual_reminder(self, title: str = None, when: str = None) -> Reminder:
         """
         Guides the user through the process of creating a new manual reminder
         by collecting necessary information
         through interactive prompts.
 
+        Parameters:
+            - title (str): the reminder's title
+            - when (str): when do you want to be reminded, in natural language
         Returns:
-            Reminder: An instance of the Reminder class with
+            - Reminder: An instance of the Reminder class with
             properties populated based on user input.
         """
 
         def _format_input(text: str) -> str:
             return input(f"{text}?\n")
 
-        title: str = _format_input("What's the reminder").strip()
+        title: str = title or _format_input("What's the reminder").strip()
         reminder_date_success: bool = False
 
         while not reminder_date_success:
-            reminder_date: str = _format_input(
+            reminder_date: str = when or _format_input(
                 "When do you want to be reminded").strip() or None
 
             try:
@@ -203,7 +206,7 @@ class QueryManager:
 
         # display confirmation form
         ReminderConfirmation(reminder).run()
-        
+
         print("Updated reminder:")
         print(reminder)
 
