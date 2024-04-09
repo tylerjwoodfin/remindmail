@@ -61,20 +61,25 @@ class ReminderConfirmation:
                                     read_only=True,
                                     multiline=False,
                                     style='fg:ansigreen bold blink')
-        self.title_input = TextArea(text=reminder.title, multiline=False, style="fg:orange")
-        self.type_input = TextArea(text=f"< {self.reminder_types[self.current_type_index]} >",
+        self.title_input = TextArea(text=reminder.title,
+                                    multiline=False,
+                                    prompt=HTML('<b><ansiblue>Title: </ansiblue></b>'))
+        self.type_input = TextArea(text=self.reminder_types[self.current_type_index],
                                    read_only=True,
-                                   multiline=False)
+                                   multiline=False,
+                                   prompt=HTML('<b><ansiblue>Type: </ansiblue></b>'))
         self.value_input = TextArea(text=self.reminder.value,
                                    multiline=False,
-                                   prompt='Value: ')
+                                   prompt=HTML('<b><ansiblue>Value: </ansiblue></b>'))
         self.frequency_input = TextArea(text=str(reminder.frequency),
                                         multiline=False,
-                                        prompt='Frequency: ')
-        self.offset_input = TextArea(text=str(reminder.offset), multiline=False, prompt='Offset: ')
+                                        prompt=HTML('<b><ansiblue>Frequency: </ansiblue></b>'))
+        self.offset_input = TextArea(text=str(reminder.offset),
+                                     multiline=False,
+                                     prompt=HTML('<b><ansiblue>Offset: </ansiblue></b>'))
         self.modifiers_input = TextArea(text=str(reminder.modifiers),
                                         multiline=False,
-                                        prompt='Modifiers: ')
+                                        prompt=HTML('<b><ansiblue>Modifiers: </ansiblue></b>'))
         self.notes_input = TextArea(text=reminder.notes, multiline=True, prompt='Notes: ')
         self.cancel_button = TextArea(text='Cancel',
                                     read_only=True,
@@ -101,13 +106,13 @@ class ReminderConfirmation:
         @bindings.add('l', filter=has_focus(self.type_input))
         def _(event):  # pylint: disable=unused-argument
             self.current_type_index = (self.current_type_index + 1) % len(self.reminder_types)
-            self.type_input.text = f"< {self.reminder_types[self.current_type_index]} >"
+            self.type_input.text = self.reminder_types[self.current_type_index]
 
         @bindings.add('left', filter=has_focus(self.type_input))
         @bindings.add('h', filter=has_focus(self.type_input))
         def _(event):  # pylint: disable=unused-argument
             self.current_type_index = (self.current_type_index - 1) % len(self.reminder_types)
-            self.type_input.text = f"< {self.reminder_types[self.current_type_index]} >"
+            self.type_input.text = self.reminder_types[self.current_type_index]
 
         # handle frequency
         @bindings.add('right', filter=has_focus(self.frequency_input))
@@ -138,9 +143,7 @@ class ReminderConfirmation:
                 self.offset_input.text = str(self.reminder.offset)
 
         container = HSplit([
-            HSplit(children=[
-                self.title_input,
-            ], height=2),
+            self.title_input,
             self.type_input,
             self.value_input,
             self.frequency_input,
@@ -162,7 +165,7 @@ class ReminderConfirmation:
             # Status Bar at the bottom
             Box(
                 body=Label(text=lambda: self.toolbar_text, align=WindowAlign.LEFT),
-                style="fg:black bg:white",
+                style="reverse",
                 height=1,
                 padding_left=1,
                 padding_right=0
