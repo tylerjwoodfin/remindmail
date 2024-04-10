@@ -8,22 +8,19 @@ from cabinet import Cabinet, Mail
 
 class ReminderKeyType(Enum):
     """
-    for `Reminder.key`
+    Enum for `Reminder.key` with database value and label.
     """
-    DATE = "date"
-    DAY = "d"
-    WEEK = "w"
-    MONTH = "m"
-    DAY_OF_WEEK = "dow"
-    DAY_OF_MONTH = "dom"
-    LATER = "later"
+    DATE = ("date", "Date")
+    DAY = ("d", "Day")
+    WEEK = ("w", "Week")
+    MONTH = ("m", "Month")
+    DAY_OF_WEEK = ("dow", "Day of Week")
+    DAY_OF_MONTH = ("dom", "Day of Month")
+    LATER = ("later", "Later")
 
-def screaming_snake_to_sentence_case(enum_key: str):
-    """
-    Modifies an enum key, such as DAY_OF_WEEK, to
-    human-friendly sentence case, such as "Day of Week"
-    """
-    return ' '.join(word.capitalize() for word in enum_key.split('_'))
+    def __init__(self, db_value, label):
+        self.db_value: str = db_value  # Assign to custom attribute
+        self.label: str = label  # Assign to custom attribute
 
 class Reminder:
     """

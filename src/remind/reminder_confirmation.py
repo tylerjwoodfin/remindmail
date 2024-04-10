@@ -9,7 +9,7 @@ from prompt_toolkit.layout import Layout, HSplit, Window
 from prompt_toolkit.widgets import TextArea, Box, Label
 from prompt_toolkit.layout.containers import WindowAlign, ConditionalContainer
 from prompt_toolkit.filters import has_focus, Condition
-from remind.reminder import Reminder, ReminderKeyType, screaming_snake_to_sentence_case
+from remind.reminder import Reminder, ReminderKeyType
 
 class ReminderConfirmation:
     """
@@ -22,6 +22,7 @@ class ReminderConfirmation:
         """
         # Update reminder instance with values from text areas
         self.reminder.title = self.title_input.text
+        self.reminder.key = self.reminder_types[self.current_type_index].db_value
         self.reminder.value = self.value_text_area.text
         self.reminder.frequency = int(self.frequency_text_area.text) \
             if self.frequency_text_area.text.isdigit() else 0
@@ -36,28 +37,25 @@ class ReminderConfirmation:
     def __init__(self, reminder: Reminder):
 
         self.reminder = reminder
+        self.toolbar_text = ""
 
         if not self.reminder.frequency:
             self.reminder.frequency = 0
 
         bindings = KeyBindings()
 
-        # Key binding functions
-        @bindings.add('down')
-        @bindings.add('j')
-        def _(event):
-            event.app.layout.focus_next()
-            self.update_toolbar_text()
+        # up/down navigation
+        def make_nav_handler(key):
+            def nav_handler(event):
+                self.handle_navigation(event, key)
+            return nav_handler
 
-        @bindings.add('up')
-        @bindings.add('k')
-        def _(event):
-            event.app.layout.focus_previous()
-            self.update_toolbar_text()
+        for nav_key in ['j', 'k', 'down', 'up']:
+            handler = make_nav_handler(nav_key)
+            bindings.add(nav_key)(handler)
 
-        # Initialize UI components
-        self.reminder_types: List[ReminderKeyType] = \
-            [screaming_snake_to_sentence_case(type.name) for type in ReminderKeyType]
+        # initialize UI
+        self.reminder_types: List[ReminderKeyType] = list(ReminderKeyType)
         self.current_type_index = 0
 
         # save
@@ -72,7 +70,7 @@ class ReminderConfirmation:
                                     prompt=HTML('<b><ansiblue>Title: </ansiblue></b>'))
 
         # type
-        self.type_input = TextArea(text=self.reminder_types[self.current_type_index],
+        self.type_input = TextArea(text=self.reminder_types[self.current_type_index].label,
                                    read_only=True,
                                    multiline=False,
                                    prompt=HTML('<b><ansiblue>Type: </ansiblue></b>'))
@@ -134,33 +132,18 @@ class ReminderConfirmation:
             padding_right=0
         )
 
-        # handle editing mode
-        @bindings.add('v')
-        def _(event):
-            """
-            Toggles between VI and EMACS mode
-
-            Args:
-                event (_type_): _description_
-            """
-            app = event.app
-            if app.editing_mode == EditingMode.VI:
-                app.editing_mode = EditingMode.EMACS
-            else:
-                app.editing_mode = EditingMode.VI
-
         # handle type
         @bindings.add('right', filter=has_focus(self.type_input))
         @bindings.add('l', filter=has_focus(self.type_input))
         def _(event):  # pylint: disable=unused-argument
             self.current_type_index = (self.current_type_index + 1) % len(self.reminder_types)
-            self.type_input.text = self.reminder_types[self.current_type_index]
+            self.type_input.text = self.reminder_types[self.current_type_index].label
 
         @bindings.add('left', filter=has_focus(self.type_input))
         @bindings.add('h', filter=has_focus(self.type_input))
         def _(event):  # pylint: disable=unused-argument
             self.current_type_index = (self.current_type_index - 1) % len(self.reminder_types)
-            self.type_input.text = self.reminder_types[self.current_type_index]
+            self.type_input.text = self.reminder_types[self.current_type_index].label
 
         # handle frequency
         @bindings.add('right', filter=has_focus(self.frequency_input))
@@ -231,6 +214,29 @@ class ReminderConfirmation:
             self.application.exit()
             print("Canceled.")
 
+    def handle_navigation(self, event: any, key: str) -> None:
+        """
+        docstring
+
+        Args:
+            event (any): _description_
+            key (str): _description_
+        """
+        is_save_first_focus = self.application.layout.has_focus(self.save_button)
+        app = event.app
+
+        if key == 'j' or key == 'down':
+            event.app.layout.focus_next()
+            self.update_toolbar_text()
+        if key == 'k' or key == 'up':
+            event.app.layout.focus_previous()
+            self.update_toolbar_text()
+
+        # enable VI
+        if (key == 'j' or key == 'k') and is_save_first_focus:
+            app.editing_mode = EditingMode.VI
+            self.toolbar_text = f"(VI Mode) {self.toolbar_text}"
+
     def update_toolbar_text(self) -> None:
         """
         Updates the toolbar text based on the currently focused input in the application.
@@ -242,29 +248,32 @@ class ReminderConfirmation:
         such as editing the title, type, value, frequency, or modifiers of the reminder.
         """
 
-        rtype = self.reminder_types[self.current_type_index].lower()
+        rtype = self.reminder_types[self.current_type_index].label
 
-        frequency_text = f"{self.frequency_text_area} {rtype}s"
-        if rtype == 'day of week':
+        frequency_text = f"{self.frequency_text_area.text} {rtype}s"
+        if rtype == ReminderKeyType.DAY_OF_WEEK.label:
             rtype = self.value_text_area.text
-            frequency_text = f"{self.frequency_text_area} {rtype}s"
+            frequency_text = f"{self.frequency_text_area.text} {rtype}s"
 
         # handle different verbiage based on frequency
-        if self.frequency_text_area == "0":
+        if self.frequency_text_area.text == "0":
             frequency_text = rtype
-        elif self.frequency_text_area == "1":
+        elif self.frequency_text_area.text == "1":
             frequency_text = rtype
 
         if self.application.layout.has_focus(self.title_input):
             self.toolbar_text = "The title for your reminder"
         elif self.application.layout.has_focus(self.type_input):
-            self.toolbar_text = f"Send every {frequency_text}"
+            if self.type_input.text != ReminderKeyType.DATE.label:
+                self.toolbar_text = f"Send every {frequency_text}"
+            else:
+                self.toolbar_text = "Send on a specific date (YYYY-MM-DD)"
         elif self.application.layout.has_focus(self.value_input):
-            if rtype == 'day of week':
+            if rtype == ReminderKeyType.DAY_OF_WEEK.label:
                 self.toolbar_text = 'Enter a weekday ("sunday" through "saturday")'
-            elif rtype == 'day of month':
+            elif rtype == ReminderKeyType.DAY_OF_MONTH.label:
                 self.toolbar_text = 'Enter a number 1-31'
-            elif rtype == 'date':
+            elif rtype == ReminderKeyType.DATE.label:
                 self.toolbar_text = 'Enter a date (YYYY-MM-DD)'
         elif self.application.layout.has_focus(self.frequency_input):
             self.toolbar_text = \
@@ -285,28 +294,32 @@ class ReminderConfirmation:
         docstring
         """
 
-        return self.type_input.text in ['Date', 'Day Of Week', 'Day Of Month']
+        return self.type_input.text in [ReminderKeyType.DAY_OF_WEEK.label,
+                                        ReminderKeyType.DAY_OF_MONTH.label,
+                                        ReminderKeyType.DATE.label]
 
     def is_frequency_enabled(self) -> bool:
         """
         docstring
         """
 
-        return self.type_input.text not in ['Date', 'Later']
+        return self.type_input.text not in [ReminderKeyType.DATE.label,
+                                            ReminderKeyType.LATER.label]
 
     def is_offset_enabled(self) -> bool:
         """
         docstring
         """
 
-        return self.type_input.text not in ['Date', 'Later']
+        return self.type_input.text not in [ReminderKeyType.DATE.label,
+                                            ReminderKeyType.LATER.label]
 
     def is_modifiers_enabled(self) -> bool:
         """
         docstring
         """
 
-        return self.type_input.text not in ['Later']
+        return self.type_input.text not in [ReminderKeyType.LATER.label]
 
     def run(self):
         """
