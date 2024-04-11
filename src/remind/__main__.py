@@ -57,9 +57,7 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
     try:
         args = parser.parse_args()
 
-        if args.list:
-            manager_r.print_reminders_file()
-        elif args.generate:
+        if args.generate:
             manager_r.generate()
         elif args.later:
             manager_r.show_later()

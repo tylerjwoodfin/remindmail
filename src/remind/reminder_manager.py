@@ -10,6 +10,7 @@ import readline
 from datetime import date, timedelta
 from typing import List, Optional, Dict
 from rich.console import Console
+from remind.reminder import ReminderKeyType
 from cabinet import Cabinet, Mail
 from . import reminder, error_handler
 
@@ -39,7 +40,7 @@ class ReminderManager:
         # self.path_remind_file: str = None
 
         # for sending emails
-        self.mail = None
+        self.mail: Mail = Mail()
 
         # colors 🎨
         self.console = Console()
@@ -52,7 +53,7 @@ class ReminderManager:
         self.parsed_reminders: List[reminder.Reminder] = []
 
     @error_handler.ErrorHandler.exception_handler
-    def parse_reminders_file(self, filename: str = None,
+    def parse_reminders_file(self, filename: str | None = None,
                              is_delete: bool = False) -> List[reminder.Reminder]:
         """
         Parses a markdown file containing reminders into an array of Reminder objects.
@@ -120,23 +121,24 @@ class ReminderManager:
                         details, modifiers, title = match.groups()
 
                         details = details.split(",")
-                        reminder_type: str = details[0]
+                        reminder_type: ReminderKeyType = ReminderKeyType.from_db_value(details[0])
 
                         # checks if key is YYYY-MM-DD or MM-DD
                         date_key_pattern = r"\d{4}-\d{2}-\d{2}"
                         if re.match(date_key_pattern, details[0]):
-                            reminder_type = 'date'
+                            reminder_type = ReminderKeyType.DATE
 
                         reminder_date: Optional[str] = None
                         cycle: Optional[int] = None
                         offset: int = 0
 
+                        # handle reminders of type 'sun' - 'sat'
                         if reminder_type in day_to_int:
                             cycle = 1
                             if len(details) > 1:
                                 cycle = int(details[1])
                             offset = int(details[2]) if len(details) > 2 else 0
-                            reminder_type = day_to_int[reminder_type]  # Convert day to int
+                            reminder_type = ReminderKeyType.DAY_OF_WEEK
                         elif reminder_type in ["d", "w", "m", "dom"]:
                             cycle = int(details[1]) if len(details) > 1 else None
                             offset = int(details[2]) if len(details) > 2 else 0
@@ -206,7 +208,7 @@ class ReminderManager:
         self.cabinet.log("Generating Reminders")
         for r in self.parsed_reminders:
             if r.should_send_today:
-                self.cabinet.log(r)
+                self.cabinet.log(str(r))
 
                 if 'c' in r.modifiers:
                     print("Executing")

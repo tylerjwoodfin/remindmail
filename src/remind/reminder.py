@@ -1,7 +1,7 @@
 """
 The main class
 """
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from typing import Optional
 from enum import Enum
 from cabinet import Cabinet, Mail
@@ -18,17 +18,36 @@ class ReminderKeyType(Enum):
     DAY_OF_MONTH = ("dom", "Day of Month")
     LATER = ("later", "Later")
 
+    @classmethod
+    def from_db_value(cls, db_value):
+        """docstring
+
+        Args:
+            db_value (_type_): _description_
+
+        Raises:
+            ValueError: _description_
+
+        Returns:
+            _type_: _description_
+        """
+        for member in cls:
+            if member.db_value == db_value:
+                return member
+        raise ValueError(f"{db_value} is not a valid db_value of ReminderKeyType")
+
     def __init__(self, db_value, label):
-        self.db_value: str = db_value  # Assign to custom attribute
-        self.label: str = label  # Assign to custom attribute
+        self.db_value: str = db_value
+        self.label: str = label
 
 class Reminder:
     """
     Represents a reminder with various attributes defining its schedule and actions.
 
     Attributes:
-        key (KeyType). This is the type of reminder, such as on a certain day, date, or month.
-        value (Optional[str]): Specific value, depending on the `key`. 
+        key (ReminderKeyType).
+        - This is the type of reminder, such as on a certain day, date, or month.
+        - value (Optional[str]): Specific value, depending on the `key`. 
             - if key is "date", expect YYYY-MM-DD str
             - if key is "dow", expect "sun" - "sat"
             - if key is "dom", expect 1-30 as string
@@ -51,7 +70,7 @@ class Reminder:
                  mail: Mail):
         self.key: ReminderKeyType = key
         self.value: Optional[str] = value
-        self.frequency: Optional[int] = frequency
+        self.frequency: int = frequency or 0
         self.offset: int = offset
         self.modifiers: str = modifiers
         self.title: str = title
@@ -62,7 +81,7 @@ class Reminder:
 
     def __repr__(self) -> str:
         return (
-            f"Reminder(key={self.key}, "
+            f"Reminder(key={self.key.db_value}, "
             f"value={self.value}, "
             f"frequency={self.frequency}, "
             f"offset={self.offset}, "
@@ -72,7 +91,7 @@ class Reminder:
             "\n"
         )
 
-    def get_should_send_today(self, date_override: datetime.date = None) -> bool:
+    def get_should_send_today(self, date_override: date | None = None) -> bool:
         """
         Determines whether the reminder should be sent today based on its scheduling configuration.
 
@@ -99,11 +118,11 @@ class Reminder:
         # Handle day of the week reminders
         elif self.key == 'dow' and self.value:
             dow_mapping = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
-            target_dow = dow_mapping.get(self.value.lower())
+            target_dow = dow_mapping.get(self.value.lower()) or 6
             if today.weekday() == target_dow:
-                if self.frequency:
+                if self.frequency > 0:
                     start_date = today - timedelta(days=today.weekday()) + timedelta(
-                        days=target_dow, weeks=-self.offset)
+                        days=float(target_dow), weeks=-self.offset)
                     weeks_diff = (today - start_date).days // 7
                     return weeks_diff % self.frequency == 0
                 return True

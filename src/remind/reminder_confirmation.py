@@ -22,7 +22,7 @@ class ReminderConfirmation:
         """
         # Update reminder instance with values from text areas
         self.reminder.title = self.title_input.text
-        self.reminder.key = self.reminder_types[self.current_type_index].db_value
+        self.reminder.key = self.reminder_types[self.current_type_index]
         self.reminder.value = self.value_text_area.text
         self.reminder.frequency = int(self.frequency_text_area.text) \
             if self.frequency_text_area.text.isdigit() else 0
@@ -76,7 +76,7 @@ class ReminderConfirmation:
                                    prompt=HTML('<b><ansiblue>Type: </ansiblue></b>'))
 
         # value
-        self.value_text_area = TextArea(text=self.reminder.value,
+        self.value_text_area = TextArea(text=self.reminder.value or "",
                                         multiline=False,
                                         prompt=HTML('<b><ansiblue>Value: </ansiblue></b>'))
 
@@ -117,7 +117,7 @@ class ReminderConfirmation:
             filter=Condition(self.is_modifiers_enabled)
         )
 
-        self.notes_input = TextArea(text=reminder.notes, multiline=True, prompt='Notes: ')
+        self.notes_input = TextArea(text=reminder.notes or "", multiline=True, prompt='Notes: ')
 
         # cancel
         self.cancel_button = TextArea(text='Cancel',
@@ -189,7 +189,7 @@ class ReminderConfirmation:
             Window(height=1),  # Separator space before buttons.
             HSplit([
                 Window(width=1)
-            ], align="left", padding=1),
+            ], padding=1),
             self.save_button,
             self.cancel_button,
             Window(height=1),  # Separator space before status bar.
@@ -214,7 +214,7 @@ class ReminderConfirmation:
             self.application.exit()
             print("Canceled.")
 
-    def handle_navigation(self, event: any, key: str) -> None:
+    def handle_navigation(self, event, key: str) -> None:
         """
         docstring
 
