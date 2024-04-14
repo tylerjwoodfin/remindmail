@@ -141,12 +141,13 @@ class Reminder:
                     return weeks_diff % self.frequency == 0
                 return True
 
-        # Handle daily reminders with optional frequency
+        # Handle every n days
         elif self.key == ReminderKeyType.DAY:
             if self.frequency:
-                start_date = today - timedelta(days=self.offset)
-                days_diff = (today - start_date).days
-                return days_diff % self.frequency == 0
+                epoch_start = date(1970, 1, 1)
+                days_since_epoch = (today - epoch_start).days
+                adjusted_days = days_since_epoch - self.offset
+                return adjusted_days % self.frequency == 0
             return True
 
         # Handle weekly reminders
@@ -154,14 +155,14 @@ class Reminder:
             if self.frequency:
                 start_date = today - timedelta(weeks=self.offset)
                 weeks_diff = (today - start_date).days // 7
-                return weeks_diff % self.frequency == 0
+                return weeks_diff % self.frequency == 0 and today.weekday == 6
             return True
 
-        # Handle monthly reminders using standard datetime calculations
+        # Handle monthly reminders
         elif self.key == ReminderKeyType.MONTH and self.frequency:
             try:
                 months_since_start = today.month + (today.year - 1970) * 12 - self.offset
-                return months_since_start % self.frequency == 0
+                return today.day == 1 and months_since_start % self.frequency == 0
             except ValueError:
                 return False
 
