@@ -112,11 +112,11 @@ class Reminder:
         """
         today = date_override or datetime.now().date()
         # Handle date-specific reminders
-        if self.key == 'date' and self.value:
+        if self.key == ReminderKeyType.DATE and self.value:
             return datetime.strptime(self.value, '%Y-%m-%d').date() == today
 
         # Handle day of the week reminders
-        elif self.key == 'dow' and self.value:
+        elif self.key == ReminderKeyType.DAY_OF_WEEK and self.value:
             dow_mapping = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
             target_dow = dow_mapping.get(self.value.lower()) or 6
             if today.weekday() == target_dow:
@@ -128,7 +128,7 @@ class Reminder:
                 return True
 
         # Handle daily reminders with optional frequency
-        elif self.key == 'd':
+        elif self.key == ReminderKeyType.DAY:
             if self.frequency:
                 start_date = today - timedelta(days=self.offset)
                 days_diff = (today - start_date).days
@@ -136,7 +136,7 @@ class Reminder:
             return True
 
         # Handle weekly reminders
-        elif self.key == 'w':
+        elif self.key == ReminderKeyType.WEEK:
             if self.frequency:
                 start_date = today - timedelta(weeks=self.offset)
                 weeks_diff = (today - start_date).days // 7
@@ -144,7 +144,7 @@ class Reminder:
             return True
 
         # Handle monthly reminders using standard datetime calculations
-        elif self.key == 'm' and self.frequency:
+        elif self.key == ReminderKeyType.MONTH and self.frequency:
             try:
                 months_since_start = today.month + (today.year - 1970) * 12 - self.offset
                 return months_since_start % self.frequency == 0
@@ -152,7 +152,7 @@ class Reminder:
                 return False
 
         # Handle day of the month reminders
-        elif self.key == 'dom' and self.value:
+        elif self.key == ReminderKeyType.DAY_OF_MONTH and self.value:
             day_of_month = int(self.value)
             return today.day == day_of_month
 
