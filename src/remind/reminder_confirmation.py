@@ -22,7 +22,7 @@ class ReminderConfirmation:
         """
         # Update reminder instance with values from text areas
         self.reminder.title = self.title_input.text
-        self.reminder.key = self.reminder_types[self.current_type_index]
+        # self.reminder.key is saved dynamically
         self.reminder.value = self.value_text_area.text
         self.reminder.frequency = int(self.frequency_text_area.text) \
             if self.frequency_text_area.text.isdigit() else 0
@@ -44,7 +44,6 @@ class ReminderConfirmation:
         self.main_container = self.build_main_container()
         self.application = Application(layout=Layout(self.main_container),
                                        key_bindings=self.bindings, full_screen=True)
-        self.current_type_index = 0
 
     def default_frequency(self):
         """
@@ -64,22 +63,26 @@ class ReminderConfirmation:
     def initialize_ui_components(self):
         """_summary_
         """
+
+        def generate_textarea(text: str | None, prompt: str,
+                              read_only: bool = False) -> TextArea:
+            text_area = TextArea(text=text or "",
+                            multiline=False,
+                            read_only=read_only,
+                            prompt=HTML(f'<b><ansiblue>{prompt}: </ansiblue></b>'))
+            text_area.buffer.cursor_position = len(text or "")
+            return text_area
+
         self.reminder_types: List[ReminderKeyType] = list(ReminderKeyType)
-        self.current_type_index = 0
 
-        # title
-        self.title_input = TextArea(text=self.reminder.title, multiline=False,
-                                    prompt=HTML('<b><ansiblue>Title: </ansiblue></b>'))
-
-        # type
-        self.type_input = TextArea(text=self.reminder_types[self.current_type_index].label,
-                                   read_only=True, multiline=False,
-                                   prompt=HTML('<b><ansiblue>Type: </ansiblue></b>'))
-
-        # value
-        self.value_text_area = TextArea(text=self.reminder.value or "",
-                                        multiline=False,
-                                        prompt=HTML('<b><ansiblue>Value: </ansiblue></b>'))
+        # text areas
+        self.title_input = generate_textarea(self.reminder.title, 'Title')
+        self.type_input = generate_textarea(self.reminder.key.label, 'Type', True)
+        self.value_text_area = generate_textarea(self.reminder.value, 'Value')
+        self.frequency_text_area = generate_textarea(str(self.reminder.frequency),
+                                                     'Frequency', True)
+        self.offset_input_text_area = generate_textarea(str(self.reminder.offset), 'Offset', True)
+        self.modifiers_input_text_area = generate_textarea(self.reminder.modifiers, 'Modifiers')
 
         self.value_input = ConditionalContainer(
             content=self.value_text_area,
@@ -87,20 +90,10 @@ class ReminderConfirmation:
         )
 
         # frequency
-        self.frequency_text_area = TextArea(text=str(self.reminder.frequency),
-                                            multiline=False,
-                                            read_only=True,
-                                            prompt=HTML('<b><ansiblue>Frequency: </ansiblue></b>'))
         self.frequency_input = ConditionalContainer(
             content=self.frequency_text_area,
             filter=Condition(self.is_frequency_enabled)
         )
-
-        # offset
-        self.offset_input_text_area = TextArea(text=str(self.reminder.offset),
-                                     multiline=False,
-                                     read_only=True,
-                                     prompt=HTML('<b><ansiblue>Offset: </ansiblue></b>'))
 
         self.offset_input = ConditionalContainer(
             content=self.offset_input_text_area,
@@ -108,10 +101,6 @@ class ReminderConfirmation:
         )
 
         # modifiers
-        self.modifiers_input_text_area = TextArea(text=str(self.reminder.modifiers),
-                                        multiline=False,
-                                        prompt=HTML('<b><ansiblue>Modifiers: </ansiblue></b>'))
-
         self.modifiers_input = ConditionalContainer(
             content=self.modifiers_input_text_area,
             filter=Condition(self.is_modifiers_enabled)
@@ -258,13 +247,39 @@ class ReminderConfirmation:
             self.application.exit()
 
     def cycle_types(self, direction):
-        """_summary_
+        """
+        Cycles through the reminder types in the specified direction and updates the type input.
 
         Args:
-            direction (_type_): _description_
+            direction (int): The direction to cycle through the reminder types.
+            Positive for forward, negative for backward.
         """
-        self.current_type_index = (self.current_type_index + direction) % len(self.reminder_types)
-        self.type_input.text = self.reminder_types[self.current_type_index].label
+
+        # Find current index based on current reminder type
+        # Create a generator to find the index of the current reminder type
+        index_generator = (
+            i for i, t in enumerate(self.reminder_types)
+            if t.db_value == self.reminder.key.db_value
+        )
+
+        # Use next to get the first index from the generator or return None if no match is found
+        current_index = next(index_generator, None)
+
+        if current_index is None:
+            # Handle the case where the current type is not found
+            # (should not happen in normal circumstances)
+            return
+
+        # Calculate the new index cyclically
+        new_index = (current_index + direction) % len(self.reminder_types)
+
+        # Update the reminder's type with the new type
+        self.reminder.key = self.reminder_types[new_index]
+
+        # Update the text area with the new type label
+        self.type_input.text = self.reminder.key.label
+
+        # Optionally update any related UI elements or data
         self.update_toolbar_text()
 
     def handle_navigation(self, event, key: str) -> None:
@@ -301,12 +316,15 @@ class ReminderConfirmation:
         such as editing the title, type, value, frequency, or modifiers of the reminder.
         """
 
-        rtype = self.reminder_types[self.current_type_index].label
+        rtype = self.reminder.key.label
 
         frequency_text = f"{self.frequency_text_area.text} {rtype}s"
         if rtype == ReminderKeyType.DAY_OF_WEEK.label:
             rtype = self.value_text_area.text
             frequency_text = f"{self.frequency_text_area.text} {rtype}s"
+
+        if self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
+            frequency_text = f"{self.frequency_text_area.text} of the month"
 
         # handle different verbiage based on frequency
         if self.frequency_text_area.text == "0":
@@ -317,13 +335,14 @@ class ReminderConfirmation:
         if self.application.layout.has_focus(self.title_input):
             self.toolbar_text = "The title for your reminder"
         elif self.application.layout.has_focus(self.type_input):
-            if self.type_input.text != ReminderKeyType.DATE.label:
-                if frequency_text != 'Later':
-                    self.toolbar_text = f"Send every {frequency_text}"
-                else:
-                    self.toolbar_text = 'Save for Later'
-            else:
+            if self.type_input.text == ReminderKeyType.DATE.label:
                 self.toolbar_text = "Send on a specific date (YYYY-MM-DD)"
+            elif self.reminder.key == ReminderKeyType.LATER:
+                self.toolbar_text = 'Save for Later'
+            elif self.reminder.key == ReminderKeyType.NOW:
+                self.toolbar_text = 'Send immediately'
+            else:
+                self.toolbar_text = f"Send every {frequency_text}"
         elif self.application.layout.has_focus(self.value_input):
             if rtype == ReminderKeyType.DAY_OF_WEEK.label:
                 self.toolbar_text = 'Enter a weekday ("sunday" through "saturday")'
