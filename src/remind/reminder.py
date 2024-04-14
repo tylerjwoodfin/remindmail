@@ -112,38 +112,31 @@ class Reminder:
                     False otherwise.
         """
         today = date_override or datetime.now().date()
+
         # Handle date-specific reminders
         if self.key == ReminderKeyType.DATE and self.value:
-            # Check the format of the date to see if it includes a year
             if len(self.value) == 5:  # MM-DD format
-                # Parse the date assuming the current year
-                reminder_date = datetime.strptime(
-                    f"{date.today().year}-{self.value}", '%Y-%m-%d').date()
-                # If the constructed date is in the past, use the next year
-                if reminder_date < date.today():
+                reminder_date = datetime.strptime(f"{today.year}-{self.value}", '%Y-%m-%d').date()
+                if reminder_date < today:
                     reminder_date = datetime.strptime(
-                        f"{date.today().year + 1}-{self.value}", '%Y-%m-%d').date()
+                        f"{today.year + 1}-{self.value}", '%Y-%m-%d').date()
             else:  # YYYY-MM-DD format
                 reminder_date = datetime.strptime(self.value, '%Y-%m-%d').date()
-
-            # Compare the reminder date with today's date
-            return reminder_date == date.today()
+            return reminder_date == today
 
         # Handle day of the week reminders
         elif self.key == ReminderKeyType.DAY_OF_WEEK and self.value:
             dow_mapping = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
-            target_dow = dow_mapping.get(self.value.lower()) or 6
+            target_dow = dow_mapping.get(self.value.lower(), 6)
             if today.weekday() == target_dow:
-                if self.frequency > 0:
-                    start_date = today - timedelta(days=today.weekday()) + timedelta(
-                        days=float(target_dow), weeks=-self.offset)
-                    weeks_diff = (today - start_date).days // 7
-                    return weeks_diff % self.frequency == 0
-                return True
+                start_date = today - timedelta(days=today.weekday()) \
+                    + timedelta(days=target_dow, weeks=-self.offset)
+                weeks_diff = (today - start_date).days // 7
+                return weeks_diff % self.frequency == 0 if self.frequency > 0 else True
 
         # Handle every n days
         elif self.key == ReminderKeyType.DAY:
-            if self.frequency:
+            if self.frequency > 0:
                 epoch_start = date(1970, 1, 1)
                 days_since_epoch = (today - epoch_start).days
                 adjusted_days = days_since_epoch - self.offset
@@ -152,19 +145,16 @@ class Reminder:
 
         # Handle weekly reminders
         elif self.key == ReminderKeyType.WEEK:
-            if self.frequency:
+            if self.frequency > 0:
                 start_date = today - timedelta(weeks=self.offset)
                 weeks_diff = (today - start_date).days // 7
-                return weeks_diff % self.frequency == 0 and today.weekday == 6
+                return weeks_diff % self.frequency == 0 and today.weekday() == 6
             return True
 
         # Handle monthly reminders
         elif self.key == ReminderKeyType.MONTH and self.frequency:
-            try:
-                months_since_start = today.month + (today.year - 1970) * 12 - self.offset
-                return today.day == 1 and months_since_start % self.frequency == 0
-            except ValueError:
-                return False
+            months_since_start = today.month + (today.year - 1970) * 12 - self.offset
+            return today.day == 1 and months_since_start % self.frequency == 0
 
         # Handle day of the month reminders
         elif self.key == ReminderKeyType.DAY_OF_MONTH and self.value:
@@ -172,6 +162,7 @@ class Reminder:
             return today.day == day_of_month
 
         return False
+
 
     def send_email(self, is_quiet: bool = False) -> None:
         """

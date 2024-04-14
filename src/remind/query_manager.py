@@ -260,9 +260,11 @@ class QueryManager:
         except KeyboardInterrupt:
             sys.exit(0)
 
-        # print("Updated reminder:")
-        print(reminder)
+        # 'x' placed by ReminderConfirmation if cancelled
+        if 'x' in reminder.modifiers:
+            return reminder
 
+        print(reminder)
         if reminder.key == ReminderKeyType.NOW:
             reminder.send_email()
         else:

@@ -1,6 +1,7 @@
 """
 docstring
 """
+import datetime
 from typing import List
 from prompt_toolkit import Application, print_formatted_text, HTML
 from prompt_toolkit.key_binding import KeyBindings
@@ -39,8 +40,9 @@ class ReminderConfirmation:
         # save logic is handled in query manager
 
     def __init__(self, reminder: Reminder):
-        self.reminder = reminder
-        self.toolbar_text = ""
+        self.reminder: Reminder = reminder
+        self.toolbar_text: str = ""
+        self.key_value_cache: dict = {}
         self.default_frequency()
         self.bindings = KeyBindings()
         self.initialize_ui_components()
@@ -205,33 +207,66 @@ class ReminderConfirmation:
         'l', and 'h' keys.
         """
         def create_handler(property_attr, text_area, increment=True):
-            def handler(event): #pylint: disable=unused-argument
+            def handler(event):  # pylint: disable=unused-argument
                 current_value = getattr(self.reminder, property_attr)
-                new_value = max(current_value + (1 if increment else -1), 0)
+
+                # increment/decrement date
+                if self.reminder.key == ReminderKeyType.DATE:
+                    if property_attr == 'value':
+                        current_date = datetime.datetime.strptime(current_value, '%Y-%m-%d').date()
+                        delta = datetime.timedelta(days=1 if increment else -1)
+                        new_value = current_date + delta
+                        # Format the new date back to string
+                        new_value = new_value.strftime('%Y-%m-%d')
+                else:
+                    # Handle numeric adjustments
+                    # try:
+                    #     new_value = max(current_value + (1 if increment else -1), 0)
+                    # except Exception: #pylint: disable=broad-exception-caught
+                    #     # in cases where 'value' is not numeric or a date, ignore error
+                    #     return
+
+                    current_value = int(current_value)
+                    new_value = max(current_value + (1 if increment else -1), 0)
+
                 setattr(self.reminder, property_attr, new_value)
                 text_area.text = str(new_value)
                 self.update_toolbar_text()
+
             return handler
 
+        # Bind handlers for frequency, offset, and value
+
         # Frequency handlers
-        self.bindings.add('right',filter=has_focus(self.frequency_input))\
-            (create_handler('frequency', self.frequency_text_area, True))
-        self.bindings.add('l', filter=has_focus(self.frequency_input))\
-            (create_handler('frequency', self.frequency_text_area, True))
-        self.bindings.add('left', filter=has_focus(self.frequency_input))\
-            (create_handler('frequency', self.frequency_text_area, False))
-        self.bindings.add('h', filter=has_focus(self.frequency_input))\
-            (create_handler('frequency', self.frequency_text_area, False))
+        self.bindings.add('right', filter=has_focus(self.frequency_input))(
+            create_handler('frequency', self.frequency_text_area, True))
+        self.bindings.add('l', filter=has_focus(self.frequency_input))(
+            create_handler('frequency', self.frequency_text_area, True))
+        self.bindings.add('left', filter=has_focus(self.frequency_input))(
+            create_handler('frequency', self.frequency_text_area, False))
+        self.bindings.add('h', filter=has_focus(self.frequency_input))(
+            create_handler('frequency', self.frequency_text_area, False))
 
         # Offset handlers
-        self.bindings.add('right', filter=has_focus(self.offset_input))\
-            (create_handler('offset', self.offset_input_text_area, True))
-        self.bindings.add('l', filter=has_focus(self.offset_input))\
-            (create_handler('offset', self.offset_input_text_area, True))
-        self.bindings.add('left', filter=has_focus(self.offset_input))\
-            (create_handler('offset', self.offset_input_text_area, False))
-        self.bindings.add('h', filter=has_focus(self.offset_input))\
-            (create_handler('offset', self.offset_input_text_area, False))
+        self.bindings.add('right', filter=has_focus(self.offset_input))(
+            create_handler('offset', self.offset_input_text_area, True))
+        self.bindings.add('l', filter=has_focus(self.offset_input))(
+            create_handler('offset', self.offset_input_text_area, True))
+        self.bindings.add('left', filter=has_focus(self.offset_input))(
+            create_handler('offset', self.offset_input_text_area, False))
+        self.bindings.add('h', filter=has_focus(self.offset_input))(
+            create_handler('offset', self.offset_input_text_area, False))
+
+        # Value handlers
+        if self.reminder.key == ReminderKeyType.DATE:
+            self.bindings.add('right', filter=has_focus(self.value_input))(
+                create_handler('value', self.value_text_area, True))
+            self.bindings.add('l', filter=has_focus(self.value_input))(
+                create_handler('value', self.value_text_area, True))
+            self.bindings.add('left', filter=has_focus(self.value_input))(
+                create_handler('value', self.value_text_area, False))
+            self.bindings.add('h', filter=has_focus(self.value_input))(
+                create_handler('value', self.value_text_area, False))
 
     def setup_save_and_cancel_handlers(self):
         """
@@ -249,7 +284,8 @@ class ReminderConfirmation:
         @self.bindings.add('q')
         def _(event): #pylint: disable=unused-argument
             print_formatted_text(HTML('<ansired><b>Cancelled.</b></ansired>'))
-            raise KeyboardInterrupt
+            self.reminder.modifiers = "x"
+            self.application.exit()
 
     def cycle_types(self, direction):
         """
@@ -271,21 +307,37 @@ class ReminderConfirmation:
         current_index = next(index_generator, None)
 
         if current_index is None:
-            # Handle the case where the current type is not found
+            # handle the case where the current type is not found
             # (should not happen in normal circumstances)
             return
 
-        # Calculate the new index cyclically
+        # calculate the new index cyclically
         new_index = (current_index + direction) % len(self.reminder_types)
 
-        # Update the reminder's type with the new type
-        self.reminder.key = self.reminder_types[new_index]
+        # set cache
+        self.key_value_cache[self.reminder.key.label] = self.value_text_area.text
 
-        # Update the text area with the new type label
+        # update the reminder's type with the new type
+        self.reminder.key: ReminderKeyType = self.reminder_types[new_index]
+
+        # update the text area with the new type label
         self.type_input.text = self.reminder.key.label
 
-        # Optionally update any related UI elements or data
         self.update_toolbar_text()
+
+        # get cache
+        try:
+            if self.key_value_cache[self.reminder.key.label]:
+                self.value_text_area.text = self.key_value_cache[self.reminder.key.label]
+                self.reminder.value = self.key_value_cache[self.reminder.key.label]
+        except KeyError:
+            # cache not set for this type
+            if self.reminder.key == ReminderKeyType.DAY_OF_WEEK:
+                self.value_text_area.text = "Sunday"
+            elif self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
+                self.value_text_area.text = "1"
+                
+            self.reminder.value = self.value_text_area.text
 
     def handle_navigation(self, event, key: str) -> None:
         """
@@ -384,7 +436,8 @@ class ReminderConfirmation:
         """
 
         return self.type_input.text not in [ReminderKeyType.DATE.label,
-                                            ReminderKeyType.LATER.label]
+                                            ReminderKeyType.LATER.label,
+                                            ReminderKeyType.NOW.label]
 
     def is_offset_enabled(self) -> bool:
         """
@@ -392,14 +445,16 @@ class ReminderConfirmation:
         """
 
         return self.type_input.text not in [ReminderKeyType.DATE.label,
-                                            ReminderKeyType.LATER.label]
+                                            ReminderKeyType.LATER.label,
+                                            ReminderKeyType.NOW.label]
 
     def is_modifiers_enabled(self) -> bool:
         """
         docstring
         """
 
-        return self.type_input.text not in [ReminderKeyType.LATER.label]
+        return self.type_input.text not in [ReminderKeyType.LATER.label,
+                                            ReminderKeyType.NOW.label]
 
     def run(self):
         """

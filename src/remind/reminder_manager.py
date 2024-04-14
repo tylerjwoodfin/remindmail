@@ -118,53 +118,55 @@ class ReminderManager:
 
                     match = re.match(pattern_any_reminder, stripped_line)
                     if match:
-                        reminder_type: ReminderKeyType
-                        details, modifiers, title = match.groups()
+                        reminder_key: ReminderKeyType
+                        details, reminder_modifiers, title = match.groups()
 
                         details = details.split(",")
 
                         # get reminder type
                         try:
-                            reminder_type = \
+                            reminder_key = \
                                 ReminderKeyType.from_db_value(details[0])
                         except ValueError:
                             # allow for [{date}] and [{dow}]
                             if re.match(pattern_date_key, details[0]):
-                                reminder_type = ReminderKeyType.DATE
+                                reminder_key = ReminderKeyType.DATE
                             elif re.match(pattern_dow_key, details[0]):
-                                reminder_type = ReminderKeyType.DAY_OF_WEEK
+                                reminder_key = ReminderKeyType.DAY_OF_WEEK
+                                reminder_value = details[0]
 
                             else:
                                 self.cabinet.log(
                                     f"'{details[0]}' in '{line}' is not a valid Reminder key.")
                                 continue
 
-                        reminder_date: Optional[str] = None
-                        cycle: Optional[int] = None
-                        offset: int = 0
+                        reminder_value: Optional[str] = None
+                        reminder_frequency: Optional[int] = None
+                        reminder_offset: int = 0
 
                         # handle reminders of type 'sun' - 'sat'
-                        if reminder_type == ReminderKeyType.DAY_OF_WEEK:
-                            cycle = 1
+                        if reminder_key == ReminderKeyType.DAY_OF_WEEK:
+                            reminder_frequency = 1
+                            reminder_value = details[0]
                             if len(details) > 1:
-                                cycle = int(details[1])
-                            offset = int(details[2]) if len(details) > 2 else 0
-                        elif reminder_type in [ReminderKeyType.DAY,
+                                reminder_frequency = int(details[1])
+                            reminder_offset = int(details[2]) if len(details) > 2 else 0
+                        elif reminder_key in [ReminderKeyType.DAY,
                                                ReminderKeyType.WEEK,
                                                ReminderKeyType.MONTH,
                                                ReminderKeyType.DAY_OF_MONTH]:
-                            cycle = int(details[1]) if len(details) > 1 else None
-                            offset = int(details[2]) if len(details) > 2 else 0
-                        elif reminder_type == ReminderKeyType.LATER:
-                            reminder_date = "later"
+                            reminder_frequency = int(details[1]) if len(details) > 1 else None
+                            reminder_offset = int(details[2]) if len(details) > 2 else 0
+                        elif reminder_key == ReminderKeyType.LATER:
+                            reminder_value = "later"
                         else:
-                            reminder_date = details[0]  # for specific dates
+                            reminder_value = details[0]  # for specific dates
 
-                        r = reminder.Reminder(reminder_type,
-                                                  reminder_date,
-                                                  cycle,
-                                                  offset,
-                                                  modifiers,
+                        r = reminder.Reminder(reminder_key,
+                                                  reminder_value,
+                                                  reminder_frequency,
+                                                  reminder_offset,
+                                                  reminder_modifiers,
                                                   title.strip(),
                                                   '',
                                                   self.cabinet,
@@ -172,7 +174,7 @@ class ReminderManager:
 
                         r.should_send_today = r.get_should_send_today()
 
-                        if is_delete and r.should_send_today and 'd' in modifiers:
+                        if is_delete and r.should_send_today and 'd' in reminder_modifiers:
                             delete_current_reminder = True
                             self.cabinet.log(f"Will Delete: {r}")
                         else:
@@ -263,7 +265,7 @@ class ReminderManager:
 
         # Iterate through each upcoming day
         for day in dates:
-            formatted_date = day.strftime("%A, %Y-%m-%d")
+            formatted_date = day.strftime("%Y-%m-%d, %A")
             self.console.print(f"[bold blue on white]{formatted_date}", highlight=False)
 
             # Track the number of reminders shown for the day
