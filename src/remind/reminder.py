@@ -17,6 +17,7 @@ class ReminderKeyType(Enum):
     DAY_OF_WEEK = ("dow", "Day of Week")
     DAY_OF_MONTH = ("dom", "Day of Month")
     LATER = ("later", "Later")
+    NOW = ("now", "Now")
 
     @classmethod
     def from_db_value(cls, db_value):

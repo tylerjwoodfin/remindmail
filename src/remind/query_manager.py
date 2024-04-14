@@ -5,7 +5,7 @@ handles reminder requests
 import re
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta, MO, TU, WE, TH, FR, SA, SU
-from remind.reminder import Reminder
+from remind.reminder import Reminder, ReminderKeyType
 from remind.reminder_confirmation import ReminderConfirmation
 from remind.reminder_manager import ReminderManager
 from cabinet import Cabinet, Mail
@@ -75,7 +75,10 @@ class QueryManager:
         }
 
         start_date = datetime.now() + timedelta(days=1)
-        key, value, frequency, modifiers = '', '', None, 'd'
+        key: ReminderKeyType = ReminderKeyType.NOW
+        value = ''
+        frequency = None
+        modifiers = 'd'
 
         # parse input_str
         if 'every' not in input_str:
@@ -91,7 +94,8 @@ class QueryManager:
                 if future_date <= start_date:
                     raise ValueError((f"{future_date.strftime('%Y-%m-%d')}"
                                       " is in the past."))
-                key, value = 'date', future_date.strftime('%Y-%m-%d')
+                key = ReminderKeyType.DATE
+                value = future_date.strftime('%Y-%m-%d')
 
             # mm/dd, mm/dd/yyyy
             elif match := regex_patterns['mm_dd'].match(input_str) or \
@@ -102,7 +106,8 @@ class QueryManager:
                 # if the date is in the past, find the next occurrence
                 if proposed_date <= start_date:
                     proposed_date = proposed_date + relativedelta(years=1)
-                key, value = 'date', proposed_date.strftime('%Y-%m-%d')
+                key = ReminderKeyType.DATE
+                value = proposed_date.strftime('%Y-%m-%d')
 
             # yyyy-mm-dd
             elif match := regex_patterns['yyyy_mm_dd'].match(input_str):
@@ -110,11 +115,13 @@ class QueryManager:
                 proposed_date = datetime(year, month, day)
                 if proposed_date <= start_date:
                     proposed_date = proposed_date + relativedelta(years=1)
-                key, value = 'date', proposed_date.strftime('%Y-%m-%d')
+                key = ReminderKeyType.DATE
+                value = proposed_date.strftime('%Y-%m-%d')
 
             # day of month
             elif match := regex_patterns['day_of_month'].match(input_str):
-                key, value = 'dom', match.group(1)
+                key = ReminderKeyType.DAY_OF_MONTH
+                value = match.group(1)
 
             # specific weekday
             elif any(day in input_str.lower() for day in weekdays):
@@ -122,7 +129,8 @@ class QueryManager:
                 for day, rel_day in weekdays.items():
                     if day in day_str:
                         next_weekday = start_date + relativedelta(weekday=rel_day)
-                        key, value = 'date', next_weekday.strftime('%Y-%m-%d')
+                        key = ReminderKeyType.DATE
+                        value = next_weekday.strftime('%Y-%m-%d')
                         break
 
             # specific date
@@ -133,30 +141,35 @@ class QueryManager:
                 # If the interpreted date is in the past, add a year to it
                 if date_formatted <= start_date:
                     date_formatted = date_formatted + relativedelta(years=1)
-                key, value = 'date', date_formatted.strftime('%Y-%m-%d')
+                key = ReminderKeyType.DATE
+                value = date_formatted.strftime('%Y-%m-%d')
         else:
             # 'every'
             modifiers = ''
 
             # every n days
             if match := regex_patterns['every_n_days'].match(input_str):
-                key, frequency, modifiers = 'd', int(match.group(1)), ''
+                key = ReminderKeyType.DAY
+                frequency = int(match.group(1))
 
             # every n months
             elif match := regex_patterns['every_n_months'].match(input_str):
-                key, frequency, modifiers = 'm', int(match.group(1)), ''
+                key = ReminderKeyType.MONTH
+                frequency = int(match.group(1))
 
             # every n {dow}s (e.g., 'every 3 mondays')
             elif match := regex_patterns['every_n_dows'].match(input_str):
                 dow = match.group(2).lower()
                 if dow in weekdays:
-                    key = 'dow'
+                    key = ReminderKeyType.DAY_OF_WEEK
                     value = dow
                     frequency = int(match.group(1))
 
             # every n weeks
             elif match := regex_patterns['every_weeks'].match(input_str):
-                key, frequency, modifiers = 'w', int(match.group(1)), ''
+                key = ReminderKeyType.WEEK
+                frequency = int(match.group(1))
+                modifiers = ''
 
         if not key:
             self.cabinet.log(f"Could not parse date: {input_str}",
@@ -173,7 +186,7 @@ class QueryManager:
                         cabinet=self.cabinet,
                         mail=self.mail)
 
-    def wizard_manual_reminder(self, title: str = None, when: str = None) -> Reminder:
+    def wizard_manual_reminder(self, title: str | None = None, when: str | None = None) -> Reminder:
         """
         Guides the user through the process of creating a new manual reminder
         by collecting necessary information
@@ -181,7 +194,7 @@ class QueryManager:
 
         Parameters:
             - title (str): the reminder's title
-            - when (str): when do you want to be reminded, in natural language
+            - when (str): when you should be reminded, in natural language
         Returns:
             - Reminder: An instance of the Reminder class with
             properties populated based on user input.
@@ -190,12 +203,12 @@ class QueryManager:
         def _format_input(text: str) -> str:
             return input(f"{text}?\n")
 
-        title: str = title or _format_input("What's the reminder").strip()
+        title = title or _format_input("What's the reminder").strip()
         reminder_date_success: bool = False
 
         while not reminder_date_success:
             reminder_date: str = when or _format_input(
-                "When do you want to be reminded").strip() or None
+                "When do you want to be reminded").strip()
 
             try:
                 reminder: Reminder = self.interpret_reminder_date(reminder_date)

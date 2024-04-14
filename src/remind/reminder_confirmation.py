@@ -256,7 +256,6 @@ class ReminderConfirmation:
         @self.bindings.add('q')
         def _(event): #pylint: disable=unused-argument
             self.application.exit()
-            print("Canceled.")
 
     def cycle_types(self, direction):
         """_summary_
