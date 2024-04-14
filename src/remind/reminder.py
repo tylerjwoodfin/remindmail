@@ -114,7 +114,20 @@ class Reminder:
         today = date_override or datetime.now().date()
         # Handle date-specific reminders
         if self.key == ReminderKeyType.DATE and self.value:
-            return datetime.strptime(self.value, '%Y-%m-%d').date() == today
+            # Check the format of the date to see if it includes a year
+            if len(self.value) == 5:  # MM-DD format
+                # Parse the date assuming the current year
+                reminder_date = datetime.strptime(
+                    f"{date.today().year}-{self.value}", '%Y-%m-%d').date()
+                # If the constructed date is in the past, use the next year
+                if reminder_date < date.today():
+                    reminder_date = datetime.strptime(
+                        f"{date.today().year + 1}-{self.value}", '%Y-%m-%d').date()
+            else:  # YYYY-MM-DD format
+                reminder_date = datetime.strptime(self.value, '%Y-%m-%d').date()
+
+            # Compare the reminder date with today's date
+            return reminder_date == date.today()
 
         # Handle day of the week reminders
         elif self.key == ReminderKeyType.DAY_OF_WEEK and self.value:

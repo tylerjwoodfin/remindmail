@@ -115,18 +115,39 @@ class ReminderManager:
                     else:
                         delete_current_reminder = False
 
-                    pattern = r"\[(.*?)\](c?d?)\s*(.*)"
-                    match = re.match(pattern, stripped_line)
+                    pattern_any_reminder = r"\[(.*?)\](c?d?)\s*(.*)"
+                    pattern_date_key = r"(?:\d{4}-)?\d{2}-\d{2}"
+                    pattern_dow_key = (
+                        r"^(sun(day)?|"
+                        r"mon(day)?|"
+                        r"tue(sday)?|"
+                        r"wed(nesday)?|"
+                        r"thu(rsday)?|"
+                        r"fri(day)?|"
+                        r"sat(urday)?)$"
+                    )
+
+                    match = re.match(pattern_any_reminder, stripped_line)
                     if match:
                         details, modifiers, title = match.groups()
 
                         details = details.split(",")
-                        reminder_type: ReminderKeyType = ReminderKeyType.from_db_value(details[0])
 
-                        # checks if key is YYYY-MM-DD or MM-DD
-                        date_key_pattern = r"\d{4}-\d{2}-\d{2}"
-                        if re.match(date_key_pattern, details[0]):
-                            reminder_type = ReminderKeyType.DATE
+                        # get reminder type
+                        try:
+                            reminder_type: ReminderKeyType = \
+                                ReminderKeyType.from_db_value(details[0])
+                        except ValueError:
+                            # allow for [{date}] and [{dow}]
+                            if re.match(pattern_date_key, details[0]):
+                                reminder_type = ReminderKeyType.DATE
+                            elif re.match(pattern_dow_key, details[0]):
+                                reminder_type = ReminderKeyType.DAY_OF_WEEK
+
+                            else:
+                                self.cabinet.log(
+                                    f"'{details[0]}' in '{line}' is not a valid Reminder key.")
+                                continue
 
                         reminder_date: Optional[str] = None
                         cycle: Optional[int] = None
@@ -157,7 +178,6 @@ class ReminderManager:
                                                   self.cabinet,
                                                   self.mail)
 
-                        print(r)
                         r.should_send_today = r.get_should_send_today()
 
                         if is_delete and r.should_send_today and 'd' in modifiers:
@@ -183,8 +203,6 @@ class ReminderManager:
                 file.writelines(new_lines)
 
         self.parsed_reminders = reminders
-
-        print(reminders)
 
         return reminders
 
@@ -230,7 +248,7 @@ class ReminderManager:
             self.parse_reminders_file()
 
         for r in self.parsed_reminders:
-            if r.key == 'later':
+            if r.key == ReminderKeyType.LATER:
                 self.console.print(r.title, style="bold green")
                 print(r.notes)
 

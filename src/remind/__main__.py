@@ -16,40 +16,48 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
     parser = argparse.ArgumentParser(description="A tool to schedule and organize reminders")
 
     # parameter arguments
-    parser.add_argument("--title",
+    parser.add_argument(
+        "--title",
         help="the title of your reminder",
         nargs="?",
         const=""
     )
 
-    parser.add_argument("--when",
+    parser.add_argument(
+        "--when",
         help="when the reminder should send, as natural language",
         nargs="?",
         const="")
 
-    # action arguments
-    parser.add_argument("-ls",
-        "--list",
-        action="store_true",
-        help="list all reminders",
-    )
     parser.add_argument(
-        "-g",
-        "--generate",
-        action="store_true",
-        help="generate reminders.",
-    )
-    parser.add_argument("--later",
+        "--later",
         action="store_true",
         help="show reminders scheduled for later"
     )
+
+    # action arguments
     parser.add_argument(
-        "-e",
+        "--list",
+        "--ls",
+        action="store_true",
+        help="list all reminders",
+    )
+
+    parser.add_argument(
+        "--generate",
+        "--g",
+        action="store_true",
+        help="generate reminders.",
+    )
+
+    parser.add_argument(
         "--edit",
         action="store_true",
         help="edits the remindmail file")
-    parser.add_argument("-sw",
+
+    parser.add_argument(
         "--show-week",
+        "--sw",
         action="store_true",
         help="show reminders through next 7 days",
     )
