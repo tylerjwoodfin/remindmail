@@ -3,6 +3,7 @@ handles reminder requests
 """
 
 import re
+import sys
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta, MO, TU, WE, TH, FR, SA, SU
 from remind.reminder import Reminder, ReminderKeyType
@@ -61,21 +62,34 @@ class QueryManager:
                                    re.IGNORECASE),
             'day_of_month': re.compile(r'\b(?:the )?(\d{1,2})(st|nd|rd|th)?\b', re.IGNORECASE),
             'every_weeks': re.compile(r'every (\d+) weeks?', re.IGNORECASE),
-            'specific_date': re.compile((r'(?i)\b(january|february|march|april|may|june|july|august'
-                                         r'|september|october|november|december)'
-                                         r'(\d{1,2})(?:,? (\d{4}))?\b')),
+            'specific_date': re.compile(
+                                r'(?i)\b(january|february|march|april|may|june|july|august|'
+                                r'september|october|november|december) (\d{1,2})'
+                                r'(?:,? (\d{4}))?\b',
+                                re.IGNORECASE
+                            ),
             'mm_dd': re.compile(r'(\d{1,2})/(\d{1,2})'),
             'mm_dd_yyyy': re.compile(r'(\d{1,2})/(\d{1,2})/(\d{4})'),
             'yyyy_mm_dd': re.compile(r'(\d{4})-(\d{1,2})-(\d{1,2})'),
             'every_n_days': re.compile(r'every (\d+) day?s?', re.IGNORECASE),
+            'every_n_weeks': re.compile(r'every (\d+) week?s?', re.IGNORECASE),
             'every_n_months': re.compile(r'every (\d+) month?s?', re.IGNORECASE),
             'every_n_dows': re.compile(r'every (\d+) (monday|mon|tuesday|tue|wednesday'
                                        r'|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)s?',
                                        re.IGNORECASE),
         }
 
-        start_date = datetime.now() + timedelta(days=1)
-        key: ReminderKeyType = ReminderKeyType.NOW
+        # common replacements
+        input_str = input_str.replace("every week", "every sunday")
+
+        now = datetime.now()
+        start_date = now + timedelta(days=1)
+
+        # handle edge case where time between midnight and 4am
+        if now.hour < 4:
+            start_date += timedelta(days=1)
+
+        key: ReminderKeyType | None = None
         value = ''
         frequency = None
         modifiers = 'd'
@@ -143,6 +157,12 @@ class QueryManager:
                     date_formatted = date_formatted + relativedelta(years=1)
                 key = ReminderKeyType.DATE
                 value = date_formatted.strftime('%Y-%m-%d')
+
+            # tomorrow
+            elif input_str == 'tomorrow':
+                key = ReminderKeyType.DATE
+                value = start_date.strftime('%Y-%m-%d')
+
         else:
             # 'every'
             modifiers = ''
@@ -150,6 +170,11 @@ class QueryManager:
             # every n days
             if match := regex_patterns['every_n_days'].match(input_str):
                 key = ReminderKeyType.DAY
+                frequency = int(match.group(1))
+
+            # every n weeks
+            elif match := regex_patterns['every_n_weeks'].match(input_str):
+                key = ReminderKeyType.WEEK
                 frequency = int(match.group(1))
 
             # every n months
@@ -165,13 +190,24 @@ class QueryManager:
                     value = dow
                     frequency = int(match.group(1))
 
+            # every {dow} (e.g. 'every friday')
+            elif any(day in input_str.lower() for day in weekdays):
+                day_str = input_str.lower()
+                for day, rel_day in weekdays.items():
+                    if day in day_str:
+                        next_weekday = start_date + relativedelta(weekday=rel_day(0))
+                        key = ReminderKeyType.DAY_OF_WEEK
+                        value = day
+                        frequency = 1
+                        break
+
             # every n weeks
             elif match := regex_patterns['every_weeks'].match(input_str):
                 key = ReminderKeyType.WEEK
                 frequency = int(match.group(1))
                 modifiers = ''
 
-        if not key:
+        if key is None:
             self.cabinet.log(f"Could not parse date: {input_str}",
                              level="warn", is_quiet=True)
             raise ValueError("Sorry, I didn't understand that.")
@@ -207,20 +243,29 @@ class QueryManager:
         reminder_date_success: bool = False
 
         while not reminder_date_success:
-            reminder_date: str = when or _format_input(
-                "When do you want to be reminded").strip()
-
             try:
+                reminder_date: str = when or _format_input(
+                    "When do you want to be reminded").strip()
+
                 reminder: Reminder = self.interpret_reminder_date(reminder_date)
                 reminder.title = title
                 reminder_date_success = True
             except ValueError as e:
                 print(e)
+                when = None
 
         # display confirmation form
-        ReminderConfirmation(reminder).run()
+        try:
+            ReminderConfirmation(reminder).run()
+        except KeyboardInterrupt:
+            sys.exit(0)
 
-        print("Updated reminder:")
+        # print("Updated reminder:")
         print(reminder)
+
+        if reminder.key == ReminderKeyType.NOW:
+            reminder.send_email()
+        else:
+            reminder.write_to_file()
 
         return reminder

@@ -30,8 +30,12 @@ class ReminderConfirmation:
         self.reminder.offset = int(self.offset_input_text_area.text) \
             if self.offset_input_text_area.text.isdigit() else 0
 
-        print_formatted_text(HTML('<ansigreen>Saved.</ansigreen>'))
-        self.application.exit()
+        confirmation_text = "Saved"
+        if self.reminder.key == ReminderKeyType.NOW:
+            confirmation_text = "Sent"
+
+        print_formatted_text(HTML(f'<ansigreen><b>{confirmation_text}.</b></ansigreen>'))
+        self.application.exit(result="cancel")
         # save logic is handled in query manager
 
     def __init__(self, reminder: Reminder):
@@ -244,7 +248,8 @@ class ReminderConfirmation:
         @self.bindings.add(' ', filter=has_focus(self.cancel_button))
         @self.bindings.add('q')
         def _(event): #pylint: disable=unused-argument
-            self.application.exit()
+            print_formatted_text(HTML('<ansired><b>Cancelled.</b></ansired>'))
+            raise KeyboardInterrupt
 
     def cycle_types(self, direction):
         """

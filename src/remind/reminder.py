@@ -53,7 +53,7 @@ class Reminder:
             - if key is "dow", expect "sun" - "sat"
             - if key is "dom", expect 1-30 as string
             - otherwise, value is ignored
-        cycle (Optional[int]): Defines the cycle or interval for the reminder.
+        frequency (Optional[int]): Defines the frequency or interval for the reminder.
         offset (int): Adjusts the starting point of the reminder.
         modifiers (str): Contains actions for the reminder, such as delete ('d') or command ('c').
         title (str): The title or main content of the reminder.
@@ -159,9 +159,13 @@ class Reminder:
 
         return False
 
-    def send_email(self, is_quiet: bool = False):
+    def send_email(self, is_quiet: bool = False) -> None:
         """
         Sends the reminder as an email using Cabinet's `Mail()` module
+
+        Args:
+            is_quiet (bool, optional): whether to print cabinet log.
+            Defaults to False.
         """
 
         email_icons = ""
@@ -176,3 +180,54 @@ class Reminder:
 
         # self.mail.send(email_title, self.notes, is_quiet=is_quiet)
         self.cabinet.log(f"DEBUG: pretending to send {email_title}, {self.notes}, {is_quiet}")
+
+    def write_to_file(self, is_quiet: bool = False) -> None:
+        """
+        Writes the reminder to remind.md.
+
+        Args:
+            is_quiet (bool, optional): whether to print cabinet log.
+            Defaults to False.
+        """
+
+        def format_reminder():
+            """
+            Formats the reminder for writing to file based on its attributes.
+            """
+            base_format = f"[{self.key.db_value}"
+            if self.key == ReminderKeyType.DATE:
+                base_format = "["
+
+            if self.key not in [ReminderKeyType.DATE,
+                                ReminderKeyType.DAY_OF_WEEK,
+                                ReminderKeyType.DAY_OF_MONTH]:
+                self.value = ""
+
+            if self.value:
+                base_format += f",{self.value}"
+            if self.frequency:
+                base_format += f",{self.frequency}"
+            if self.offset:
+                base_format += f",{self.offset}"
+
+            if self.key == ReminderKeyType.LATER:
+                base_format = "[later"
+                self.modifiers = ""
+
+            base_format += f"]{self.modifiers} {self.title}\n"
+
+
+            if self.notes:
+                base_format += f"{self.notes}\n"
+
+            base_format = base_format.replace("[,", "[")
+
+            return base_format
+
+        reminder_format = format_reminder()
+
+        # with open(file_path, 'a') as file:
+        #     file.write(reminder_format)
+
+        print("WRITING")
+        print(reminder_format)
