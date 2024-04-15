@@ -147,3 +147,14 @@ This is sent each day.
 [later] play diplomacy board game
 This isn't sent, but it is saved for later and can be sent using
 `remind --later`.
+
+# Contributing
+Contributions to RemindMail are welcome! Please feel free to fork the repository, make your changes, and submit a pull request.
+
+# License
+RemindMail is released under the MIT license. For more details, see the LICENSE file in the repository.
+
+# Author Info
+Tyler Woodfin
+https://tyler.cloud
+remindmail@tyler.cloud
