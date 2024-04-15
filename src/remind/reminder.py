@@ -251,7 +251,7 @@ class Reminder:
             self.cabinet.get('path', 'remindmail', 'file') or ""
         path_remind_folder = path_remind_file.replace("/remind.md", "")
 
-        self.cabinet.write_file(path_remind_file,
+        self.cabinet.write_file('remind.md',
                                 path_remind_folder,
                                 reminder_format,
                                 append=True,
