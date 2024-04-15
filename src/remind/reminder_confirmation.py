@@ -1,5 +1,5 @@
 """
-docstring
+The confirmation before saving a reminder through the manual reminder wizard
 """
 import datetime
 from typing import List
@@ -14,14 +14,25 @@ from remind.reminder import Reminder, ReminderKeyType
 
 class ReminderConfirmation:
     """
-    docstring
+    The confirmation before saving a reminder through the manual reminder wizard
     """
 
     def save_reminder(self):
         """
-        docstring
+        Saves the reminder by updating its attributes based on
+            the user inputs from the UI components.
+
+        This function captures values from various text areas
+        within the interface and updates the corresponding attributes
+        of the reminder instance. It handles type conversions and validations,
+        ensuring that numerical values such as frequency and offset are
+        properly set even if the input is non-numeric or empty. The function concludes
+        by providing a visual confirmation to the user, indicating whether the
+        reminder was saved or immediately sent, based on its type.
+        It also exits the confirmation.
         """
-        # Update reminder instance with values from text areas
+
+        # update reminder instance with values from text areas
         self.reminder.title = self.title_input.text
         # self.reminder.key is saved dynamically
         self.reminder.value = self.value_text_area.text
@@ -53,13 +64,23 @@ class ReminderConfirmation:
 
     def default_frequency(self):
         """
-        docstring
+        Sets the default frequency of the reminder if it is not already specified.
         """
+
         if not self.reminder.frequency:
             self.reminder.frequency = 0
 
     def setup_key_bindings(self):
-        """_summary_
+        """
+        Configures key bindings for the user interface.
+
+        Establishes the keyboard interactions required for
+        navigating through the confirmation,
+        adjusting reminder properties, and handling save and cancel operations.
+        It leverages defined handler
+        functions to manage user inputs and actions efficiently, enhancing
+        the confirmation's responsiveness
+        and usability.
         """
         self.setup_navigation_handlers()
         self.setup_type_handlers()
@@ -67,11 +88,31 @@ class ReminderConfirmation:
         self.setup_save_and_cancel_handlers()
 
     def initialize_ui_components(self):
-        """_summary_
+        """
+        Initializes and configures the UI components for the confirmation interface.
+        
+        This method sets up various text areas, buttons, and containers necessary for the user 
+        to interact with and manage reminders. It leverages a mixture of conditional containers 
+        and static text areas to provide a dynamic and responsive user experience. Each component 
+        is configured to display specific attributes of a reminder and may be read-only or editable 
+        based on the context.
         """
 
         def generate_textarea(text: str | None, prompt: str,
-                              read_only: bool = False) -> TextArea:
+                            read_only: bool = False) -> TextArea:
+            """
+            Creates a configured TextArea widget for user input or display.
+
+            Args:
+                text (str | None): The initial text to display in the TextArea.
+                    If None, an empty string is used.
+                prompt (str): A label shown as a prompt in the TextArea.
+                read_only (bool, optional): Specifies if the TextArea should
+                    be read-only. Defaults to False.
+
+            Returns:
+                TextArea: The configured TextArea widget.
+            """
             text_area = TextArea(text=text or "",
                             multiline=False,
                             read_only=read_only,
@@ -137,11 +178,18 @@ class ReminderConfirmation:
             padding_right=0
         )
 
-    def build_main_container(self):
-        """_summary_
+    def build_main_container(self) -> HSplit:
+        """
+        Constructs and returns the main container for the confirmation interface.
+
+        This method organizes all the UI components into a hierarchical
+        structure using horizontal and vertical splits. Ensures that all
+        elements are displayed correctly and function cohesively within
+        the full-screen confirmation layout.
 
         Returns:
-            _type_: _description_
+            HSplit: The root container that holds all other UI components,
+            structured in a vertical layout.
         """
         return HSplit([
             self.title_input,
@@ -177,9 +225,12 @@ class ReminderConfirmation:
             handler = make_nav_handler(nav_key)
             self.bindings.add(nav_key)(handler)
 
-    def setup_type_handlers(self):
+    def setup_type_handlers(self) -> None:
         """
-        docstring
+        Configures key bindings for cycling through reminder types within the type input field.
+
+        Right and 'l' keys increment the type, while left and 'h' keys decrement it. This allows 
+        for intuitive navigation and selection of reminder types using keyboard shortcuts.
         """
         @self.bindings.add('right', filter=has_focus(self.type_input))
         @self.bindings.add('l', filter=has_focus(self.type_input))
@@ -270,7 +321,12 @@ class ReminderConfirmation:
 
     def setup_save_and_cancel_handlers(self):
         """
-        docstring
+        Configures key bindings for save and cancel actions within the application.
+
+        This method sets up handlers that trigger on specific key presses when focus is on the save
+        or cancel buttons. It defines actions for saving changes, updating the interface, and 
+        exiting the application. These handlers enhance user interaction by providing quick 
+        keyboard shortcuts for common actions.
         """
         @self.bindings.add('enter', filter=has_focus(self.save_button))
         @self.bindings.add(' ', filter=has_focus(self.save_button))
@@ -287,7 +343,7 @@ class ReminderConfirmation:
             self.reminder.modifiers = "x"
             self.application.exit()
 
-    def cycle_types(self, direction):
+    def cycle_types(self, direction) -> None:
         """
         Cycles through the reminder types in the specified direction and updates the type input.
 
@@ -336,16 +392,21 @@ class ReminderConfirmation:
                 self.value_text_area.text = "Sunday"
             elif self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
                 self.value_text_area.text = "1"
-                
+
             self.reminder.value = self.value_text_area.text
 
     def handle_navigation(self, event, key: str) -> None:
         """
-        docstring
+        Handles keyboard navigation within the confirmation's UI.
+
+        This method manages the focus transitions between UI components based on arrow keys or
+        'j' and 'k' inputs, mimicking VI-style navigation. It updates the toolbar text to reflect 
+        the current mode or focused item. Additionally, it switches to VI editing mode if certain 
+        conditions are met.
 
         Args:
-            event (any): _description_
-            key (str): _description_
+            event (any): The event object containing details like the app instance.
+            key (str): The key pressed that triggers the navigation.
         """
         is_save_first_focus = self.application.layout.has_focus(self.save_button)
         app = event.app
@@ -423,7 +484,10 @@ class ReminderConfirmation:
 
     def is_value_enabled(self) -> bool:
         """
-        docstring
+        Determines if the 'Value' field should be enabled based on the selected reminder type.
+
+        Returns:
+            bool: True if the reminder type requires a value, False otherwise.
         """
 
         return self.type_input.text in [ReminderKeyType.DAY_OF_WEEK.label,
@@ -432,7 +496,10 @@ class ReminderConfirmation:
 
     def is_frequency_enabled(self) -> bool:
         """
-        docstring
+        Checks if the 'Frequency' field should be active for the current reminder type.
+
+        Returns:
+            bool: True if the frequency setting is applicable, False otherwise.
         """
 
         return self.type_input.text not in [ReminderKeyType.DATE.label,
@@ -441,7 +508,10 @@ class ReminderConfirmation:
 
     def is_offset_enabled(self) -> bool:
         """
-        docstring
+        Determines if the 'Offset' field is applicable based on the reminder type.
+
+        Returns:
+            bool: True if offsets can be set for the type, False if not.
         """
 
         return self.type_input.text not in [ReminderKeyType.DATE.label,
@@ -450,7 +520,10 @@ class ReminderConfirmation:
 
     def is_modifiers_enabled(self) -> bool:
         """
-        docstring
+        Evaluates whether modifier options should be available for the reminder type.
+
+        Returns:
+            bool: True if modifiers are applicable, False otherwise.
         """
 
         return self.type_input.text not in [ReminderKeyType.LATER.label,
@@ -458,7 +531,10 @@ class ReminderConfirmation:
 
     def run(self):
         """
-        docstring
+        Initiates and runs the confirmation, setting initial focus and starting the UI.
+
+        This method focuses the save button, updates the toolbar text,
+        and launches the confirmation UI.
         """
 
         app = self.application

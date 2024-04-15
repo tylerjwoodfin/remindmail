@@ -23,7 +23,7 @@ class ErrorHandler:
                 return func(self, *args, **kwargs)
             except FileNotFoundError as e:
                 filename = getattr(e, 'filename', 'Unknown file')
-                self.cab.log(f"'{filename}' was not found in {func.__name__}.", level="error")
+                self.cabinet.log(f"'{filename}' was not found in {func.__name__}.", level="error")
 
                 resolved = self.help_set_path_remindmd()
                 if resolved:

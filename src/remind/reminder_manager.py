@@ -4,6 +4,7 @@ Utils for groups of reminders
 
 import re
 import os
+import subprocess
 import sys
 import glob
 import readline
@@ -16,7 +17,26 @@ from . import reminder, error_handler
 
 def complete_file_input(text, state):
     """
-    Enables tab completion when entering file locations
+    Provides tab completion for file paths in a command-line interface.
+
+    This function expands user and environment variables in the input path,
+    then lists files and directories that match the expanded path. It is typically
+    used to provide tab completion support for entering file locations, facilitating
+    the user to quickly find and select files.
+
+    Parameters:
+    - text (str): The initial text input by the user which may include unexpanded
+      variables and partial file or directory names.
+    - state (int): The index of the item to return, which corresponds to the number
+      of times the user has pressed the tab key.
+
+    Returns:
+    - str: The nth file or directory name that matches the input text, where n is
+      determined by the 'state' parameter. Each subsequent press of the tab key
+      increments the state, cycling through the list of possible completions.
+
+    Raises:
+    - IndexError: If the 'state' index is out of the range of available completions.
     """
     text = os.path.expanduser(os.path.expandvars(text))
 
@@ -35,9 +55,7 @@ class ReminderManager:
 
         # DEBUG
         # file path for reminders
-        # self.path_remind_file: str = self.cab.get('path', 'remindmail', 'file')
-        self.path_remind_file: str = 'src/remind/remind.md'
-        # self.path_remind_file: str = None
+        self.path_remind_file: str | None = self.cabinet.get('path', 'remindmail', 'file')
 
         # for sending emails
         self.mail: Mail = Mail()
@@ -120,6 +138,7 @@ class ReminderManager:
                     if match:
                         reminder_key: ReminderKeyType
                         details, reminder_modifiers, title = match.groups()
+                        details = details.lower()
 
                         details = details.split(",")
 
@@ -137,7 +156,8 @@ class ReminderManager:
 
                             else:
                                 self.cabinet.log(
-                                    f"'{details[0]}' in '{line}' is not a valid Reminder key.")
+                                    f"'{details[0]}' in '{line}' is not a valid Reminder key.",
+                                    level="warn")
                                 continue
 
                         reminder_value: Optional[str] = None
@@ -151,10 +171,11 @@ class ReminderManager:
                             if len(details) > 1:
                                 reminder_frequency = int(details[1])
                             reminder_offset = int(details[2]) if len(details) > 2 else 0
+                        elif reminder_key == ReminderKeyType.DAY_OF_MONTH:
+                            reminder_value = details[1] or "1"
                         elif reminder_key in [ReminderKeyType.DAY,
                                                ReminderKeyType.WEEK,
-                                               ReminderKeyType.MONTH,
-                                               ReminderKeyType.DAY_OF_MONTH]:
+                                               ReminderKeyType.MONTH]:
                             reminder_frequency = int(details[1]) if len(details) > 1 else None
                             reminder_offset = int(details[2]) if len(details) > 2 else 0
                         elif reminder_key == ReminderKeyType.LATER:
@@ -170,7 +191,8 @@ class ReminderManager:
                                                   title.strip(),
                                                   '',
                                                   self.cabinet,
-                                                  self.mail)
+                                                  mail=self.mail,
+                                                  path_remind_file=self.path_remind_file)
 
                         r.should_send_today = r.get_should_send_today()
 
@@ -209,6 +231,8 @@ class ReminderManager:
         Afterwards, delete the reminders from the file.
         """
 
+        lines_to_delete: List[int] = []
+
         if not self.parsed_reminders:
             self.parse_reminders_file()
 
@@ -218,18 +242,51 @@ class ReminderManager:
             self.mail = Mail()
 
         self.cabinet.log("Generating Reminders")
-        for r in self.parsed_reminders:
+        for index, r in enumerate(self.parsed_reminders):
             if r.should_send_today:
-                self.cabinet.log(str(r))
+                self.cabinet.log(str(r), is_quiet=True)
 
+                if 'd' in r.modifiers:
+                    lines_to_delete.append(index)
+
+                # handle commands
                 if 'c' in r.modifiers:
-                    print("Executing")
+                    self.cabinet.log(
+                            f"Executing command: {r.title}", level="debug"
+                        )
+                    try:
+                        # add path so things like `cabinet` calls work from crontab
+                        home_dir = os.path.expanduser("~")
+                        path_local_bin = os.path.join(home_dir, ".local/bin")
+                        os.environ[
+                            "PATH"
+                        ] = f"{path_local_bin}:{os.environ['PATH']}"
+
+                        cmd_output = subprocess.check_output(
+                            r.title, shell=True, universal_newlines=True
+                        )
+                        self.cabinet.log(
+                            f"Results: {cmd_output}", level="debug"
+                        )
+                    except subprocess.CalledProcessError as error:
+                        self.cabinet.log(
+                            f"Command execution failed with exit code: {error.returncode}",
+                            level="error",
+                        )
+                        self.cabinet.log(
+                            f"Error output: {error.output}", level="error"
+                        )
                     continue
 
                 r.mail = self.mail
                 r.send_email()
 
                 count_sent += 1
+
+        # Remove lines corresponding to sent reminders from the reminders file.
+        # This method should safely update the file
+        # by removing only the lines listed in lines_to_delete.
+        self.delete_reminders(lines_to_delete)
 
         self.cabinet.put("remindmail", "sent_today", count_sent, is_print=True)
 
@@ -246,18 +303,19 @@ class ReminderManager:
                 self.console.print(r.title, style="bold green")
                 print(r.notes)
 
-    def show_week(self) -> None:
+    def show_reminders_for_days(self, limit: int = 8) -> None:
         """
-        Displays reminders scheduled for the upcoming week.
+        Displays reminders scheduled for the upcoming <limit> days.
 
-        This method calculates the dates for the next 7 days, starting from tomorrow,
+        This method calculates the dates for the next <limit> days, starting from tomorrow,
         and checks each day for scheduled reminders. For each day, it prints the date
         and any corresponding reminders. If there are no reminders for a specific day,
         it indicates so. Reminders with specific modifiers change the display style
         to highlight their importance or category.
         """
+
         # Prepare the next 7 days
-        dates = [date.today() + timedelta(days=i) for i in range(1, 8)]
+        dates = [date.today() + timedelta(days=i) for i in range(1, limit)]
 
         # Parse reminders file if necessary
         if not self.parsed_reminders:
@@ -342,7 +400,8 @@ class ReminderManager:
                     sys.exit(0)
 
         resp = ''
-        self.path_remind_file = self.path_remind_file.replace("remind.md", "")
+        path: str = self.path_remind_file or self.cabinet.get('path', 'remindmail', 'file') or ""
+        self.path_remind_file = path.replace("remind.md", "")
 
         if self.path_remind_file.endswith('/'):
             self.path_remind_file = self.path_remind_file.rstrip('/')
@@ -360,5 +419,23 @@ class ReminderManager:
                          is_print=True
             )
             return True
+
+        return False
+
+    def delete_reminders(self, lines_to_delete):
+        """
+        Deletes specific lines from the reminders file.
+
+        Parameters:
+        - lines_to_delete (List[int]): List of line indices to be deleted from the reminders file.
+        """
+
+        path: str = self.path_remind_file or self.cabinet.get('path', 'remindmail', 'file') or ""
+        with open(path, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+        with open(path, "w", encoding="utf-8") as file:
+            for index, line in enumerate(lines):
+                if index not in lines_to_delete:
+                    file.write(line)
 
         return False

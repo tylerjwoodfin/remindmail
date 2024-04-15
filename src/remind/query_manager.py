@@ -17,16 +17,10 @@ class QueryManager:
     """
 
     def __init__(self, manager: ReminderManager) -> None:
-        self.cabinet: Cabinet = manager.cabinet
-        self.mail: Mail = manager.mail
+        self.manager: ReminderManager = manager
+        self.cabinet: Cabinet = self.manager.cabinet
+        self.mail: Mail = self.manager.mail
         return
-
-    def write_reminder_to_file(self, reminder: Reminder) -> None:
-        """
-        writes a reminder to remind.md
-        """
-        print("Not yet Implemented\n")
-        print(reminder)
 
     def interpret_reminder_date(self, input_str: str) -> Reminder:
         """
@@ -220,17 +214,21 @@ class QueryManager:
                         notes='',
                         offset=0,
                         cabinet=self.cabinet,
-                        mail=self.mail)
+                        mail=self.mail,
+                        path_remind_file=self.manager.path_remind_file)
 
-    def wizard_manual_reminder(self, title: str | None = None, when: str | None = None) -> Reminder:
+    def wizard_manual_reminder(self, title: str | None = None,
+                               when: str | None = None,
+                               notes: str | None = None) -> Reminder:
         """
         Guides the user through the process of creating a new manual reminder
         by collecting necessary information
         through interactive prompts.
 
         Parameters:
-            - title (str): the reminder's title
-            - when (str): when you should be reminded, in natural language
+            - title (str, optional): the reminder's title (email subject)
+            - when (str, optional): when you should be reminded, in natural language
+            - notes (str, optional): notes (sent in the email body)
         Returns:
             - Reminder: An instance of the Reminder class with
             properties populated based on user input.
@@ -249,6 +247,7 @@ class QueryManager:
 
                 reminder: Reminder = self.interpret_reminder_date(reminder_date)
                 reminder.title = title
+                reminder.notes = notes
                 reminder_date_success = True
             except ValueError as e:
                 print(e)
@@ -264,7 +263,6 @@ class QueryManager:
         if 'x' in reminder.modifiers:
             return reminder
 
-        print(reminder)
         if reminder.key == ReminderKeyType.NOW:
             reminder.send_email()
         else:

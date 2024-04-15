@@ -9,6 +9,10 @@ from cabinet import Cabinet, Mail
 class ReminderKeyType(Enum):
     """
     Enum for `Reminder.key` with database value and label.
+
+    Attributes:
+        db_value (str): The database value associated with the enum member.
+        label (str): The human-readable label for the enum member.
     """
     DATE = ("date", "Date")
     DAY = ("d", "Day")
@@ -21,16 +25,17 @@ class ReminderKeyType(Enum):
 
     @classmethod
     def from_db_value(cls, db_value):
-        """docstring
+        """
+        Retrieves the enum member associated with a specific database value.
 
         Args:
-            db_value (_type_): _description_
+            db_value (str): The database value to match against enum members.
 
         Raises:
-            ValueError: _description_
+            ValueError: If `db_value` does not correspond to any enum members.
 
         Returns:
-            _type_: _description_
+            ReminderKeyType: The enum member matching the given database value.
         """
         for member in cls:
             if member.db_value == db_value:
@@ -38,6 +43,13 @@ class ReminderKeyType(Enum):
         raise ValueError(f"{db_value} is not a valid db_value of ReminderKeyType")
 
     def __init__(self, db_value, label):
+        """
+        Initialize a new instance of the ReminderKeyType enum.
+
+        Args:
+            db_value (str): The database value of the enum member.
+            label (str): The label of the enum member.
+        """
         self.db_value: str = db_value
         self.label: str = label
 
@@ -48,7 +60,7 @@ class Reminder:
     Attributes:
         key (ReminderKeyType).
         - This is the type of reminder, such as on a certain day, date, or month.
-        - value (Optional[str]): Specific value, depending on the `key`. 
+        value (Optional[str]): Specific value, depending on the `key`. 
             - if key is "date", expect YYYY-MM-DD str
             - if key is "dow", expect "sun" - "sat"
             - if key is "dom", expect 1-30 as string
@@ -58,6 +70,9 @@ class Reminder:
         modifiers (str): Contains actions for the reminder, such as delete ('d') or command ('c').
         title (str): The title or main content of the reminder.
         notes (str): Additional notes associated with the reminder.
+        cabinet (Cabinet): instance of Cabinet, a file management tool
+        mail (Mail): The instance in which to send reminders as emails
+        path_remind_file: The path from ReminderManager in which to access remind.md
     """
     def __init__(self,
                  key: ReminderKeyType,
@@ -68,7 +83,8 @@ class Reminder:
                  title: str,
                  notes: Optional[str],
                  cabinet: Cabinet,
-                 mail: Mail):
+                 mail: Mail,
+                 path_remind_file: str | None):
         self.key: ReminderKeyType = key
         self.value: Optional[str] = value
         self.frequency: int = frequency or 0
@@ -79,6 +95,7 @@ class Reminder:
         self.should_send_today: Optional[bool] = False
         self.cabinet: Cabinet = cabinet
         self.mail: Mail = mail
+        self.path_remind_file: str | None = path_remind_file
 
     def __repr__(self) -> str:
         return (
@@ -183,23 +200,22 @@ class Reminder:
         email_icons = f"{email_icons} " if email_icons else email_icons
         email_title = f"Reminder {email_icons}- {self.title}"
 
-        # self.mail.send(email_title, self.notes, is_quiet=is_quiet)
-        self.cabinet.log(f"DEBUG: pretending to send {email_title}, {self.notes}, {is_quiet}")
+        self.mail.send(email_title, self.notes or "", is_quiet=is_quiet)
 
-    def write_to_file(self, is_quiet: bool = False) -> None:
+    def write_to_file(self, is_quiet: bool = True) -> None:
         """
         Writes the reminder to remind.md.
 
         Args:
             is_quiet (bool, optional): whether to print cabinet log.
-            Defaults to False.
+            Defaults to True.
         """
 
         def format_reminder():
             """
             Formats the reminder for writing to file based on its attributes.
             """
-            base_format = f"[{self.key.db_value}"
+            base_format = f"\n[{self.key.db_value}"
             if self.key == ReminderKeyType.DATE:
                 base_format = "["
 
@@ -231,8 +247,12 @@ class Reminder:
 
         reminder_format = format_reminder()
 
-        # with open(file_path, 'a') as file:
-        #     file.write(reminder_format)
+        path_remind_file = self.path_remind_file or \
+            self.cabinet.get('path', 'remindmail', 'file') or ""
+        path_remind_folder = path_remind_file.replace("/remind.md", "")
 
-        print("WRITING")
-        print(reminder_format)
+        self.cabinet.write_file(path_remind_file,
+                                path_remind_folder,
+                                reminder_format,
+                                append=True,
+                                is_quiet=is_quiet)
