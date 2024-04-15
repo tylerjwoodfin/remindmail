@@ -157,4 +157,4 @@ RemindMail is released under the MIT license. For more details, see the LICENSE 
 # Author Info
 Tyler Woodfin
 https://tyler.cloud
-remindmail@tyler.cloud
+feedback-remindmail@tyler.cloud
