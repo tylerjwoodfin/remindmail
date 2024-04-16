@@ -202,7 +202,8 @@ class ReminderConfirmation:
             ], height=2),
             HSplit(children=[
                 self.notes_input
-            ], height=3, style="bg:ansiyellow"),
+            ], height=3,
+                   style="bg:ansiyellow fg:ansiblack"),
             Window(height=1),  # button separator
             HSplit([
                 Window(width=1)

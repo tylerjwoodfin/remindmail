@@ -44,6 +44,12 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         help="show reminders scheduled for later"
     )
 
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="save reminder without confirmation"
+    )
+
     # action arguments
     parser.add_argument(
         "--generate",
@@ -88,7 +94,8 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
             manager_q.wizard_manual_reminder(
                 title=args.title,
                 when=args.when,
-                notes=args.notes
+                notes=args.notes,
+                save=args.save
             )
 
     except KeyboardInterrupt as exc:

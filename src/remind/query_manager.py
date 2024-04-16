@@ -9,6 +9,7 @@ from dateutil.relativedelta import relativedelta, MO, TU, WE, TH, FR, SA, SU
 from remind.reminder import Reminder, ReminderKeyType
 from remind.reminder_confirmation import ReminderConfirmation
 from remind.reminder_manager import ReminderManager
+from prompt_toolkit import print_formatted_text, HTML
 from cabinet import Cabinet, Mail
 
 class QueryManager:
@@ -223,7 +224,8 @@ class QueryManager:
 
     def wizard_manual_reminder(self, title: str | None = None,
                                when: str | None = None,
-                               notes: str | None = None) -> Reminder:
+                               notes: str | None = None,
+                               save: bool = False) -> Reminder:
         """
         Guides the user through the process of creating a new manual reminder
         by collecting necessary information
@@ -257,11 +259,14 @@ class QueryManager:
                 print(e)
                 when = None
 
-        # display confirmation form
-        try:
-            ReminderConfirmation(reminder).run()
-        except KeyboardInterrupt:
-            sys.exit(0)
+        # display confirmation form if not `--save`
+        if not save:
+            try:
+                ReminderConfirmation(reminder).run()
+            except KeyboardInterrupt:
+                sys.exit(0)
+        else:
+            print_formatted_text(HTML('<ansigreen><b>Done.</b></ansigreen>'))
 
         # 'x' placed by ReminderConfirmation if cancelled
         if 'x' in reminder.modifiers:
