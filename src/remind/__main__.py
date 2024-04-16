@@ -71,6 +71,13 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
     )
 
     parser.add_argument(
+        "--send-later",
+        "--sl",
+        action="store_true",
+        help="sends a list of reminders scheduled for `later`"
+    )
+
+    parser.add_argument(
         "--show-week",
         "--sw",
         action="store_true",
@@ -90,6 +97,8 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
             manager_r.show_reminders_for_days(2)
         elif args.show_week:
             manager_r.show_reminders_for_days()
+        elif args.send_later:
+            manager_r.send_later()
         else:
             manager_q.wizard_manual_reminder(
                 title=args.title,
