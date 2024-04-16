@@ -83,6 +83,7 @@ RemindMail offers a variety of features to enhance your productivity:
 - `remind --title 'reminder title' --when 'every 3 weeks'`: Schedule a new reminder programatically
 - `remind --title 'reminder title' --when 'friday'`: Schedule a new reminder programatically
 - `remind --title 'reminder title' --when 'every 2 Mondays'`: Schedule a new reminder programatically
+- `remind --title 'reminder title' --when 'now'`: Sends an email immediately
 - `remind -h` (or `--help`): Displays usage information.
 - `remind -g` (or `--generate`): Generates all reminders scheduled for today. 
   - I recommend setting up a crontab.
