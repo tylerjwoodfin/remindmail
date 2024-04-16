@@ -422,6 +422,36 @@ class ReminderManager:
 
         return False
 
+    def send_later(self):
+        """
+        Sends an email containing reminders
+        tagged as `later`
+        """
+
+        if not self.parsed_reminders:
+            self.parse_reminders_file()
+
+        today = date.today().strftime('%Y-%m-%d')
+
+        # get a bulleted list of all 'later' reminders
+        self.cabinet.log("Getting 'later' reminders")
+
+        reminders = ""
+        for r in self.parsed_reminders:
+            if r.key == ReminderKeyType.LATER:
+                reminders += f"• {r.title}<br>"
+                if r.notes:
+                    reminders += f"  - {r.notes}<br>"
+
+        if reminders:
+            email_body = f"Here are your reminders for later:<br>{reminders}"
+
+            self.mail.send(f"Reminders for Later, {today}",
+                        email_body)
+        else:
+            self.cabinet.log("No reminders were found for 'later'.")
+
+    @error_handler.ErrorHandler.exception_handler
     def delete_reminders(self, lines_to_delete):
         """
         Deletes specific lines from the reminders file.
