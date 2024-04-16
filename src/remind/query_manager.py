@@ -157,6 +157,10 @@ class QueryManager:
                 key = ReminderKeyType.DATE
                 value = start_date.strftime('%Y-%m-%d')
 
+            # now
+            elif input_str == 'now':
+                key = ReminderKeyType.NOW
+
         else:
             # 'every'
             modifiers = ''

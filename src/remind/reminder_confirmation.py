@@ -161,13 +161,13 @@ class ReminderConfirmation:
         self.save_button = TextArea(text='Save',
                                     read_only=True,
                                     multiline=False,
-                                    style='fg:ansigreen bold blink')
+                                    style='fg:ansigreen')
 
         # cancel
         self.cancel_button = TextArea(text='Cancel',
                                     read_only=True,
                                     multiline=False,
-                                    style='fg:ansired bold blink')
+                                    style='fg:ansired')
 
         # toolbar
         self.toolbar = Box(
@@ -368,13 +368,13 @@ class ReminderConfirmation:
             return
 
         # calculate the new index cyclically
-        new_index = (current_index + direction) % len(self.reminder_types)
+        new_index: int = (current_index + direction) % len(self.reminder_types)
 
         # set cache
         self.key_value_cache[self.reminder.key.label] = self.value_text_area.text
 
         # update the reminder's type with the new type
-        self.reminder.key: ReminderKeyType = self.reminder_types[new_index]
+        self.reminder.key = self.reminder_types[new_index]
 
         # update the text area with the new type label
         self.type_input.text = self.reminder.key.label
