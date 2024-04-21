@@ -144,12 +144,34 @@ class Reminder:
         # Handle day of the week reminders
         elif self.key == ReminderKeyType.DAY_OF_WEEK and self.value:
             dow_mapping = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
-            target_dow = dow_mapping.get(self.value.lower(), 6)
-            if today.weekday() == target_dow:
-                start_date = today - timedelta(days=today.weekday()) \
-                    + timedelta(days=target_dow, weeks=-self.offset)
-                weeks_diff = (today - start_date).days // 7
-                return weeks_diff % self.frequency == 0 if self.frequency > 0 else True
+
+            # default to non-existant day
+            target_dow = dow_mapping.get(self.value.lower(), 7)
+
+            # handle day not found
+            if target_dow == 7:
+                self.cabinet.log(
+                    f"Could not map {self.value} to a day of the week. Use [sun] to [sat].",
+                    level="warn"
+                )
+
+            if today.weekday() != target_dow:
+                return False
+
+            # calculate the number of days since the epoch start
+            epoch_start = date(1970, 1, 1)
+            days_since_epoch = (today - epoch_start).days
+
+            # find the first occurrence of the target day of the week from epoch
+            days_to_target_dow = (target_dow - epoch_start.weekday()) % 7
+            first_target_dow = epoch_start + timedelta(days=days_to_target_dow)
+
+            # calculate weeks since the first occurrence of the target day
+            weeks_since_first_target = (today - first_target_dow).days // 7
+
+            # adjust for offset and check against frequency
+            adjusted_weeks = weeks_since_first_target - self.offset
+            return adjusted_weeks % self.frequency == 0
 
         # Handle every n days
         elif self.key == ReminderKeyType.DAY:
@@ -176,6 +198,11 @@ class Reminder:
         # Handle day of the month reminders
         elif self.key == ReminderKeyType.DAY_OF_MONTH and self.value:
             day_of_month = int(self.value)
+
+            if day_of_month > 31:
+                self.cabinet.log(
+                    f"{day_of_month} in {self.title}: no month has more than 31 days",
+                    level="error")
             return today.day == day_of_month
 
         return False
