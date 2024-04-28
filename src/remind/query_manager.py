@@ -82,7 +82,7 @@ class QueryManager:
 
         # handle edge case where time between midnight and 4am
         if now.hour < 4:
-            start_date += timedelta(days=1)
+            start_date -= timedelta(days=1)
 
         key: ReminderKeyType | None = None
         value = ''
