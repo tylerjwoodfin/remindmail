@@ -125,7 +125,7 @@ class ReminderConfirmation:
         # text areas
         self.title_input = generate_textarea(self.reminder.title, 'Title')
         self.type_input = generate_textarea(self.reminder.key.label, 'Type', True)
-        self.value_text_area = generate_textarea(self.reminder.value, 'Value')
+        self.value_text_area = generate_textarea(self.reminder.value, 'Value', True)
         self.frequency_text_area = generate_textarea(str(self.reminder.frequency),
                                                      'Frequency', True)
         self.offset_input_text_area = generate_textarea(str(self.reminder.offset), 'Offset', True)
@@ -259,25 +259,24 @@ class ReminderConfirmation:
         'l', and 'h' keys.
         """
         def create_handler(property_attr, text_area, increment=True):
-            def handler(event):  # pylint: disable=unused-argument
+            days_of_week = ["Sunday", "Monday", "Tuesday", "Wednesday",
+                            "Thursday", "Friday", "Saturday"]
+            def handler(event): # pylint: disable=unused-argument
                 current_value = getattr(self.reminder, property_attr)
 
-                # increment/decrement date
-                if self.reminder.key == ReminderKeyType.DATE:
-                    if property_attr == 'value':
-                        current_date = datetime.datetime.strptime(current_value, '%Y-%m-%d').date()
-                        delta = datetime.timedelta(days=1 if increment else -1)
-                        new_value = current_date + delta
-                        # Format the new date back to string
-                        new_value = new_value.strftime('%Y-%m-%d')
+                if self.reminder.key == ReminderKeyType.DAY_OF_WEEK:
+                    # Find the current day index and increment or decrement
+                    index = days_of_week.index(current_value)
+                    new_index = (index + 1) % 7 if increment else (index - 1 + 7) % 7
+                    new_value = days_of_week[new_index]
+                elif self.reminder.key == ReminderKeyType.DATE:
+                    # Handle date increment/decrement
+                    current_date = datetime.datetime.strptime(current_value, '%Y-%m-%d').date()
+                    delta = datetime.timedelta(days=1 if increment else -1)
+                    new_value = current_date + delta
+                    new_value = new_value.strftime('%Y-%m-%d')
                 else:
-                    # Handle numeric adjustments
-                    # try:
-                    #     new_value = max(current_value + (1 if increment else -1), 0)
-                    # except Exception: #pylint: disable=broad-exception-caught
-                    #     # in cases where 'value' is not numeric or a date, ignore error
-                    #     return
-
+                    # Handle numeric increments/decrements
                     current_value = int(current_value)
                     new_value = max(current_value + (1 if increment else -1), 0)
 
@@ -445,6 +444,16 @@ class ReminderConfirmation:
         if self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
             frequency_text = f"{self.frequency_text_area.text} of the month"
 
+        value_text = f"{self.value_text_area.text}"
+        if rtype == ReminderKeyType.DATE.label:
+            try:
+                # attempt to parse dow from the text
+                date = datetime.datetime.strptime(value_text, "%Y-%m-%d")
+                value_text = date.strftime("%A")
+            except ValueError:
+                # Set default text if parsing fails
+                value_text = "Enter a Date (YYYY-MM-DD)"
+
         # handle different verbiage based on frequency
         if self.frequency_text_area.text == "0":
             frequency_text = rtype
@@ -468,7 +477,7 @@ class ReminderConfirmation:
             elif rtype == ReminderKeyType.DAY_OF_MONTH.label:
                 self.toolbar_text = 'Enter a number 1-31'
             elif rtype == ReminderKeyType.DATE.label:
-                self.toolbar_text = 'Enter a date (YYYY-MM-DD)'
+                self.toolbar_text = value_text
         elif self.application.layout.has_focus(self.frequency_input):
             self.toolbar_text = \
                 f"How often the reminder should occur (every {frequency_text})"
