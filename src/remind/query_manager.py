@@ -249,11 +249,14 @@ class QueryManager:
 
         title = title or _format_input("What's the reminder").strip()
         reminder_date_success: bool = False
+        reminder_date: str = ''
 
         while not reminder_date_success:
             try:
-                reminder_date: str = when or _format_input(
-                    "When do you want to be reminded").strip()
+                if save and not when:
+                    reminder_date = 'now'
+                else:
+                    reminder_date = when or _format_input("When do you want to be reminded").strip()
 
                 reminder: Reminder = self.interpret_reminder_date(reminder_date)
                 reminder.title = title
