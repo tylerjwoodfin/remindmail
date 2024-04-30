@@ -162,6 +162,10 @@ class QueryManager:
             elif input_str == 'now':
                 key = ReminderKeyType.NOW
 
+            # later
+            elif input_str == 'later':
+                key = ReminderKeyType.LATER
+
         else:
             # 'every'
             modifiers = ''
