@@ -8,7 +8,7 @@ import subprocess
 import sys
 import glob
 import readline
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import List, Optional
 from rich.console import Console
 from remind.reminder import ReminderKeyType
@@ -136,7 +136,6 @@ class ReminderManager:
 
                     match = re.match(pattern_any_reminder, stripped_line)
                     if match:
-                        reminder_key: ReminderKeyType
                         details, reminder_modifiers, title = match.groups()
                         details = details.lower()
 
@@ -307,15 +306,20 @@ class ReminderManager:
         """
         Displays reminders scheduled for the upcoming <limit> days.
 
-        This method calculates the dates for the next <limit> days, starting from tomorrow,
-        and checks each day for scheduled reminders. For each day, it prints the date
+        This method calculates the dates for the next <limit> days, starting from tomorrow
+        (today if between midnight and 4am),
+        and it checks each day for scheduled reminders. For each day, it prints the date
         and any corresponding reminders. If there are no reminders for a specific day,
         it indicates so. Reminders with specific modifiers change the display style
         to highlight their importance or category.
         """
 
+        current_time = datetime.now().time()
+        start_day_offset = 0 if current_time.hour < 4 else 1
+
         # Prepare the next 7 days
-        dates = [date.today() + timedelta(days=i) for i in range(1, limit)]
+        dates = [date.today() + timedelta(days=i) for i in range(
+            start_day_offset, limit)]
 
         # Parse reminders file if necessary
         if not self.parsed_reminders:
