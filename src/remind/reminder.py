@@ -75,7 +75,7 @@ class Reminder:
         path_remind_file: The path from ReminderManager in which to access remind.md
     """
     def __init__(self,
-                 key: ReminderKeyType,
+                 key,
                  value: Optional[str],
                  frequency: Optional[int],
                  offset: int,
@@ -85,7 +85,7 @@ class Reminder:
                  cabinet: Cabinet,
                  mail: Mail,
                  path_remind_file: str | None):
-        self.key: ReminderKeyType = key
+        self.key = key
         self.value: Optional[str] = value
         self.frequency: int = frequency or 0
         self.offset: int = offset
