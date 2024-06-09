@@ -66,7 +66,7 @@ class QueryManager:
             'mm_dd': re.compile(r'(\d{1,2})/(\d{1,2})'),
             'mm_dd_yyyy': re.compile(r'(\d{1,2})/(\d{1,2})/(\d{4})'),
             'yyyy_mm_dd': re.compile(r'(\d{4})-(\d{1,2})-(\d{1,2})'),
-            'every_n_days': re.compile(r'every (\d+) day?s?', re.IGNORECASE),
+            'every_n_days': re.compile(r'every (\d+ )?day?s?', re.IGNORECASE),
             'every_n_weeks': re.compile(r'every (\d+) week?s?', re.IGNORECASE),
             'every_n_months': re.compile(r'every (\d+) month?s?', re.IGNORECASE),
             'every_n_dows': re.compile(r'every (\d+) (monday|mon|tuesday|tue|wednesday'
@@ -173,7 +173,7 @@ class QueryManager:
             # every n days
             if match := regex_patterns['every_n_days'].match(input_str):
                 key = ReminderKeyType.DAY
-                frequency = int(match.group(1))
+                frequency = int(match.group(1) or 1)
 
             # every n weeks
             elif match := regex_patterns['every_n_weeks'].match(input_str):
