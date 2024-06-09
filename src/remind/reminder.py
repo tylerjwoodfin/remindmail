@@ -139,6 +139,13 @@ class Reminder:
                         f"{today.year + 1}-{self.value}", '%Y-%m-%d').date()
             else:  # YYYY-MM-DD format
                 reminder_date = datetime.strptime(self.value, '%Y-%m-%d').date()
+
+                # if the reminder is scheduled in the past as YYYY-MM-DD
+                # and it didn't send, then for the purposes of `generate()`,
+                # set the date to today so it can send, then add a note about it.
+                if reminder_date < today:
+                    self.notes = f"This was scheduled to send on {reminder_date}."
+                    reminder_date = datetime.now().date()
             return reminder_date == today
 
         # Handle day of the week reminders
