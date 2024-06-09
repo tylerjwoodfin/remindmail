@@ -67,8 +67,8 @@ class QueryManager:
             'mm_dd_yyyy': re.compile(r'(\d{1,2})/(\d{1,2})/(\d{4})'),
             'yyyy_mm_dd': re.compile(r'(\d{4})-(\d{1,2})-(\d{1,2})'),
             'every_n_days': re.compile(r'every (\d+ )?day?s?', re.IGNORECASE),
-            'every_n_weeks': re.compile(r'every (\d+) week?s?', re.IGNORECASE),
-            'every_n_months': re.compile(r'every (\d+) month?s?', re.IGNORECASE),
+            'every_n_weeks': re.compile(r'every (\d+ )?week?s?', re.IGNORECASE),
+            'every_n_months': re.compile(r'every (\d+ )?month?s?', re.IGNORECASE),
             'every_n_dows': re.compile(r'every (\d+) (monday|mon|tuesday|tue|wednesday'
                                        r'|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)s?',
                                        re.IGNORECASE),
@@ -178,12 +178,12 @@ class QueryManager:
             # every n weeks
             elif match := regex_patterns['every_n_weeks'].match(input_str):
                 key = ReminderKeyType.WEEK
-                frequency = int(match.group(1))
+                frequency = int(match.group(1) or 1)
 
             # every n months
             elif match := regex_patterns['every_n_months'].match(input_str):
                 key = ReminderKeyType.MONTH
-                frequency = int(match.group(1))
+                frequency = int(match.group(1) or 1)
 
             # every n {dow}s (e.g., 'every 3 mondays')
             elif match := regex_patterns['every_n_dows'].match(input_str):
