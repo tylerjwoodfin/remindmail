@@ -4,6 +4,7 @@ handles reminder requests
 
 import re
 import sys
+from typing import Tuple, Optional
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta, MO, TU, WE, TH, FR, SA, SU
 from remind.reminder import Reminder, ReminderKeyType
@@ -40,6 +41,34 @@ class QueryManager:
         Raises:
         - ValueError: If the input string cannot be parsed into a known date format.
         """
+
+        def set_date_key_value(proposed_date: datetime,
+                               value: str,
+                               key: Optional[ReminderKeyType] = ReminderKeyType.DATE) \
+                                   -> Tuple[ReminderKeyType, str]:
+            """
+            Adjusts the proposed date if it's in the past
+            and sets the appropriate key and value based on the date.
+
+            If the reminder is for today, set the type to NOW if after 4AM.
+            
+            Args:
+                proposed_date (datetime): The proposed date to be evaluated.
+                key (Optional[ReminderKeyType]): The reminder key type to be set.
+                    Defaults to ReminderKeyType.DATE.
+                value (str): The reminder value to be set.
+
+            Returns:
+                tuple: A tuple containing the updated key and value.
+            """
+            if proposed_date < start_date:
+                proposed_date += relativedelta(years=1)
+            if proposed_date == start_date and now.hour >= 4:
+                key = ReminderKeyType.NOW
+            else:
+                key = ReminderKeyType.DATE
+                value = proposed_date.strftime('%Y-%m-%d')
+            return key, value
 
         weekdays = {
             "monday": MO(+1), "mon": MO(+1),
@@ -96,46 +125,29 @@ class QueryManager:
                 number = int(match.group(1))
                 unit = match.group(2)
                 delta = {'day': relativedelta(days=number),
-                         'week': relativedelta(weeks=number),
-                         'month': relativedelta(months=number),
-                         'year': relativedelta(years=number)}[unit]
+                        'week': relativedelta(weeks=number),
+                        'month': relativedelta(months=number),
+                        'year': relativedelta(years=number)}[unit]
                 future_date = start_date + delta
                 if future_date <= start_date:
                     raise ValueError((f"{future_date.strftime('%Y-%m-%d')}"
-                                      " is in the past."))
+                                    " is in the past."))
                 key = ReminderKeyType.DATE
                 value = future_date.strftime('%Y-%m-%d')
 
             # mm/dd, mm/dd/yyyy
             elif match := regex_patterns['mm_dd'].match(input_str) or \
-            regex_patterns['mm_dd_yyyy'].match(input_str):
+                    regex_patterns['mm_dd_yyyy'].match(input_str):
                 month, day = int(match.group(1)), int(match.group(2))
                 year = int(match.group(3)) if match.lastindex == 3 else start_date.year
                 proposed_date = datetime(year, month, day)
-                # if the date is in the past, find the next occurrence
-                if proposed_date < start_date:
-                    proposed_date += relativedelta(years=1)
-
-                # send reminders immediately if after 4AM and day matches today
-                if proposed_date == start_date and now.hour >= 4:
-                    key = ReminderKeyType.NOW
-                else:
-                    key = ReminderKeyType.DATE
-                    value = proposed_date.strftime('%Y-%m-%d')
+                key, value = set_date_key_value(proposed_date, value, key)
 
             # yyyy-mm-dd
             elif match := regex_patterns['yyyy_mm_dd'].match(input_str):
                 year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
                 proposed_date = datetime(year, month, day)
-                if proposed_date < start_date:
-                    proposed_date += relativedelta(years=1)
-
-                # send reminders immediately if after 4AM and day matches today
-                if proposed_date == start_date and now.hour >= 4:
-                    key = ReminderKeyType.NOW
-                else:
-                    key = ReminderKeyType.DATE
-                    value = proposed_date.strftime('%Y-%m-%d')
+                key, value = set_date_key_value(proposed_date, value, key)
 
             # day of month
             elif match := regex_patterns['day_of_month'].match(input_str):
@@ -157,16 +169,7 @@ class QueryManager:
                 year = match.group(3) or start_date.year
                 date_str = f"{year}-{match.group(1)[:3].title()}-{match.group(2).zfill(2)}"
                 date_formatted = datetime.strptime(date_str, '%Y-%b-%d')
-                # If the interpreted date is in the past, add a year to it
-                if date_formatted < start_date:
-                    date_formatted += relativedelta(years=1)
-
-                # send reminders immediately if after 4AM and day matches today
-                if date_formatted == start_date and now.hour >= 4:
-                    key = ReminderKeyType.NOW
-                else:
-                    key = ReminderKeyType.DATE
-                    value = date_formatted.strftime('%Y-%m-%d')
+                key, value = set_date_key_value(date_formatted, value, key)
 
             # tomorrow
             elif input_str == 'tomorrow':
