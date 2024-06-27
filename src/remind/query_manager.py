@@ -78,7 +78,7 @@ class QueryManager:
         input_str = input_str.replace("every week", "every sunday")
 
         now = datetime.now()
-        start_date = now + timedelta(days=1)
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # handle edge case where time between midnight and 4am
         if now.hour < 4:
@@ -113,19 +113,29 @@ class QueryManager:
                 year = int(match.group(3)) if match.lastindex == 3 else start_date.year
                 proposed_date = datetime(year, month, day)
                 # if the date is in the past, find the next occurrence
-                if proposed_date <= start_date:
-                    proposed_date = proposed_date + relativedelta(years=1)
-                key = ReminderKeyType.DATE
-                value = proposed_date.strftime('%Y-%m-%d')
+                if proposed_date < start_date:
+                    proposed_date += relativedelta(years=1)
+
+                # send reminders immediately if after 4AM and day matches today
+                if proposed_date == start_date and now.hour >= 4:
+                    key = ReminderKeyType.NOW
+                else:
+                    key = ReminderKeyType.DATE
+                    value = proposed_date.strftime('%Y-%m-%d')
 
             # yyyy-mm-dd
             elif match := regex_patterns['yyyy_mm_dd'].match(input_str):
                 year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
                 proposed_date = datetime(year, month, day)
-                if proposed_date <= start_date:
-                    proposed_date = proposed_date + relativedelta(years=1)
-                key = ReminderKeyType.DATE
-                value = proposed_date.strftime('%Y-%m-%d')
+                if proposed_date < start_date:
+                    proposed_date += relativedelta(years=1)
+
+                # send reminders immediately if after 4AM and day matches today
+                if proposed_date == start_date and now.hour >= 4:
+                    key = ReminderKeyType.NOW
+                else:
+                    key = ReminderKeyType.DATE
+                    value = proposed_date.strftime('%Y-%m-%d')
 
             # day of month
             elif match := regex_patterns['day_of_month'].match(input_str):
@@ -137,7 +147,7 @@ class QueryManager:
                 day_str = input_str.lower()
                 for day, rel_day in weekdays.items():
                     if day in day_str:
-                        next_weekday = start_date + relativedelta(weekday=rel_day)
+                        next_weekday = start_date + relativedelta(days=1, weekday=rel_day)
                         key = ReminderKeyType.DATE
                         value = next_weekday.strftime('%Y-%m-%d')
                         break
@@ -148,14 +158,20 @@ class QueryManager:
                 date_str = f"{year}-{match.group(1)[:3].title()}-{match.group(2).zfill(2)}"
                 date_formatted = datetime.strptime(date_str, '%Y-%b-%d')
                 # If the interpreted date is in the past, add a year to it
-                if date_formatted <= start_date:
-                    date_formatted = date_formatted + relativedelta(years=1)
-                key = ReminderKeyType.DATE
-                value = date_formatted.strftime('%Y-%m-%d')
+                if date_formatted < start_date:
+                    date_formatted += relativedelta(years=1)
+
+                # send reminders immediately if after 4AM and day matches today
+                if date_formatted == start_date and now.hour >= 4:
+                    key = ReminderKeyType.NOW
+                else:
+                    key = ReminderKeyType.DATE
+                    value = date_formatted.strftime('%Y-%m-%d')
 
             # tomorrow
             elif input_str == 'tomorrow':
                 key = ReminderKeyType.DATE
+                start_date += relativedelta(days=1)
                 value = start_date.strftime('%Y-%m-%d')
 
             # now
