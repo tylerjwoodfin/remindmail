@@ -309,7 +309,9 @@ class ReminderConfirmation:
             create_handler('offset', self.offset_input_text_area, False))
 
         # Value handlers
-        if self.reminder.key == ReminderKeyType.DATE:
+        if self.reminder.key == ReminderKeyType.DATE or \
+            self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
+
             self.bindings.add('right', filter=has_focus(self.value_input))(
                 create_handler('value', self.value_text_area, True))
             self.bindings.add('l', filter=has_focus(self.value_input))(
@@ -370,13 +372,19 @@ class ReminderConfirmation:
         # calculate the new index cyclically
         new_index: int = (current_index + direction) % len(self.reminder_types)
 
+        # handle invalid values for dates - default to tomorrow
+        if self.reminder_types[new_index] == ReminderKeyType.DATE:
+            self.value_text_area.text = (datetime.datetime.now()
+                                         + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+            self.reminder.value = self.value_text_area.text
+
         # set cache
         self.key_value_cache[self.reminder.key.label] = self.value_text_area.text
 
         # update the reminder's type with the new type
         self.reminder.key = self.reminder_types[new_index]
 
-        # update the text area with the new type label
+        # update the type area with the new type label
         self.type_input.text = self.reminder.key.label
 
         self.update_toolbar_text()
