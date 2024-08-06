@@ -2,11 +2,13 @@
 The confirmation before saving a reminder through the manual reminder wizard
 """
 import datetime
+import textwrap
 from typing import List
 from prompt_toolkit import Application, print_formatted_text, HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.layout import Layout, HSplit, Window
+from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.widgets import TextArea, Box, Label
 from prompt_toolkit.layout.containers import WindowAlign, ConditionalContainer
 from prompt_toolkit.filters import has_focus, Condition
@@ -101,7 +103,8 @@ class ReminderConfirmation:
         def generate_textarea(text: str | None, prompt: str,
                             read_only: bool = False) -> TextArea:
             """
-            Creates a configured TextArea widget for user input or display.
+            Creates a configured TextArea widget for user input or display,
+            wrapping long single-line input.
 
             Args:
                 text (str | None): The initial text to display in the TextArea.
@@ -113,11 +116,22 @@ class ReminderConfirmation:
             Returns:
                 TextArea: The configured TextArea widget.
             """
-            text_area = TextArea(text=text or "",
-                            multiline=False,
-                            read_only=read_only,
-                            prompt=HTML(f'<b><ansiblue>{prompt}: </ansiblue></b>'))
-            text_area.buffer.cursor_position = len(text or "")
+
+            initial_text: str = text or ""
+            wrapped_text: str = '\n'.join(textwrap.wrap(initial_text, replace_whitespace=False))
+
+            text_area = TextArea(
+                text=wrapped_text,
+                multiline=True,
+                read_only=read_only,
+                prompt=HTML(f'<b><ansiblue>{prompt}: </ansiblue></b>'),
+                height=Dimension(min=1, max=int(len(text or "")/40) + 1),
+                wrap_lines=True
+            )
+
+            # Set cursor at the end of the text
+            text_area.buffer.cursor_position = len(wrapped_text)
+
             return text_area
 
         self.reminder_types: List[ReminderKeyType] = list(ReminderKeyType)
