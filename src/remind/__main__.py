@@ -19,8 +19,8 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
     parser.add_argument(
         "--title",
         help="the title of your reminder",
-        nargs="?",
-        const=""
+        nargs="+",
+        default=None
     )
 
     parser.add_argument(
@@ -100,8 +100,15 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         elif args.send_later:
             manager_r.send_later()
         else:
+            # handle title
+            title = args.title
+            if isinstance(title, list):
+                title = ' '.join(title)
+            elif isinstance(title, str):
+                title = title.strip()
+
             manager_q.wizard_manual_reminder(
-                title=args.title,
+                title=title,
                 when=args.when,
                 notes=args.notes,
                 save=args.save
