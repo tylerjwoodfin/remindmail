@@ -82,6 +82,7 @@ RemindMail offers a variety of features to enhance your productivity:
 - `remind --title 'reminder title' --when '2024-06-20'`: Schedule a new reminder programatically
 - `remind --title 'reminder title' --when 'every 3 weeks'`: Schedule a new reminder programatically
 - `remind --title 'reminder title' --when 'friday'`: Schedule a new reminder programatically
+- `remind --title 'reminder title' --when friday --save`: Schedule a new reminder programatically, saves without confirmation
 - `remind --title 'reminder title' --when 'every 2 Mondays'`: Schedule a new reminder programatically
 - `remind --title 'reminder title' --when 'now'`: Sends an email immediately
 - `remind -h` (or `--help`): Displays usage information.
@@ -90,8 +91,23 @@ RemindMail offers a variety of features to enhance your productivity:
 - `remind --later`: Emails reminders that are marked with `[later]`
 - `remind --st` (or `--show-tomorrow`): Lists reminders in remind.md that target tomorrow's date
 - `remind --sw` (or `--show-week`): Lists reminders for the next 7 days
-- `remind -e` (or `--edit`): Opens `remind.md` in vim
+- `remind -e` (or `--edit`): Opens `remind.md` in your configured editor
 - `cabinet --config`: Configures [cabinet](https://pypi.org/project/cabinet/)
+
+## using the TUI to confirm reminders
+- unless `--save` is used, a confirmation will appear.
+- use arrow keys or `j` and `k` to navigate.
+- arrow left and right to iterate through:
+  - type
+  - value
+  - frequency
+  - offset
+
+### VI Mode and Keybindings
+- when the confirmation appears, use `j` or `k` to enter VI mode.
+- `j` and `k` navigate up and down; `h` and `l` navigate left and right.
+- use `i` to exit VI mode.
+- use `q` to cancel the reminder.
 
 ## some notes about offset
 
