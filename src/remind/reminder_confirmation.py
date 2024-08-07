@@ -6,7 +6,6 @@ import textwrap
 from typing import List
 from prompt_toolkit import Application, print_formatted_text, HTML
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.layout import Layout, HSplit, Window
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.widgets import TextArea, Box, Label
@@ -63,6 +62,7 @@ class ReminderConfirmation:
         self.main_container = self.build_main_container()
         self.application = Application(layout=Layout(self.main_container),
                                        key_bindings=self.bindings, full_screen=True)
+        self.is_vi_mode = False
 
     def default_frequency(self):
         """
@@ -257,6 +257,25 @@ class ReminderConfirmation:
         def _(event): # pylint: disable=unused-argument
             self.cycle_types(-1)
 
+        # custom helper functions to accommodate prompt_toolkit's Conditions
+        def _is_vi_mode():
+            return self.is_vi_mode
+
+        def _is_not_vi_mode():
+            return not self.is_vi_mode
+
+        # Bind key 'i' with the custom condition
+        @self.bindings.add('i', filter=Condition(_is_vi_mode))
+        def _(event): # pylint: disable=unused-argument
+            self.is_vi_mode = False
+            self.update_toolbar_text()
+
+        # bind key 'esc' to return to vi mode
+        @self.bindings.add('escape', filter=Condition(_is_not_vi_mode))
+        def _(event): # pylint: disable=unused-argument
+            self.is_vi_mode = True
+            self.update_toolbar_text()
+
     def setup_adjustable_property_handlers(self):
         """
         Set up key bindings for adjusting properties of reminders such as frequency and offset.
@@ -344,6 +363,11 @@ class ReminderConfirmation:
         exiting the application. These handlers enhance user interaction by providing quick 
         keyboard shortcuts for common actions.
         """
+
+        # custom helper functions to accommodate prompt_toolkit's Conditions
+        def _is_vi_mode_or_save_button():
+            return self.is_vi_mode or self.application.layout.has_focus(self.save_button)
+
         @self.bindings.add('enter', filter=has_focus(self.save_button))
         @self.bindings.add(' ', filter=has_focus(self.save_button))
         def _(event):  # pylint: disable=unused-argument
@@ -353,7 +377,7 @@ class ReminderConfirmation:
         # cancel
         @self.bindings.add('enter', filter=has_focus(self.cancel_button))
         @self.bindings.add(' ', filter=has_focus(self.cancel_button))
-        @self.bindings.add('q')
+        @self.bindings.add('q', filter=Condition(_is_vi_mode_or_save_button))
         def _(event): #pylint: disable=unused-argument
             print_formatted_text(HTML('<ansired><b>Cancelled.</b></ansired>'))
             self.reminder.modifiers = "x"
@@ -430,8 +454,10 @@ class ReminderConfirmation:
             event (any): The event object containing details like the app instance.
             key (str): The key pressed that triggers the navigation.
         """
-        is_save_first_focus = self.application.layout.has_focus(self.save_button)
-        app = event.app
+
+        # handle VI mode
+        if key == 'j' or key == 'k' and self.application.layout.has_focus(self.save_button):
+            self.is_vi_mode = True
 
         if key == 'j' or key == 'down':
             event.app.layout.focus_next()
@@ -439,11 +465,6 @@ class ReminderConfirmation:
         if key == 'k' or key == 'up':
             event.app.layout.focus_previous()
             self.update_toolbar_text()
-
-        # enable VI
-        if (key == 'j' or key == 'k') and is_save_first_focus:
-            app.editing_mode = EditingMode.VI
-            self.toolbar_text = f"(VI Mode) {self.toolbar_text}"
 
     def update_toolbar_text(self) -> None:
         """
@@ -513,6 +534,9 @@ class ReminderConfirmation:
             self.toolbar_text = "Save your reminder"
         elif self.application.layout.has_focus(self.cancel_button):
             self.toolbar_text = "Cancel your reminder"
+
+        if self.is_vi_mode:
+            self.toolbar_text = "(VI Mode) " + self.toolbar_text
 
     def is_value_enabled(self) -> bool:
         """
