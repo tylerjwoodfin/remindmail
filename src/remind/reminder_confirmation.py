@@ -55,6 +55,7 @@ class ReminderConfirmation:
     def __init__(self, reminder: Reminder):
         self.reminder: Reminder = reminder
         self.toolbar_text: str = ""
+        self.is_vi_mode: bool = False
         self.key_value_cache: dict = {}
         self.default_frequency()
         self.bindings = KeyBindings()
@@ -63,7 +64,6 @@ class ReminderConfirmation:
         self.main_container = self.build_main_container()
         self.application = Application(layout=Layout(self.main_container),
                                        key_bindings=self.bindings, full_screen=True)
-        self.is_vi_mode = False
 
     def default_frequency(self):
         """
@@ -233,7 +233,7 @@ class ReminderConfirmation:
         Configures key bindings for navigating through fields and adjusting reminder properties.
         """
 
-        # custom helper functions to accommodate prompt_toolkit's Conditions
+        # custom helper functions, necessary because prompt_toolkit needs a function to bind to
         def _is_vi_mode_or_save():
             return self.is_vi_mode or self.application.layout.has_focus(self.save_button)
 
@@ -242,6 +242,9 @@ class ReminderConfirmation:
 
         def _is_not_vi_mode():
             return not self.is_vi_mode
+
+        def _is_vi_mode_and_text_area(text_area: TextArea):
+            return self.is_vi_mode and self.application.layout.has_focus(text_area)
 
         def make_nav_handler(key):
             def nav_handler(event):
@@ -298,19 +301,16 @@ class ReminderConfirmation:
 
         text_areas: List[TextArea] = [
             self.title_text_area,
-            self.value_text_area,
-            self.frequency_text_area,
-            self.offset_input_text_area,
             self.modifiers_input_text_area,
             self.notes_text_area
         ]
 
         def create_vi_binding(text_area: TextArea):
-            @self.bindings.add('l', filter=has_focus(text_area))
+            @self.bindings.add('l', filter=Condition(lambda: _is_vi_mode_and_text_area(text_area)))
             def _(event: KeyPressEvent): # pylint: disable=unused-argument
                 text_area.buffer.cursor_position += 1
 
-            @self.bindings.add('h', filter=has_focus(text_area))
+            @self.bindings.add('h', filter=Condition(lambda: _is_vi_mode_and_text_area(text_area)))
             def _(event: KeyPressEvent): # pylint: disable=unused-argument
                 text_area.buffer.cursor_position -= 1
 
