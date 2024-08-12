@@ -4,6 +4,7 @@ The confirmation before saving a reminder through the manual reminder wizard
 import datetime
 import textwrap
 from typing import List
+from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit import Application, print_formatted_text, HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout, HSplit, Window
@@ -34,12 +35,12 @@ class ReminderConfirmation:
         """
 
         # update reminder instance with values from text areas
-        self.reminder.title = self.title_input.text
+        self.reminder.title = self.title_text_area.text
         # self.reminder.key is saved dynamically
         self.reminder.value = self.value_text_area.text
         self.reminder.frequency = int(self.frequency_text_area.text) \
             if self.frequency_text_area.text.isdigit() else 0
-        self.reminder.notes = self.notes_input.text
+        self.reminder.notes = self.notes_text_area.text
         self.reminder.offset = int(self.offset_input_text_area.text) \
             if self.offset_input_text_area.text.isdigit() else 0
 
@@ -84,8 +85,7 @@ class ReminderConfirmation:
         the confirmation's responsiveness
         and usability.
         """
-        self.setup_navigation_handlers()
-        self.setup_type_handlers()
+        self.setup_key_handlers()
         self.setup_adjustable_property_handlers()
         self.setup_save_and_cancel_handlers()
 
@@ -137,8 +137,8 @@ class ReminderConfirmation:
         self.reminder_types: List[ReminderKeyType] = list(ReminderKeyType)
 
         # text areas
-        self.title_input = generate_textarea(self.reminder.title, 'Title')
-        self.type_input = generate_textarea(self.reminder.key.label, 'Type', True)
+        self.title_text_area = generate_textarea(self.reminder.title, 'Title')
+        self.type_text_area = generate_textarea(self.reminder.key.label, 'Type', True)
         self.value_text_area = generate_textarea(self.reminder.value, 'Value', True)
         self.frequency_text_area = generate_textarea(str(self.reminder.frequency),
                                                      'Frequency', True)
@@ -168,7 +168,7 @@ class ReminderConfirmation:
         )
 
         # notes
-        self.notes_input = TextArea(text=self.reminder.notes or "",
+        self.notes_text_area = TextArea(text=self.reminder.notes or "",
                                     multiline=True, prompt='Notes: ')
 
         # save
@@ -206,8 +206,8 @@ class ReminderConfirmation:
             structured in a vertical layout.
         """
         return HSplit([
-            self.title_input,
-            self.type_input,
+            self.title_text_area,
+            self.type_text_area,
             self.value_input,
             self.frequency_input,
             self.offset_input,
@@ -215,7 +215,7 @@ class ReminderConfirmation:
                 self.modifiers_input
             ], height=2),
             HSplit(children=[
-                self.notes_input
+                self.notes_text_area
             ], height=3,
                    style="bg:ansiyellow fg:ansiblack"),
             Window(height=1),  # button separator
@@ -228,53 +228,94 @@ class ReminderConfirmation:
             self.toolbar
         ], padding=0)
 
-    def setup_navigation_handlers(self):
-        """_summary_
+    def setup_key_handlers(self):
         """
+        Configures key bindings for navigating through fields and adjusting reminder properties.
+        """
+
+        # custom helper functions to accommodate prompt_toolkit's Conditions
+        def _is_vi_mode_or_save():
+            return self.is_vi_mode or self.application.layout.has_focus(self.save_button)
+
+        def _is_vi_mode_and_type_input():
+            return self.is_vi_mode and self.application.layout.has_focus(self.type_text_area)
+
+        def _is_not_vi_mode():
+            return not self.is_vi_mode
+
         def make_nav_handler(key):
             def nav_handler(event):
                 self.handle_navigation(event, key)
             return nav_handler
 
-        for nav_key in ['j', 'k', 'down', 'up']:
+        nav_keys: List[str] = ['up', 'down']
+        nav_keys_vi_mode: List[str] = ['j', 'k']
+
+        # handle navigation keys
+        for nav_key in nav_keys_vi_mode + nav_keys:
             handler = make_nav_handler(nav_key)
-            self.bindings.add(nav_key)(handler)
+            if nav_key in nav_keys_vi_mode:
+                self.bindings.add(nav_key, filter=Condition(_is_vi_mode_or_save))(handler)
+            else:
+                self.bindings.add(nav_key)(handler)
 
-    def setup_type_handlers(self) -> None:
-        """
-        Configures key bindings for cycling through reminder types within the type input field.
-
-        Right and 'l' keys increment the type, while left and 'h' keys decrement it. This allows 
-        for intuitive navigation and selection of reminder types using keyboard shortcuts.
-        """
-        @self.bindings.add('right', filter=has_focus(self.type_input))
-        @self.bindings.add('l', filter=has_focus(self.type_input))
-        def _(event): # pylint: disable=unused-argument
+        # handle left and right arrow keys
+        @self.bindings.add('right', filter=has_focus(self.type_text_area))
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
             self.cycle_types(1)
 
-        @self.bindings.add('left', filter=has_focus(self.type_input))
-        @self.bindings.add('h', filter=has_focus(self.type_input))
-        def _(event): # pylint: disable=unused-argument
+        @self.bindings.add('left', filter=has_focus(self.type_text_area))
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
             self.cycle_types(-1)
 
-        # custom helper functions to accommodate prompt_toolkit's Conditions
-        def _is_vi_mode():
-            return self.is_vi_mode
-
-        def _is_not_vi_mode():
-            return not self.is_vi_mode
-
-        # Bind key 'i' with the custom condition
-        @self.bindings.add('i', filter=Condition(_is_vi_mode))
-        def _(event): # pylint: disable=unused-argument
+        # 'i' to exit vi mode
+        @self.bindings.add('i', filter=Condition(_is_vi_mode_or_save))
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
             self.is_vi_mode = False
             self.update_toolbar_text()
 
-        # bind key 'esc' to return to vi mode
+        # 'esc' to enter vi mode
         @self.bindings.add('escape', filter=Condition(_is_not_vi_mode))
-        def _(event): # pylint: disable=unused-argument
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
             self.is_vi_mode = True
             self.update_toolbar_text()
+
+        # Handle other keys in vi mode
+        @self.bindings.add('<any>', filter=Condition(_is_vi_mode_or_save))
+        def block_other_keys(event: KeyPressEvent):  # pylint: disable=unused-argument
+            # Optionally log or handle any blocked keys
+            pass
+
+        @self.bindings.add('l', filter=Condition(_is_vi_mode_and_type_input))
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+            self.cycle_types(1)
+            self.update_toolbar_text()
+
+        @self.bindings.add('h', filter=Condition(_is_vi_mode_and_type_input))
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+            self.cycle_types(-1)
+            self.update_toolbar_text()
+
+        text_areas: List[TextArea] = [
+            self.title_text_area,
+            self.value_text_area,
+            self.frequency_text_area,
+            self.offset_input_text_area,
+            self.modifiers_input_text_area,
+            self.notes_text_area
+        ]
+
+        def create_vi_binding(text_area: TextArea):
+            @self.bindings.add('l', filter=has_focus(text_area))
+            def _(event: KeyPressEvent): # pylint: disable=unused-argument
+                text_area.buffer.cursor_position += 1
+
+            @self.bindings.add('h', filter=has_focus(text_area))
+            def _(event: KeyPressEvent): # pylint: disable=unused-argument
+                text_area.buffer.cursor_position -= 1
+
+        for text_area in text_areas:
+            create_vi_binding(text_area)
 
     def setup_adjustable_property_handlers(self):
         """
@@ -423,7 +464,7 @@ class ReminderConfirmation:
         self.reminder.key = self.reminder_types[new_index]
 
         # update the type area with the new type label
-        self.type_input.text = self.reminder.key.label
+        self.type_text_area.text = self.reminder.key.label
 
         self.update_toolbar_text()
 
@@ -447,8 +488,7 @@ class ReminderConfirmation:
 
         This method manages the focus transitions between UI components based on arrow keys or
         'j' and 'k' inputs, mimicking VI-style navigation. It updates the toolbar text to reflect 
-        the current mode or focused item. Additionally, it switches to VI editing mode if certain 
-        conditions are met.
+        the current mode or focused item.
 
         Args:
             event (any): The event object containing details like the app instance.
@@ -456,15 +496,21 @@ class ReminderConfirmation:
         """
 
         # handle VI mode
-        if key == 'j' or key == 'k' and self.application.layout.has_focus(self.save_button):
+        if (key == 'j' or key == 'k') and self.application.layout.has_focus(self.save_button):
             self.is_vi_mode = True
 
-        if key == 'j' or key == 'down':
+        if (key == 'j' and self.is_vi_mode) or key == 'down':
             event.app.layout.focus_next()
             self.update_toolbar_text()
-        if key == 'k' or key == 'up':
+            return
+
+        if (key == 'k' and self.is_vi_mode) or key == 'up':
             event.app.layout.focus_previous()
             self.update_toolbar_text()
+            return
+
+        # "release" the key if not handled
+        event.handled = False
 
     def update_toolbar_text(self) -> None:
         """
@@ -503,10 +549,10 @@ class ReminderConfirmation:
         elif self.frequency_text_area.text == "1":
             frequency_text = rtype
 
-        if self.application.layout.has_focus(self.title_input):
+        if self.application.layout.has_focus(self.title_text_area):
             self.toolbar_text = "The title for your reminder"
-        elif self.application.layout.has_focus(self.type_input):
-            if self.type_input.text == ReminderKeyType.DATE.label:
+        elif self.application.layout.has_focus(self.type_text_area):
+            if self.type_text_area.text == ReminderKeyType.DATE.label:
                 self.toolbar_text = "Send on a specific date (YYYY-MM-DD)"
             elif self.reminder.key == ReminderKeyType.LATER:
                 self.toolbar_text = 'Save for Later'
@@ -528,7 +574,7 @@ class ReminderConfirmation:
             self.toolbar_text = f"How many {rtype}s to offset the current schedule"
         elif self.application.layout.has_focus(self.modifiers_input_text_area):
             self.toolbar_text = "d: delete after sending; c: execute as command instead of email"
-        elif self.application.layout.has_focus(self.notes_input):
+        elif self.application.layout.has_focus(self.notes_text_area):
             self.toolbar_text = "Add notes to your reminder"
         elif self.application.layout.has_focus(self.save_button):
             self.toolbar_text = "Save your reminder"
@@ -546,7 +592,7 @@ class ReminderConfirmation:
             bool: True if the reminder type requires a value, False otherwise.
         """
 
-        return self.type_input.text in [ReminderKeyType.DAY_OF_WEEK.label,
+        return self.type_text_area.text in [ReminderKeyType.DAY_OF_WEEK.label,
                                         ReminderKeyType.DAY_OF_MONTH.label,
                                         ReminderKeyType.DATE.label]
 
@@ -558,7 +604,7 @@ class ReminderConfirmation:
             bool: True if the frequency setting is applicable, False otherwise.
         """
 
-        return self.type_input.text not in [ReminderKeyType.DATE.label,
+        return self.type_text_area.text not in [ReminderKeyType.DATE.label,
                                             ReminderKeyType.LATER.label,
                                             ReminderKeyType.NOW.label]
 
@@ -570,7 +616,7 @@ class ReminderConfirmation:
             bool: True if offsets can be set for the type, False if not.
         """
 
-        return self.type_input.text not in [ReminderKeyType.DATE.label,
+        return self.type_text_area.text not in [ReminderKeyType.DATE.label,
                                             ReminderKeyType.LATER.label,
                                             ReminderKeyType.NOW.label]
 
@@ -582,7 +628,7 @@ class ReminderConfirmation:
             bool: True if modifiers are applicable, False otherwise.
         """
 
-        return self.type_input.text not in [ReminderKeyType.LATER.label,
+        return self.type_text_area.text not in [ReminderKeyType.LATER.label,
                                             ReminderKeyType.NOW.label]
 
     def run(self):
