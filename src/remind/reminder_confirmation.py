@@ -4,6 +4,7 @@ The confirmation before saving a reminder through the manual reminder wizard
 import datetime
 import textwrap
 from typing import List
+from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit import Application, print_formatted_text, HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout, HSplit, Window
@@ -236,6 +237,9 @@ class ReminderConfirmation:
         def _is_vi_mode_or_save():
             return self.is_vi_mode or self.application.layout.has_focus(self.save_button)
 
+        def _is_vi_mode_and_type_input():
+            return self.is_vi_mode and self.application.layout.has_focus(self.type_input)
+
         def _is_not_vi_mode():
             return not self.is_vi_mode
 
@@ -247,6 +251,7 @@ class ReminderConfirmation:
         nav_keys: List[str] = ['up', 'down']
         nav_keys_vi_mode: List[str] = ['j', 'k']
 
+        # handle navigation keys
         for nav_key in nav_keys_vi_mode + nav_keys:
             handler = make_nav_handler(nav_key)
             if nav_key in nav_keys_vi_mode:
@@ -254,27 +259,41 @@ class ReminderConfirmation:
             else:
                 self.bindings.add(nav_key)(handler)
 
-        # left and right keys (h/l in vi mode)
+        # handle left and right arrow keys
         @self.bindings.add('right', filter=has_focus(self.type_input))
-        @self.bindings.add('l', filter=has_focus(self.type_input))
-        def _(event): # pylint: disable=unused-argument
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
             self.cycle_types(1)
 
         @self.bindings.add('left', filter=has_focus(self.type_input))
-        @self.bindings.add('h', filter=has_focus(self.type_input))
-        def _(event): # pylint: disable=unused-argument
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
             self.cycle_types(-1)
 
         # 'i' to exit vi mode
         @self.bindings.add('i', filter=Condition(_is_vi_mode_or_save))
-        def _(event): # pylint: disable=unused-argument
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
             self.is_vi_mode = False
             self.update_toolbar_text()
 
         # 'esc' to enter vi mode
         @self.bindings.add('escape', filter=Condition(_is_not_vi_mode))
-        def _(event): # pylint: disable=unused-argument
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
             self.is_vi_mode = True
+            self.update_toolbar_text()
+
+        # Handle other keys in vi mode
+        @self.bindings.add('<any>', filter=Condition(_is_vi_mode_or_save))
+        def block_other_keys(event: KeyPressEvent):  # pylint: disable=unused-argument
+            # Optionally log or handle any blocked keys
+            pass
+
+        @self.bindings.add('l', filter=Condition(_is_vi_mode_and_type_input))
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+            self.cycle_types(1)
+            self.update_toolbar_text()
+
+        @self.bindings.add('h', filter=Condition(_is_vi_mode_and_type_input))
+        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+            self.cycle_types(-1)
             self.update_toolbar_text()
 
     def setup_adjustable_property_handlers(self):
