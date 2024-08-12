@@ -96,7 +96,7 @@ RemindMail offers a variety of features to enhance your productivity:
 
 ## using the TUI to confirm reminders
 - unless `--save` is used, a confirmation will appear.
-- use arrow keys or `j` and `k` to navigate.
+- use arrow keys (or `j` and `k` in VI Mode) to navigate.
 - arrow left and right to iterate through:
   - type
   - value
