@@ -84,8 +84,7 @@ class ReminderConfirmation:
         the confirmation's responsiveness
         and usability.
         """
-        self.setup_navigation_handlers()
-        self.setup_type_handlers()
+        self.setup_key_handlers()
         self.setup_adjustable_property_handlers()
         self.setup_save_and_cancel_handlers()
 
@@ -228,25 +227,34 @@ class ReminderConfirmation:
             self.toolbar
         ], padding=0)
 
-    def setup_navigation_handlers(self):
-        """_summary_
+    def setup_key_handlers(self):
         """
+        Configures key bindings for navigating through fields and adjusting reminder properties.
+        """
+
+        # custom helper functions to accommodate prompt_toolkit's Conditions
+        def _is_vi_mode_or_save():
+            return self.is_vi_mode or self.application.layout.has_focus(self.save_button)
+
+        def _is_not_vi_mode():
+            return not self.is_vi_mode
+
         def make_nav_handler(key):
             def nav_handler(event):
                 self.handle_navigation(event, key)
             return nav_handler
 
-        for nav_key in ['j', 'k', 'down', 'up']:
+        nav_keys: List[str] = ['up', 'down']
+        nav_keys_vi_mode: List[str] = ['j', 'k']
+
+        for nav_key in nav_keys_vi_mode + nav_keys:
             handler = make_nav_handler(nav_key)
-            self.bindings.add(nav_key)(handler)
+            if nav_key in nav_keys_vi_mode:
+                self.bindings.add(nav_key, filter=Condition(_is_vi_mode_or_save))(handler)
+            else:
+                self.bindings.add(nav_key)(handler)
 
-    def setup_type_handlers(self) -> None:
-        """
-        Configures key bindings for cycling through reminder types within the type input field.
-
-        Right and 'l' keys increment the type, while left and 'h' keys decrement it. This allows 
-        for intuitive navigation and selection of reminder types using keyboard shortcuts.
-        """
+        # left and right keys (h/l in vi mode)
         @self.bindings.add('right', filter=has_focus(self.type_input))
         @self.bindings.add('l', filter=has_focus(self.type_input))
         def _(event): # pylint: disable=unused-argument
@@ -257,20 +265,13 @@ class ReminderConfirmation:
         def _(event): # pylint: disable=unused-argument
             self.cycle_types(-1)
 
-        # custom helper functions to accommodate prompt_toolkit's Conditions
-        def _is_vi_mode():
-            return self.is_vi_mode
-
-        def _is_not_vi_mode():
-            return not self.is_vi_mode
-
-        # Bind key 'i' with the custom condition
-        @self.bindings.add('i', filter=Condition(_is_vi_mode))
+        # 'i' to exit vi mode
+        @self.bindings.add('i', filter=Condition(_is_vi_mode_or_save))
         def _(event): # pylint: disable=unused-argument
             self.is_vi_mode = False
             self.update_toolbar_text()
 
-        # bind key 'esc' to return to vi mode
+        # 'esc' to enter vi mode
         @self.bindings.add('escape', filter=Condition(_is_not_vi_mode))
         def _(event): # pylint: disable=unused-argument
             self.is_vi_mode = True
@@ -447,8 +448,7 @@ class ReminderConfirmation:
 
         This method manages the focus transitions between UI components based on arrow keys or
         'j' and 'k' inputs, mimicking VI-style navigation. It updates the toolbar text to reflect 
-        the current mode or focused item. Additionally, it switches to VI editing mode if certain 
-        conditions are met.
+        the current mode or focused item.
 
         Args:
             event (any): The event object containing details like the app instance.
@@ -456,15 +456,21 @@ class ReminderConfirmation:
         """
 
         # handle VI mode
-        if key == 'j' or key == 'k' and self.application.layout.has_focus(self.save_button):
+        if (key == 'j' or key == 'k') and self.application.layout.has_focus(self.save_button):
             self.is_vi_mode = True
 
-        if key == 'j' or key == 'down':
+        if (key == 'j' and self.is_vi_mode) or key == 'down':
             event.app.layout.focus_next()
             self.update_toolbar_text()
-        if key == 'k' or key == 'up':
+            return
+
+        if (key == 'k' and self.is_vi_mode) or key == 'up':
             event.app.layout.focus_previous()
             self.update_toolbar_text()
+            return
+
+        # "release" the key if not handled
+        event.handled = False
 
     def update_toolbar_text(self) -> None:
         """
