@@ -246,7 +246,15 @@ class ReminderManager:
                 self.cabinet.log(str(r), is_quiet=True)
 
                 if 'd' in r.modifiers:
+                    # mark the reminder line for deletion
                     lines_to_delete.append(index)
+
+                    if r.notes:
+                        # add the lines for each note to lines_to_delete
+                        note_line_count = len(r.notes.splitlines())
+                        lines_to_delete.extend(
+                            range(index + 1, index + 1 + note_line_count)
+                        )
 
                 # handle commands
                 if 'c' in r.modifiers:
