@@ -52,7 +52,6 @@ class ReminderManager:
         # file and data management
         self.cabinet = Cabinet()
 
-        # DEBUG
         # file path for reminders
         self.remind_path_file: str | None = self.cabinet.get('remindmail', 'path', 'file')
 
