@@ -243,7 +243,7 @@ class QueryManager:
                         offset=0,
                         cabinet=self.cabinet,
                         mail=self.mail,
-                        path_remind_file=self.manager.path_remind_file)
+                        path_remind_file=self.manager.remind_path_file)
 
     def wizard_manual_reminder(self, title: str | None = None,
                                when: str | None = None,
