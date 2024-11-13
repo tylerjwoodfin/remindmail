@@ -1,70 +1,63 @@
 # RemindMail: Reminder Management Tool
-Welcome to RemindMail, a powerful CLI tool designed to help you schedule and organize reminders efficiently. This utility leverages natural language for setting reminder times and includes functionalities to view, generate, and manage reminders directly from your terminal.
+Welcome to RemindMail, a powerful CLI designed to help you schedule and organize reminders efficiently and effectively. RemindMail is a Python-based tool that allows you to schedule reminders for yourself and receive them in your inbox. With RemindMail, you can easily manage your To Do list, schedule one-time or recurring reminders, add notes, and view and manage upcoming reminders.
 
-## features
+## Features
 RemindMail offers a variety of features to enhance your productivity:
 
 - Easily manage your To Do list from anywhere in the terminal
-- Schedule one-time or recurring reminders to your inbox
+- Send one-time or recurring reminders to your inbox
 - Add notes or "for later" reminders
 - View and manage upcoming reminders
 
-# notable dependencies
-
-- Linux (Raspberry Pis work great!)
+# Dependencies
+- Python3
 - [cabinet](https://pypi.org/project/cabinet/)
   - used to store JSON data; specifically, used to store the `remind.md` path and other important variables
 - a unique, non-Gmail address specifically for this project
   - do not use an email address that you use in other areas of your life
   - do not re-use a password you've used anywhere else; use a unique password.
-- Python3
 
-# setup
+# Setup
 
 ```bash
   python3 -m pip install remindmail
 
   # adjust path accordingly
-  pip install -r /path/to/requirements.md
+  python3 -m pip install -r requirements.md
 
-  cabinet config # cabinet must be configured properly
+  cabinet --configure # cabinet must be configured properly
 ```
 
-## cabinet config
-- you need to install and configure [cabinet](https://github.com/tylerjwoodfin/cabinet)
+## Cabinet Configuration
+- [cabinet](https://github.com/tylerjwoodfin/cabinet) is installed as a dependency.
 
-  - initialize using `cabinet config`; see cabinet's README for details
+- initialize using `cabinet --configure`; see cabinet's README for details.
 
-  ```bash
-  cabinet -p path remindmail file </path/to/remind.md>
-  cabinet -p email from <your unique and non-Gmail email address>
-  cabinet -p email from_name <your name (can be anything)>
-  cabinet -p from_pw <your email password>
-  cabinet -p email to <where reminder will send to>
-  cabinet -p email smtp_server <your SMTP server>
-  cabinet -p email port <your email port>
-  cabinet -p email imap_server <your IMAP server>
-  ```
-  - note that Gmail will _not_ work due to their security restrictions.
-  - it's very bad practice to store your password in plaintext; for this reason, never sync this file.
-  - always use a unique email address specifically for this, and _especially_ use a unique password.
-
-  - example below:
-  ```
-  {
-    "email": {
-        "from": "YourUniqueAndNonGmailEmailAddress",
-        "from_pw": "YourPassword",
-        "from_name": "Your Name",
-        "to": "RemindersSentToThisEmailAddress",
-        "smtp_server": "your domain's smtp server",
-        "imap_server": "your domain's imap server",
-        "port": 465
-    }
+- configure cabinet with the properties below using `cabinet -e`:
+```json
+{
+  "remindmail": {
+      "path": {
+          "file": "/path/to/remind.md"
+      }
+  },
+  "email": {
+      "from": "YourUniqueAndNonGmailEmailAddress",
+      "from_pw": "YourPassword",
+      "from_name": "Your Name",
+      "to": "RemindersSentToThisEmailAddress",
+      "smtp_server": "your domain's smtp server",
+      "imap_server": "your domain's imap server",
+      "port": 465
   }
-  ```
+}
+```
 
-## scheduling reminder checks
+- note that Gmail will _not_ work due to their security restrictions.
+- it's very bad practice to store your password in plaintext; for this reason, never sync this file.
+- always use a unique email address specifically for this, and _especially_ use a unique password.
+
+## Scheduling Reminder Emails
 
 - type "crontab -e" in the terminal and add something like:
   - `0 4 * * * remind --generate` (sends matching reminders at 4AM)
@@ -75,7 +68,7 @@ RemindMail offers a variety of features to enhance your productivity:
 
 - this function requires use of SMTP; please ensure you've configured this correctly.
 
-# usage
+# Usage
 
 - `remind`: Schedule a new reminder interactively
 - `remind --title 'reminder title' --when 'june 20'`: Schedule a new reminder programatically
@@ -94,7 +87,7 @@ RemindMail offers a variety of features to enhance your productivity:
 - `remind -e` (or `--edit`): Opens `remind.md` in your configured editor
 - `cabinet --config`: Configures [cabinet](https://pypi.org/project/cabinet/)
 
-## using the TUI to confirm reminders
+## Using the TUI to Schedule Reminders
 - unless `--save` is used, a confirmation will appear.
 - use arrow keys (or `j` and `k` in VI Mode) to navigate.
 - arrow left and right to iterate through:
@@ -109,7 +102,7 @@ RemindMail offers a variety of features to enhance your productivity:
 - use `i` to exit VI mode.
 - use `q` to cancel the reminder.
 
-## some notes about offset
+## Notes about `Offset`
 
 - when scheduling a reminder, you can adjust the `offset` field to shift reminder schedules.
 - For instance, one reminder may be "every 2 weeks", and the other can be every 2 weeks with an offset of 1, resulting in alternating reminders.
@@ -125,7 +118,8 @@ The offset is determined by the epoch date.
 
 These are some examples of how your remind.md file will look.
 
-## good examples
+## Good Examples
+```markdown
 [w,1] Laundry
 - this will send each week on Sunday. 
 
@@ -164,6 +158,7 @@ This is sent each day.
 [later] play diplomacy board game
 This isn't sent, but it is saved for later and can be sent using
 `remind --later`.
+```
 
 # Contributing
 Contributions to RemindMail are welcome! Please feel free to fork the repository, make your changes, and submit a pull request.
