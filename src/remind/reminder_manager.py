@@ -5,7 +5,6 @@ Utils for groups of reminders
 import re
 import os
 import subprocess
-import sys
 import glob
 import readline
 from datetime import date, timedelta, datetime
@@ -55,7 +54,7 @@ class ReminderManager:
 
         # DEBUG
         # file path for reminders
-        self.path_remind_file: str | None = self.cabinet.get('path', 'remindmail', 'file')
+        self.remind_path_file: str | None = self.cabinet.get('remindmail', 'path', 'file')
 
         # for sending emails
         self.mail: Mail = Mail()
@@ -103,7 +102,7 @@ class ReminderManager:
         delete_current_reminder: bool = False
 
         # handle filename
-        filename = filename or self.path_remind_file
+        filename = filename or self.remind_path_file
 
         if filename is None:
             raise FileNotFoundError
@@ -191,7 +190,7 @@ class ReminderManager:
                                                   '',
                                                   self.cabinet,
                                                   mail=self.mail,
-                                                  path_remind_file=self.path_remind_file)
+                                                  path_remind_file=self.remind_path_file)
 
                         r.should_send_today = r.get_should_send_today()
 
@@ -361,78 +360,71 @@ class ReminderManager:
         Edits the remind.md file
         You must configure the path to remind.md in
 
-        cabinet -> path -> remindmail -> file
+        cabinet -> remindmail -> path -> file
         """
 
-        if self.path_remind_file is None:
+        if self.remind_path_file is None:
             raise FileNotFoundError
-        self.cabinet.edit_file(self.path_remind_file)
+        self.cabinet.edit_file(self.remind_path_file)
 
     def help_set_path_remindmd(self) -> bool:
         """
-        A fallback function when remind.md is not found.
-        
+        A fallback function to ensure remind.md is set
+        to a default path if not configured.
+
         Returns:
             bool: whether the path to remind.md has been set
         """
-        if self.path_remind_file is None:
+        default_path = os.path.expanduser('~/remindmail/remind.md')
 
-            fallback = ("\nRemindMail needs this path.\n"
-                        "Please run `cabinet -p path remindmail file </path/to/remind.md>`\n"
-                        "to set the path.")
+        # Check if the path is not set
+        if not self.remind_path_file:
+            # Assign default path
+            self.remind_path_file = default_path
 
-            resp = input(("\nHi there! Your reminders will be stored in a file named "
-                        "`remind.md`.\nThe location of remind.md will be stored using "
-                        "Cabinet.\nPlease enter the full path to this file:\n"))
+            # Check if the default path exists; if not, create the file and its directories
+            if not os.path.exists(default_path):
+                os.makedirs(os.path.dirname(default_path), exist_ok=True)
+                with open(default_path, 'w', encoding='utf-8'):
+                    pass  # Create an empty file
 
-            if resp == '':
-                print(fallback)
-                sys.exit(0)
+            # Store the path in Cabinet
+            self.cabinet.put('remindmail', 'path', 'file', default_path)
 
-            if os.path.exists(resp):
-                self.path_remind_file = resp
-            else:
-                create_resp = input((f"'{resp}' does not exist. "
-                                        "Would you like to create it? (y/n):\n"))
-                if create_resp.startswith('y'):
-                    try:
-                        # Attempt to create the file and its directories
-                        os.makedirs(os.path.dirname(resp), exist_ok=True)
-                        # create empty file
-                        with open(resp, 'w', encoding='utf-8'):
-                            pass
-                        print(f"File created successfully: {resp}")
-                    # pylint: disable=W0718
-                    except Exception as e:
-                        print(f"Failed to create the file: {e}")
-                        print(fallback)
-                        sys.exit(0)
-                else:
-                    print(fallback)
-                    sys.exit(0)
+            print(
+                "Reminders will be stored in ~/remindmail/remind.md.\n"
+                "You can change this at any time by running:\n"
+                "`cabinet -p remindmail path file <full path to remind.md>`\n"
+                "or simply `cabinet -e` and modifying the remindmail object.\n"
+            )
 
-        resp = ''
-        path: str = self.path_remind_file or self.cabinet.get('path', 'remindmail', 'file') or ""
-        self.path_remind_file = path.replace("remind.md", "")
+            return True
 
-        if self.path_remind_file.endswith('/'):
-            self.path_remind_file = self.path_remind_file.rstrip('/')
+        path = self.remind_path_file or self.cabinet.get('remindmail', 'path', 'file') or ""
+        self.remind_path_file = path.replace("remind.md", "")
 
-        if os.path.isdir(self.path_remind_file):
-            old_value = self.path_remind_file
-            new_value = f"{self.path_remind_file}/remind.md"
-            self.path_remind_file = new_value
+        # Ensure we have a directory and it ends correctly
+        if not self.remind_path_file:
+            raise FileNotFoundError(
+                "Cannot find remind.md. Set with `cabinet -p remindmail path file <path>`")
+
+        if self.remind_path_file.endswith('/'):
+            self.remind_path_file = self.remind_path_file.rstrip('/')
+
+        # Update path in Cabinet if it points to a directory
+        if os.path.isdir(self.remind_path_file):
+            old_value = self.remind_path_file
+            new_value = f"{self.remind_path_file}/remind.md"
+            self.remind_path_file = new_value
             self.cabinet.log(
-                "Updating path -> remindmail -> file in "
+                "Updating remindmail -> path -> file in "
                 f"Cabinet from '{old_value}' to '{new_value}'"
             )
-            self.cabinet.put("path", "remindmail", "file",
-                         self.path_remind_file,
-                         is_print=True
-            )
+            self.cabinet.put("remindmail", "path", "file", self.remind_path_file, is_print=True)
             return True
 
         return False
+
 
     def send_later(self):
         """
@@ -472,7 +464,7 @@ class ReminderManager:
         - lines_to_delete (List[int]): List of line indices to be deleted from the reminders file.
         """
 
-        path: str = self.path_remind_file or self.cabinet.get('path', 'remindmail', 'file') or ""
+        path: str = self.remind_path_file or self.cabinet.get('remindmail', 'path', 'file') or ""
         with open(path, "r", encoding="utf-8") as file:
             lines = file.readlines()
         with open(path, "w", encoding="utf-8") as file:
