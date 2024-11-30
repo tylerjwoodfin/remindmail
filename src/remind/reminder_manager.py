@@ -70,7 +70,8 @@ class ReminderManager:
 
     @error_handler.ErrorHandler.exception_handler
     def parse_reminders_file(self, filename: str | None = None,
-                             is_delete: bool = False) -> List[reminder.Reminder]:
+                             is_delete: bool = False,
+                             is_print: bool = False) -> List[reminder.Reminder]:
         """
         Parses a markdown file containing reminders into an array of Reminder objects.
 
@@ -90,6 +91,8 @@ class ReminderManager:
                 If unset, defaults to self.path_remind_file
             is_delete (bool, optional): If enabled, delete all reminders scheduled for
                 today that are also scheduled for deletion.
+            is_print (bool, optional): If enabled, print the reminders to the console.
+                This is useful for debugging and testing.
 
         Returns:
             List[Reminder]: A list of Reminder objects parsed from the file.
@@ -109,13 +112,15 @@ class ReminderManager:
         self.cabinet.log(f"Parsing reminders in {filename}", is_quiet=True)
 
         with open(filename, 'r', encoding='utf-8') as file:
-            for line in file:
+            for index, line in enumerate(file):
                 stripped_line = line.strip()
 
                 if stripped_line.startswith("["):
                     # save previous reminder notes
                     if current_notes and not delete_current_reminder:
-                        reminders[-1].notes = "\n".join(current_notes)
+                        if not reminders[-1].notes:
+                            reminders[-1].notes = ""
+                        reminders[-1].notes += "\n".join(current_notes)
                         current_notes = []  # reset notes for next reminder
                     else:
                         delete_current_reminder = False
@@ -187,8 +192,9 @@ class ReminderManager:
                                                   reminder_modifiers,
                                                   title.strip(),
                                                   '',
+                                                  index,
                                                   self.cabinet,
-                                                  mail=self.mail,
+                                                  self.mail,
                                                   path_remind_file=self.remind_path_file)
 
                         r.should_send_today = r.get_should_send_today()
@@ -217,13 +223,25 @@ class ReminderManager:
 
         self.parsed_reminders = reminders
 
+        if is_print:
+            for r in reminders:
+                self.console.print(r.title, style="bold green")
+                self.console.print(r, style="bold blue")
+                if r.notes:
+                    self.console.print(r.notes, style="italic")
+                    print()
+
         return reminders
 
     @error_handler.ErrorHandler.exception_handler
-    def generate(self) -> None:
+    def generate(self, is_dry_run: bool) -> None:
         """
         Sends or executes reminders from the file that are scheduled to send today 
         (per parse_reminders_file).
+        
+        Args:
+            is_dry_run (bool): If True, the method will not send emails or execute commands.
+                Instead, it will log the reminders that would be sent or executed
         
         Afterwards, delete the reminders from the file.
         """
@@ -239,19 +257,30 @@ class ReminderManager:
             self.mail = Mail()
 
         self.cabinet.log("Generating Reminders")
-        for index, r in enumerate(self.parsed_reminders):
+        for r in self.parsed_reminders:
             if r.should_send_today:
                 self.cabinet.log(str(r), is_quiet=True)
 
                 if 'd' in r.modifiers:
                     # mark the reminder line for deletion
-                    lines_to_delete.append(index)
+                    lines_to_delete.append(r.index+1)
 
                     if r.notes:
                         # add the lines for each note to lines_to_delete
                         note_line_count = len(r.notes.splitlines())
+
+                        # handle missed reminders
+                        if r.notes.startswith("This was scheduled to send on "):
+                            note_line_count -= 1
+
                         lines_to_delete.extend(
-                            range(index + 1, index + 1 + note_line_count)
+                            range(r.index + 2, r.index + 2 + note_line_count)
+                        )
+
+                    if is_dry_run:
+                        self.cabinet.log(
+                            f"Would delete reminder: {r.title}\nand delete lines {lines_to_delete}",
+                            level="debug"
                         )
 
                 # handle commands
@@ -284,16 +313,20 @@ class ReminderManager:
                     continue
 
                 r.mail = self.mail
-                r.send_email()
 
-                count_sent += 1
+                if not is_dry_run:
+                    r.send_email()
+                    count_sent += 1
+                else:
+                    self.cabinet.log(
+                        f"Would send email: {r.title} (notes: {r.notes or "None"})\n",
+                        level="debug")
 
         # Remove lines corresponding to sent reminders from the reminders file.
-        # This method should safely update the file
-        # by removing only the lines listed in lines_to_delete.
-        self.delete_reminders(lines_to_delete)
+        self.delete_reminders(lines_to_delete, is_dry_run=is_dry_run)
 
-        self.cabinet.put("remindmail", "sent_today", count_sent, is_print=True)
+        if not is_dry_run:
+            self.cabinet.put("remindmail", "sent_today", count_sent, is_print=True)
 
     def show_later(self) -> None:
         """
@@ -455,20 +488,30 @@ class ReminderManager:
             self.cabinet.log("No reminders were found for 'later'.")
 
     @error_handler.ErrorHandler.exception_handler
-    def delete_reminders(self, lines_to_delete):
+    def delete_reminders(self,
+                         lines_to_delete: List[int],
+                         is_dry_run: bool = False) -> None:
         """
         Deletes specific lines from the reminders file.
 
-        Parameters:
-        - lines_to_delete (List[int]): List of line indices to be deleted from the reminders file.
+        Args:
+        - lines_to_delete (List[int]): List of 1-based line indices to be deleted
+            from the reminders file.
+        - is_dry_run (bool): If True, the method will not delete the lines from the file.
         """
+
+        # Convert 1-based indices to 0-based indices for internal processing
+        zero_based_indices = {line - 1 for line in lines_to_delete}
+
+        if is_dry_run:
+            self.cabinet.log(
+                f"Would delete lines: {lines_to_delete}", level="debug")
+            return
 
         path: str = self.remind_path_file or self.cabinet.get('remindmail', 'path', 'file') or ""
         with open(path, "r", encoding="utf-8") as file:
             lines = file.readlines()
         with open(path, "w", encoding="utf-8") as file:
             for index, line in enumerate(lines):
-                if index not in lines_to_delete:
+                if index not in zero_based_indices:
                     file.write(line)
-
-        return False

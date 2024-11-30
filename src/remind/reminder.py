@@ -70,6 +70,7 @@ class Reminder:
         modifiers (str): Contains actions for the reminder, such as delete ('d') or command ('c').
         title (str): The title or main content of the reminder.
         notes (str): Additional notes associated with the reminder.
+        index (int): The index of the actual line in which this reminder starts in remind.md
         cabinet (Cabinet): instance of Cabinet, a file management tool
         mail (Mail): The instance in which to send reminders as emails
         path_remind_file: The path from ReminderManager in which to access remind.md
@@ -82,6 +83,7 @@ class Reminder:
                  modifiers: str,
                  title: str,
                  notes: Optional[str],
+                 index: int,
                  cabinet: Cabinet,
                  mail: Mail,
                  path_remind_file: str | None):
@@ -92,6 +94,7 @@ class Reminder:
         self.modifiers: str = modifiers
         self.title: str = title
         self.notes: Optional[str] = notes
+        self.index: int = index
         self.should_send_today: Optional[bool] = False
         self.cabinet: Cabinet = cabinet
         self.mail: Mail = mail
@@ -105,7 +108,8 @@ class Reminder:
             f"offset={self.offset}, "
             f"modifiers='{self.modifiers}', "
             f"title='{self.title}', "
-            f"notes='{self.notes}')"
+            f"notes='{self.notes}', "
+            f"index={self.index})"
             "\n"
         )
 
@@ -144,7 +148,9 @@ class Reminder:
                 # and it didn't send, then for the purposes of `generate()`,
                 # set the date to today so it can send, then add a note about it.
                 if reminder_date < today:
-                    self.notes = f"This was scheduled to send on {reminder_date}."
+                    if not self.notes:
+                        self.notes = ""
+                    self.notes += f"This was scheduled to send on {reminder_date}.\n"
                     reminder_date = datetime.now().date()
             return reminder_date == today
 

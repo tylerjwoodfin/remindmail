@@ -79,12 +79,14 @@ RemindMail offers a variety of features to enhance your productivity:
 - `remind --title 'reminder title' --when 'every 2 Mondays'`: Schedule a new reminder programatically
 - `remind --title 'reminder title' --when 'now'`: Sends an email immediately
 - `remind -h` (or `--help`): Displays usage information.
-- `remind -g` (or `--generate`): Generates all reminders scheduled for today. 
+- `remind -g` (or `--generate`): Generates all reminders scheduled for today.
+  - use `--dry-run` to see what would be sent without actually sending anything.
   - I recommend setting up a crontab.
 - `remind --later`: Emails reminders that are marked with `[later]`
 - `remind --st` (or `--show-tomorrow`): Lists reminders in remind.md that target tomorrow's date
 - `remind --sw` (or `--show-week`): Lists reminders for the next 7 days
 - `remind -e` (or `--edit`): Opens `remind.md` in your configured editor
+- `remind --list-all`: Lists all reminders in `remind.md`. Useful for debugging.
 - `cabinet --config`: Configures [cabinet](https://pypi.org/project/cabinet/)
 
 ## Using the TUI to Schedule Reminders

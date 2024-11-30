@@ -84,11 +84,24 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         help="show reminders through next 7 days",
     )
 
+    parser.add_argument(
+        "--list-all",
+        "--la",
+        action="store_true",
+        help="list all reminders (can help with debugging)",
+    )
+
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="run the command without actually executing it"
+    )
+
     try:
         args = parser.parse_args()
 
         if args.generate:
-            manager_r.generate()
+            manager_r.generate(is_dry_run=args.dry_run)
         elif args.later:
             manager_r.show_later()
         elif args.edit:
@@ -99,6 +112,8 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
             manager_r.show_reminders_for_days()
         elif args.send_later:
             manager_r.send_later()
+        elif args.list_all:
+            manager_r.parse_reminders_file(is_print=True)
         else:
             # handle title
             title = args.title
