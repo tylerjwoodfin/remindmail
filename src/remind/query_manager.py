@@ -240,6 +240,7 @@ class QueryManager:
                         modifiers=modifiers,
                         title='',
                         notes='',
+                        index=0,
                         offset=0,
                         cabinet=self.cabinet,
                         mail=self.mail,
