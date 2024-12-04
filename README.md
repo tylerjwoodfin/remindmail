@@ -1,7 +1,26 @@
 # RemindMail: Reminder Management Tool
-Welcome to RemindMail, a powerful CLI designed to help you schedule and organize reminders efficiently and effectively. RemindMail is a Python-based tool that allows you to schedule reminders for yourself and receive them in your inbox. With RemindMail, you can easily manage your To Do list, schedule one-time or recurring reminders, add notes, and view and manage upcoming reminders.
+A powerful CLI designed to help you schedule and organize reminders efficiently and effectively. 
+Easily manage your To Do list, schedule one-time or recurring reminders, add notes, and view and manage upcoming reminders, all from the comfort of your terminal.
 
-## Features
+## Table of Contents
+- [Features](#features)
+- [Dependencies](#dependencies)
+- [Installation and Setup](#installation-and-setup)
+  - [Full Install (recommended)](#full-install-recommended)
+  - [Minimal Install (experimental)](#minimal-install-experimental)
+  - [Cabinet Configuration](#cabinet-configuration)
+  - [Scheduling Reminder Emails](#scheduling-reminder-emails)
+- [Usage](#usage)
+  - [Using the TUI to Schedule Reminders](#using-the-tui-to-schedule-reminders)
+    - [VI Mode and Keybindings](#vi-mode-and-keybindings)
+  - [Notes about `Offset`](#notes-about-offset)
+  - [Good Examples](#good-examples)
+- [Contributing](#contributing)
+- [License](#license)
+- [Disclaimer](#disclaimer)
+- [Author Info](#author-info)
+
+# Features
 RemindMail offers a variety of features to enhance your productivity:
 
 - Easily manage your To Do list from anywhere in the terminal
@@ -10,22 +29,34 @@ RemindMail offers a variety of features to enhance your productivity:
 - View and manage upcoming reminders
 
 # Dependencies
-- Python3
+- `zsh` or `bash`
+- `python3`
 - [cabinet](https://pypi.org/project/cabinet/)
-  - used to store JSON data; specifically, used to store the `remind.md` path and other important variables
-- a unique, non-Gmail address specifically for this project
-  - do not use an email address that you use in other areas of your life
-  - do not re-use a password you've used anywhere else; use a unique password.
+  - used to store the `remind.md` path and other important variables
+- a configured SMTP server (many email providers offer this, but Gmail will not work)
 
-# Setup
+# Installation and Setup
 
+## Full Install (recommended)
 ```bash
-  python3 -m pip install remindmail
+  pip install remindmail
 
   # adjust path accordingly
-  python3 -m pip install -r requirements.md
+  pip install -r requirements.md
 
-  cabinet --configure # cabinet must be configured properly
+  cabinet --configure # see below for instructions
+```
+
+## Minimal Install (experimental)
+```bash
+curl -s https://api.github.com/repos/tylerjwoodfin/remindmail/releases/latest \
+| grep "browser_download_url" \
+| cut -d '"' -f 4 \
+| xargs curl -L -o remindmail.pex
+
+sudo mv remindmail.pex /usr/local/bin/remind
+
+remind -m cabinet --config
 ```
 
 ## Cabinet Configuration
@@ -33,7 +64,7 @@ RemindMail offers a variety of features to enhance your productivity:
 
 - initialize using `cabinet --configure`; see cabinet's README for details.
 
-- configure cabinet with the properties below using `cabinet -e`:
+- add the properties below using `cabinet -e`:
 ```json
 {
   "remindmail": {
@@ -53,9 +84,8 @@ RemindMail offers a variety of features to enhance your productivity:
 }
 ```
 
-- note that Gmail will _not_ work due to their security restrictions.
-- it's very bad practice to store your password in plaintext; for this reason, never sync this file.
-- always use a unique email address specifically for this, and _especially_ use a unique password.
+- Gmail will _not_ work due to their security restrictions.
+- it's very bad practice to store your password in plaintext; take appropriate precautions.
 
 ## Scheduling Reminder Emails
 
@@ -111,16 +141,14 @@ RemindMail offers a variety of features to enhance your productivity:
 
 The offset is determined by the epoch date.
 - The Epoch time is the number of seconds since January 1, 1970, UTC.
-- For example, if the current time is 1619394350, then today is Sunday, April 25, 2021 at 11:45:50PM UTC.
-- The "week number" is calculated by {epochTime}/60/60/24/7.
-  - 1619394350 /60/60/24/7 ~= 2677
-  - 2677 % 3 == 1, meaning scheduling a reminder for [W,3] would be sent last week, but not this week (or next week or the week after).
-
-## remind.md
-
-These are some examples of how your remind.md file will look.
+- For example, if the current time is `1619394350`, then today is Sunday, April 25, 2021 at 11:45:50PM UTC.
+- The "week number" is calculated by `epochTime`/60/60/24/7.
+  - `1619394350 /60/60/24/7 ~= 2677`
+  - `2677 % 3 == 1`, meaning scheduling a reminder for `[W,3]` would be sent last week, but not this week (or next week or the week after).
 
 ## Good Examples
+- These are some examples of how your remind.md file could look.
+
 ```markdown
 [w,1] Laundry
 - this will send each week on Sunday. 
@@ -163,12 +191,16 @@ This isn't sent, but it is saved for later and can be sent using
 ```
 
 # Contributing
-Contributions to RemindMail are welcome! Please feel free to fork the repository, make your changes, and submit a pull request.
+- Contributions to RemindMail are welcome! Please feel free to fork the repository, make your changes, and submit a pull request.
 
 # License
-RemindMail is released under the MIT license. For more details, see the LICENSE file in the repository.
+- RemindMail is released under the MIT license. For more details, see the LICENSE file in the repository.
+
+# Disclaimer
+- This is a non-commercial, open-source project; your data is your responsibility. Take appropriate precautions to shield sensitive information.
+- I cannot be held responsible for any data loss or other issues that may arise from using this tool.
 
 # Author Info
-Tyler Woodfin
-https://tyler.cloud
-feedback-remindmail@tyler.cloud
+- Tyler Woodfin
+- [https://tyler.cloud](https://tyler.cloud)
+- [feedback-remindmail@tyler.cloud](mailto:feedback-remindmail@tyler.cloud)
