@@ -156,7 +156,7 @@ The offset is determined by the epoch date.
 [w,2] Sheets
 - This will be sent every 2 weeks on Sunday.
 
-[m,3] Review Budget
+[m,3] Review Budget # comments will be ignored in titles
 - This will be sent on the 1st of every 3 months.
 
 [m,3,2] Change AC filter
