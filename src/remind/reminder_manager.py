@@ -144,6 +144,9 @@ class ReminderManager:
 
                         details = details.split(",")
 
+                        # remove comments from title (anything after #)
+                        title = re.sub(r"\s*#.*", "", title)
+
                         # get reminder type
                         try:
                             reminder_key = \
