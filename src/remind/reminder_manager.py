@@ -216,8 +216,9 @@ class ReminderManager:
                         current_notes.append(stripped_line)
                         new_lines.append(line)
 
-        if current_notes:  # catch notes for the last reminder
-            reminders[-1].notes = "\n".join(current_notes)
+        if current_notes:  # Attach notes to the last reminder; hide comments
+            cleaned_notes = re.sub(r"\s*#.*", "", "\n".join(current_notes))
+            reminders[-1].notes = cleaned_notes
 
         # Rewrite the file without deleted reminders
         if is_delete:
