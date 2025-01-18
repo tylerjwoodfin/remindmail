@@ -18,8 +18,14 @@ class ReminderKeyType(Enum):
     DAY = ("d", "Day")
     WEEK = ("w", "Week")
     MONTH = ("m", "Month")
-    DAY_OF_WEEK = ("dow", "Day of Week")
     DAY_OF_MONTH = ("dom", "Day of Month")
+    SUNDAY = ("sun", "Sunday")
+    MONDAY = ("mon", "Monday")
+    TUESDAY = ("tue", "Tuesday")
+    WEDNESDAY = ("wed", "Wednesday")
+    THURSDAY = ("thu", "Thursday")
+    FRIDAY = ("fri", "Friday")
+    SATURDAY = ("sat", "Saturday")
     LATER = ("later", "Later")
     NOW = ("now", "Now")
 
@@ -41,6 +47,27 @@ class ReminderKeyType(Enum):
             if member.db_value == db_value:
                 return member
         raise ValueError(f"{db_value} is not a valid db_value of ReminderKeyType")
+
+    @classmethod
+    def is_key_day_of_week(cls, key):
+        """
+        Determines if the reminder key is a day of the week.
+
+        Args:
+            key (ReminderKeyType): The reminder key to check.
+
+        Returns:
+            bool: True if the key is a day of the week, False otherwise.
+        """
+        return key in [
+            cls.SUNDAY,
+            cls.MONDAY,
+            cls.TUESDAY,
+            cls.WEDNESDAY,
+            cls.THURSDAY,
+            cls.FRIDAY,
+            cls.SATURDAY
+        ]
 
     def __init__(self, db_value, label):
         """
@@ -79,6 +106,7 @@ class Reminder:
                  key,
                  value: Optional[str],
                  frequency: Optional[int],
+                 starts_on: Optional[str],
                  offset: int,
                  modifiers: str,
                  title: str,
@@ -94,6 +122,7 @@ class Reminder:
         self.modifiers: str = modifiers
         self.title: str = title
         self.notes: Optional[str] = notes
+        self.starts_on: Optional[str] = starts_on
         self.index: int = index
         self.should_send_today: Optional[bool] = False
         self.cabinet: Cabinet = cabinet
@@ -105,11 +134,12 @@ class Reminder:
             f"Reminder(key={self.key.db_value}, "
             f"value={self.value}, "
             f"frequency={self.frequency}, "
+            f"starts_on={self.starts_on}, "
             f"offset={self.offset}, "
             f"modifiers='{self.modifiers}', "
             f"title='{self.title}', "
             f"notes='{self.notes}', "
-            f"index={self.index})"
+            f"should_send_today={self.should_send_today})"
             "\n"
         )
 
@@ -117,11 +147,11 @@ class Reminder:
         """
         Determines whether the reminder should be sent today based on its scheduling configuration.
 
-        This method evaluates the reminder's key, value, frequency, and offset to calculate whether
-        the current day matches the scheduled day for the reminder to be sent. It supports various
-        reminder keys, including specific dates, days of the week, daily intervals, weekly
-        intervals, monthly intervals, and specific days of the month. The calculation considers the
-        current date, or an optional override date, to determine if the conditions for sending
+        This method evaluates the reminder's key, value, frequency, start date, and offset to
+        calculate whether the current day matches the scheduled day for the reminder to be sent.
+        It supports various reminder keys, including specific dates, days of the week,
+        daily/weekly/monthly intervals, and specific days of the month. The calculation considers
+        the current date, or an optional override date, to determine if the conditions for sending
         the reminder are met today.
 
         Args:
@@ -133,6 +163,12 @@ class Reminder:
                     False otherwise.
         """
         today = date_override or datetime.now().date()
+
+        # Handle starts_on
+        if self.starts_on:
+            start_date = datetime.strptime(self.starts_on, '%Y-%m-%d').date()
+            if today < start_date:
+                return False
 
         # Handle date-specific reminders
         if self.key == ReminderKeyType.DATE and self.value:
@@ -155,7 +191,7 @@ class Reminder:
             return reminder_date == today
 
         # Handle day of the week reminders
-        elif self.key == ReminderKeyType.DAY_OF_WEEK and self.value:
+        elif ReminderKeyType.is_key_day_of_week(self.key) and self.value:
             dow_mapping = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
 
             # default to non-existant day
@@ -259,15 +295,15 @@ class Reminder:
             if self.key == ReminderKeyType.DATE:
                 base_format = "["
 
-            if self.key not in [ReminderKeyType.DATE,
-                                ReminderKeyType.DAY_OF_WEEK,
-                                ReminderKeyType.DAY_OF_MONTH]:
+            if self.key not in [ReminderKeyType.DATE, ReminderKeyType.DAY_OF_MONTH]:
                 self.value = ""
 
             if self.value:
                 base_format += f",{self.value}"
             if self.frequency:
                 base_format += f",{self.frequency}"
+                if self.starts_on: # requires frequency
+                    base_format += f"->{self.starts_on}"
             if self.offset:
                 base_format += f",{self.offset}"
 
