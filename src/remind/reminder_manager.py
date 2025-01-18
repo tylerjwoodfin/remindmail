@@ -139,10 +139,11 @@ class ReminderManager:
 
                             # Validate starts_on format
                             if not re.match(r"^\d{4}-\d{2}-\d{2}$", reminder_starts_on):
-                                self.cabinet.log(
-                                    f"Invalid starts_on: '{reminder_starts_on}' in line '{line}'",
-                                    level="warn"
+                                err_str: str = (
+                                    f"Skipping Invalid Reminder: 'starts_on' must be YYYY-MM-DD "
+                                    f" in '{line.strip()}'"
                                 )
+                                self.cabinet.log(err_str, level="warn")
                                 continue
 
                         reminder_key = self.parse_reminder_key(details[0], line)
