@@ -40,6 +40,7 @@ class ReminderConfirmation:
         self.reminder.value = self.value_text_area.text
         self.reminder.frequency = int(self.frequency_text_area.text) \
             if self.frequency_text_area.text.isdigit() else 0
+        self.reminder.starts_on = self.starts_on_text_area.text or None
         self.reminder.notes = self.notes_text_area.text
         self.reminder.offset = int(self.offset_input_text_area.text) \
             if self.offset_input_text_area.text.isdigit() else 0
@@ -142,6 +143,7 @@ class ReminderConfirmation:
         self.value_text_area = generate_textarea(self.reminder.value, 'Value', True)
         self.frequency_text_area = generate_textarea(str(self.reminder.frequency),
                                                      'Frequency', True)
+        self.starts_on_text_area = generate_textarea(self.reminder.starts_on, 'Starts On')
         self.offset_input_text_area = generate_textarea(str(self.reminder.offset), 'Offset', True)
         self.modifiers_input_text_area = generate_textarea(self.reminder.modifiers, 'Modifiers')
 
@@ -156,6 +158,13 @@ class ReminderConfirmation:
             filter=Condition(self.is_frequency_enabled)
         )
 
+        # starts on
+        self.starts_on_input = ConditionalContainer(
+            content=self.starts_on_text_area,
+            filter=Condition(self.is_frequency_enabled)
+        )
+
+        # offset
         self.offset_input = ConditionalContainer(
             content=self.offset_input_text_area,
             filter=Condition(self.is_offset_enabled)
@@ -210,6 +219,7 @@ class ReminderConfirmation:
             self.type_text_area,
             self.value_input,
             self.frequency_input,
+            self.starts_on_input,
             self.offset_input,
             HSplit(children=[
                 self.modifiers_input
@@ -338,7 +348,7 @@ class ReminderConfirmation:
             def handler(event): # pylint: disable=unused-argument
                 current_value = getattr(self.reminder, property_attr)
 
-                if self.reminder.key == ReminderKeyType.DAY_OF_WEEK:
+                if ReminderKeyType.is_key_day_of_week(self.reminder.key):
                     # Find the current day index and increment or decrement
                     index = days_of_week.index(current_value)
                     new_index = (index + 1) % 7 if increment else (index - 1 + 7) % 7
@@ -474,10 +484,7 @@ class ReminderConfirmation:
                 self.value_text_area.text = self.key_value_cache[self.reminder.key.label]
                 self.reminder.value = self.key_value_cache[self.reminder.key.label]
         except KeyError:
-            # cache not set for this type
-            if self.reminder.key == ReminderKeyType.DAY_OF_WEEK:
-                self.value_text_area.text = "Sunday"
-            elif self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
+            if self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
                 self.value_text_area.text = "1"
 
             self.reminder.value = self.value_text_area.text
@@ -526,9 +533,6 @@ class ReminderConfirmation:
         rtype = self.reminder.key.label
 
         frequency_text = f"{self.frequency_text_area.text} {rtype}s"
-        if rtype == ReminderKeyType.DAY_OF_WEEK.label:
-            rtype = self.value_text_area.text
-            frequency_text = f"{self.frequency_text_area.text} {rtype}s"
 
         if self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
             frequency_text = f"{self.frequency_text_area.text} of the month"
@@ -561,15 +565,15 @@ class ReminderConfirmation:
             else:
                 self.toolbar_text = f"Send every {frequency_text}"
         elif self.application.layout.has_focus(self.value_input):
-            if rtype == ReminderKeyType.DAY_OF_WEEK.label:
-                self.toolbar_text = 'Enter a weekday ("sunday" through "saturday")'
-            elif rtype == ReminderKeyType.DAY_OF_MONTH.label:
+            if rtype == ReminderKeyType.DAY_OF_MONTH.label:
                 self.toolbar_text = 'Enter a number 1-31'
             elif rtype == ReminderKeyType.DATE.label:
                 self.toolbar_text = value_text
         elif self.application.layout.has_focus(self.frequency_input):
             self.toolbar_text = \
                 f"How often the reminder should occur (every {frequency_text})"
+        elif self.application.layout.has_focus(self.starts_on_input):
+            self.toolbar_text = "When the reminder should start (YYYY-MM-DD)"
         elif self.application.layout.has_focus(self.offset_input_text_area):
             self.toolbar_text = f"How many {rtype}s to offset the current schedule"
         elif self.application.layout.has_focus(self.modifiers_input_text_area):
@@ -592,9 +596,8 @@ class ReminderConfirmation:
             bool: True if the reminder type requires a value, False otherwise.
         """
 
-        return self.type_text_area.text in [ReminderKeyType.DAY_OF_WEEK.label,
-                                        ReminderKeyType.DAY_OF_MONTH.label,
-                                        ReminderKeyType.DATE.label]
+        return self.type_text_area.text in [ReminderKeyType.DAY_OF_MONTH.label,
+                                            ReminderKeyType.DATE.label]
 
     def is_frequency_enabled(self) -> bool:
         """

@@ -70,16 +70,10 @@ class ReminderManager:
 
     @error_handler.ErrorHandler.exception_handler
     def parse_reminders_file(self, filename: str | None = None,
-                             is_delete: bool = False,
-                             is_print: bool = False) -> List[reminder.Reminder]:
+                            is_delete: bool = False,
+                            is_print: bool = False) -> List[reminder.Reminder]:
         """
         Parses a markdown file containing reminders into an array of Reminder objects.
-
-        Each line of the file is expected to define a reminder or
-        a note associated with the preceding reminder.
-        Comments and empty lines are ignored.
-        The reminders are parsed based on predefined formats and
-        accumulated into Reminder objects, which are then returned in a list.
 
         After parsing Reminders into a List, delete
         reminders scheduled for today with a "d" modifier from the file.
@@ -126,79 +120,69 @@ class ReminderManager:
                         delete_current_reminder = False
 
                     pattern_any_reminder = r"\[(.*?)\](c?d?)\s*(.*)"
-                    pattern_date_key = r"(?:\d{4}-)?\d{2}-\d{2}"
-                    pattern_dow_key = (
-                        r"^(sun(day)?|"
-                        r"mon(day)?|"
-                        r"tue(sday)?|"
-                        r"wed(nesday)?|"
-                        r"thu(rsday)?|"
-                        r"fri(day)?|"
-                        r"sat(urday)?)$"
-                    )
-
                     match = re.match(pattern_any_reminder, stripped_line)
                     if match:
                         details, reminder_modifiers, title = match.groups()
                         details = details.lower()
 
+                        # Split details and check for starts_on syntax
                         details = details.split(",")
+                        reminder_starts_on = None
 
                         # remove comments from title (anything after #)
                         title = re.sub(r"\s*#.*", "", title)
 
-                        # get reminder type
-                        try:
-                            reminder_key = \
-                                ReminderKeyType.from_db_value(details[0])
-                        except ValueError:
-                            # allow for [{date}] and [{dow}]
-                            if re.match(pattern_date_key, details[0]):
-                                reminder_key = ReminderKeyType.DATE
-                            elif re.match(pattern_dow_key, details[0]):
-                                reminder_key = ReminderKeyType.DAY_OF_WEEK
-                                reminder_value = details[0]
+                        if len(details) > 1 and "->" in details[1]:
+                            freq_start = details[1].split("->")
+                            details[1] = freq_start[0]
+                            reminder_starts_on = freq_start[1]
 
-                            else:
+                            # Validate starts_on format
+                            if not re.match(r"^\d{4}-\d{2}-\d{2}$", reminder_starts_on):
                                 self.cabinet.log(
-                                    f"'{details[0]}' in '{line}' is not a valid Reminder key.",
-                                    level="warn")
+                                    f"Invalid starts_on: '{reminder_starts_on}' in line '{line}'",
+                                    level="warn"
+                                )
                                 continue
+
+                        reminder_key = self.parse_reminder_key(details[0], line)
+                        if not reminder_key:
+                            continue
 
                         reminder_value: Optional[str] = None
                         reminder_frequency: Optional[int] = None
                         reminder_offset: int = 0
 
-                        # handle reminders of type 'sun' - 'sat'
-                        if reminder_key == ReminderKeyType.DAY_OF_WEEK:
-                            reminder_frequency = 1
-                            reminder_value = details[0]
-                            if len(details) > 1:
-                                reminder_frequency = int(details[1])
+                        if ReminderKeyType.is_key_day_of_week(reminder_key):
+                            reminder_frequency = int(details[1]) if len(details) > 1 else 1
                             reminder_offset = int(details[2]) if len(details) > 2 else 0
+                            reminder_value = details[0]
                         elif reminder_key == ReminderKeyType.DAY_OF_MONTH:
                             reminder_value = details[1] or "1"
                         elif reminder_key in [ReminderKeyType.DAY,
-                                               ReminderKeyType.WEEK,
-                                               ReminderKeyType.MONTH]:
+                                              ReminderKeyType.WEEK,
+                                              ReminderKeyType.MONTH]:
                             reminder_frequency = int(details[1]) if len(details) > 1 else None
                             reminder_offset = int(details[2]) if len(details) > 2 else 0
                         elif reminder_key == ReminderKeyType.LATER:
                             reminder_value = "later"
                         else:
-                            reminder_value = details[0]  # for specific dates
+                            reminder_value = details[0]
 
-                        r = reminder.Reminder(reminder_key,
-                                                  reminder_value,
-                                                  reminder_frequency,
-                                                  reminder_offset,
-                                                  reminder_modifiers,
-                                                  title.strip(),
-                                                  '',
-                                                  index,
-                                                  self.cabinet,
-                                                  self.mail,
-                                                  path_remind_file=self.remind_path_file)
+                        r = reminder.Reminder(
+                            reminder_key,
+                            reminder_value,
+                            reminder_frequency,
+                            reminder_starts_on,
+                            reminder_offset,
+                            reminder_modifiers,
+                            title.strip(),
+                            '',
+                            index,
+                            self.cabinet,
+                            self.mail,
+                            path_remind_file=self.remind_path_file,
+                        )
 
                         r.should_send_today = r.get_should_send_today()
 
@@ -236,6 +220,35 @@ class ReminderManager:
                     print()
 
         return reminders
+
+    def parse_reminder_key(self, key: str, line: str) -> Optional[ReminderKeyType]:
+        """
+        Parses a reminder key from a string and returns the corresponding ReminderKeyType.
+        """
+        pattern_date_key = r"(?:\d{4}-)?\d{2}-\d{2}"
+        pattern_dow_key = (
+            r"^(sun(day)?|mon(day)?|tue(sday)?|wed(nesday)?|thu(rsday)?|fri(day)?|sat(urday)?)$"
+        )
+        try:
+            return ReminderKeyType.from_db_value(key)
+        except ValueError:
+            if re.match(pattern_date_key, key):
+                return ReminderKeyType.DATE
+            if re.match(pattern_dow_key, key):
+                # return matching day of week key
+                match = re.match(pattern_dow_key, key)
+                if match:
+                    return ReminderKeyType.from_db_value(match.group(1))
+                else:
+                    self.cabinet.log(
+                        f"'{key}' in '{line}' is not a valid day of the week key.", level="warn"
+                    )
+                    return None
+
+            self.cabinet.log(
+                f"'{key}' in '{line}' is not a valid Reminder key.", level="warn"
+            )
+            return None
 
     @error_handler.ErrorHandler.exception_handler
     def generate(self, is_dry_run: bool) -> None:

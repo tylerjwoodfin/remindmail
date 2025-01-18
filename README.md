@@ -11,10 +11,13 @@ Easily manage your To Do list, schedule one-time or recurring reminders, add not
   - [Cabinet Configuration](#cabinet-configuration)
   - [Scheduling Reminder Emails](#scheduling-reminder-emails)
 - [Usage](#usage)
-  - [Using the TUI to Schedule Reminders](#using-the-tui-to-schedule-reminders)
+  - [Scheduling Reminders With TUI](#scheduling-reminders-with-tui)
     - [VI Mode and Keybindings](#vi-mode-and-keybindings)
-  - [Notes about `Offset`](#notes-about-offset)
-  - [Good Examples](#good-examples)
+  - [Scheduling Reminders With remind.md](#scheduling-reminders-with-remindmd)
+    - [Tags](#tags)
+    - [Frequency](#frequency)
+    - [Offset](#offset)
+    - [Good Examples](#good-examples)
 - [Contributing](#contributing)
 - [License](#license)
 - [Disclaimer](#disclaimer)
@@ -119,13 +122,14 @@ remind -m cabinet --config
 - `remind --list-all`: Lists all reminders in `remind.md`. Useful for debugging.
 - `cabinet --config`: Configures [cabinet](https://pypi.org/project/cabinet/)
 
-## Using the TUI to Schedule Reminders
+## Scheduling Reminders With TUI
 - unless `--save` is used, a confirmation will appear.
 - use arrow keys (or `j` and `k` in VI Mode) to navigate.
 - arrow left and right to iterate through:
   - type
   - value
   - frequency
+  - starting date ("Starts On")
   - offset
 
 ### VI Mode and Keybindings
@@ -134,8 +138,34 @@ remind -m cabinet --config
 - use `i` to exit VI mode.
 - use `q` to cancel the reminder.
 
-## Notes about `Offset`
+## Scheduling Reminders With remind.md
 
+- The `remind.md` file is a simple Markdown file that contains your reminders.
+- Syntax: `[tag,frequency,offset]modifier Title`
+
+### Tags
+| Tag | Description |
+| --- | --- |
+| d   | day |
+| w   | week |
+| m   | month |
+| YYYY-MM-DD   | date |
+| MM-DD   | date |
+| dom | day of month |
+| sun | Sunday |
+| mon | Monday |
+| tue | Tuesday |
+| wed | Wednesday |
+| thu | Thursday |
+| fri | Friday |
+| sat | Saturday |
+| later | for later |
+
+### Frequency
+- a number indicating how often the reminder should be sent (e.g., every 2 weeks, every 3 months, etc.)
+- not valid for date or later tags
+
+### Offset
 - when scheduling a reminder, you can adjust the `offset` field to shift reminder schedules.
 - For instance, one reminder may be "every 2 weeks", and the other can be every 2 weeks with an offset of 1, resulting in alternating reminders.
 
@@ -146,7 +176,13 @@ The offset is determined by the epoch date.
   - `1619394350 /60/60/24/7 ~= 2677`
   - `2677 % 3 == 1`, meaning scheduling a reminder for `[W,3]` would be sent last week, but not this week (or next week or the week after).
 
-## Good Examples
+### Modifiers
+| Modifier | Description |
+| --- | --- |
+| d | delete after sending (one-time reminder) |
+| c | execute title as command; do not send email |
+
+### Good Examples
 - These are some examples of how your remind.md file could look.
 
 ```markdown
@@ -169,16 +205,16 @@ The offset is determined by the epoch date.
 
 [09-20,1] Get a Flu Shot
 This will be sent on September 20.
-By the way, anything underneath a reminder tag is considered a note and will
+Anything underneath a reminder tag is considered a note and will
 be sent in the body of the email.
 
-[dow,fri] Submit Timesheet
+[fri] Submit Timesheet
 <b>Will be sent every Friday. Reminder notes support HTML.</b>
 
-[dow,fri,2] Payday!
+[fri,2] Payday!
 - This will send every other Friday.
 
-[dow,thu,1]c ls > /home/tyler/directory.log
+[thu,1]c ls > /home/tyler/directory.log
 - Reminders ending with `]c` will be executed as commands, rather than
 sent as emails.
 
