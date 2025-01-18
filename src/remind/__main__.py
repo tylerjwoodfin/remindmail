@@ -39,6 +39,13 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
     )
 
     parser.add_argument(
+        "--starts-on",
+        help="the date on which the reminder should start",
+        nargs="?",
+        const=""
+    )
+
+    parser.add_argument(
         "--later",
         action="store_true",
         help="show reminders scheduled for later"
@@ -126,6 +133,7 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
                 title=title,
                 when=args.when,
                 notes=args.notes,
+                starts_on=args.starts_on,
                 save=args.save
             )
 

@@ -204,21 +204,32 @@ class QueryManager:
                 key = ReminderKeyType.MONTH
                 frequency = int(match.group(1) or 1)
 
+            # Helper: Map full and abbreviated weekday names to ReminderKeyType
+            weekday_to_keytype = {
+                "monday": ReminderKeyType.MONDAY, "mon": ReminderKeyType.MONDAY,
+                "tuesday": ReminderKeyType.TUESDAY, "tue": ReminderKeyType.TUESDAY,
+                "wednesday": ReminderKeyType.WEDNESDAY, "wed": ReminderKeyType.WEDNESDAY,
+                "thursday": ReminderKeyType.THURSDAY, "thu": ReminderKeyType.THURSDAY,
+                "friday": ReminderKeyType.FRIDAY, "fri": ReminderKeyType.FRIDAY,
+                "saturday": ReminderKeyType.SATURDAY, "sat": ReminderKeyType.SATURDAY,
+                "sunday": ReminderKeyType.SUNDAY, "sun": ReminderKeyType.SUNDAY,
+            }
+
             # every n {dow}s (e.g., 'every 3 mondays')
-            elif match := regex_patterns['every_n_dows'].match(input_str):
+            if match := regex_patterns['every_n_dows'].match(input_str):
                 dow = match.group(2).lower()
                 if dow in weekdays:
-                    key = ReminderKeyType.DAY_OF_WEEK
+                    key = weekday_to_keytype[dow]  # Get the corresponding ReminderKeyType
                     value = dow
                     frequency = int(match.group(1))
 
-            # every {dow} (e.g. 'every friday')
+            # every {dow} (e.g., 'every friday')
             elif any(day in input_str.lower() for day in weekdays):
                 day_str = input_str.lower()
                 for day, rel_day in weekdays.items():
                     if day in day_str:
                         next_weekday = start_date + relativedelta(weekday=rel_day(0))
-                        key = ReminderKeyType.DAY_OF_WEEK
+                        key = weekday_to_keytype[day]  # Use the same mapping
                         value = day
                         frequency = 1
                         break
@@ -237,6 +248,7 @@ class QueryManager:
         return Reminder(key=key,
                         value=value,
                         frequency=frequency,
+                        starts_on='',
                         modifiers=modifiers,
                         title='',
                         notes='',
@@ -249,6 +261,7 @@ class QueryManager:
     def wizard_manual_reminder(self, title: str | None = None,
                                when: str | None = None,
                                notes: str | None = None,
+                               starts_on: str | None = None,
                                save: bool = False) -> Reminder:
         """
         Guides the user through the process of creating a new manual reminder
@@ -281,6 +294,7 @@ class QueryManager:
                 reminder: Reminder = self.interpret_reminder_date(reminder_date)
                 reminder.title = title
                 reminder.notes = notes
+                reminder.starts_on = starts_on
                 reminder_date_success = True
             except ValueError as e:
                 print(e)
