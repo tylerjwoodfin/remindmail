@@ -107,6 +107,9 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
     try:
         args = parser.parse_args()
 
+        # set manager_r props
+        manager_r.remind_path_file = args.file if args.file else manager_r.remind_path_file
+
         if args.generate:
             manager_r.generate(is_dry_run=args.dry_run)
         elif args.later:
