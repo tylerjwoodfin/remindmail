@@ -111,6 +111,7 @@ remind -m cabinet --config
 - `remind -h` (or `--help`): Displays usage information.
 - `remind -g` (or `--generate`): Generates all reminders scheduled for today.
   - use `--dry-run` to see what would be sent without actually sending anything.
+  - `remind -g --file=/path/to/special/remind.md` will use the specified file instead of the default.
   - I recommend setting up a crontab.
 - `remind --later`: Emails reminders that are marked with `[later]`
 - `remind --st` (or `--show-tomorrow`): Lists reminders in remind.md that target tomorrow's date

@@ -47,13 +47,14 @@ class ReminderManager:
     A utility class for handling reminders and email operations.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, remind_path_file: str | None = None) -> None:
 
         # file and data management
         self.cabinet = Cabinet()
 
         # file path for reminders
-        self.remind_path_file: str | None = self.cabinet.get('remindmail', 'path', 'file')
+        self.remind_path_file: str | None = remind_path_file or \
+            self.cabinet.get('remindmail', 'path', 'file')
 
         # for sending emails
         self.mail: Mail = Mail()
