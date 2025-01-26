@@ -46,6 +46,13 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
     )
 
     parser.add_argument(
+        "--file",
+        help="path to a specific, potentially non-default reminder file",
+        nargs="?",
+        const=""
+    )
+
+    parser.add_argument(
         "--later",
         action="store_true",
         help="show reminders scheduled for later"
