@@ -9,6 +9,7 @@ Easily manage your To Do list, schedule one-time or recurring reminders, add not
   - [Full Install (recommended)](#full-install-recommended)
   - [Minimal Install (experimental)](#minimal-install-experimental)
   - [Cabinet Configuration](#cabinet-configuration)
+    - [MongoDB Configuration](#mongodb-configuration)
   - [Scheduling Reminder Emails](#scheduling-reminder-emails)
 - [Usage](#usage)
   - [Scheduling Reminders With TUI](#scheduling-reminders-with-tui)
@@ -17,6 +18,7 @@ Easily manage your To Do list, schedule one-time or recurring reminders, add not
     - [Tags](#tags)
     - [Frequency](#frequency)
     - [Offset](#offset)
+    - [Modifiers](#modifiers)
     - [Good Examples](#good-examples)
 - [Contributing](#contributing)
 - [License](#license)
@@ -71,9 +73,10 @@ remind -m cabinet --config
 ```json
 {
   "remindmail": {
-      "path": {
-          "file": "/path/to/remind.md"
-      }
+    "mongodb_enabled": true, # optional if using mongodb - default false
+    "path": {
+        "file": "/path/to/remind.md"
+    }
   },
   "email": {
       "from": "YourUniqueAndNonGmailEmailAddress",
@@ -88,7 +91,12 @@ remind -m cabinet --config
 ```
 
 - Gmail will _not_ work due to their security restrictions.
+
 - it's very bad practice to store your password in plaintext; take appropriate precautions.
+
+### MongoDB Configuration
+- MongoDB is used to log reminders when `mongodb_enabled` is set to `true`.
+- This is configured via the Cabinet configuration in `~/.config/cabinet/config.json` - see [https://www.github.com/tyjerwoodfin/cabinet](https://www.github.com/tyjerwoodfin/cabinet) for configuration instructions.
 
 ## Scheduling Reminder Emails
 
