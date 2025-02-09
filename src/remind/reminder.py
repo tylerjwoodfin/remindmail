@@ -276,6 +276,8 @@ class Reminder:
         email_icons = f"{email_icons} " if email_icons else email_icons
         email_title = f"Reminder {email_icons}- {self.title}"
 
+        self.cabinet.logdb(self.title, collection_name="reminders")
+
         self.mail.send(email_title, self.notes or "", is_quiet=is_quiet)
 
     def write_to_file(self, is_quiet: bool = True) -> None:
