@@ -198,7 +198,7 @@ class ReminderManager:
                 elif not delete_current_reminder:
                     if not stripped_line and not current_notes:
                         new_lines.append(line)
-                    else:
+                    elif stripped_line and not stripped_line.startswith("#"):
                         current_notes.append(stripped_line)
                         new_lines.append(line)
 
