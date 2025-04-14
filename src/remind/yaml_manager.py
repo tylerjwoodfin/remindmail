@@ -24,6 +24,8 @@ class YAMLManager:
         """
         with open(filename, 'r', encoding='utf-8') as file:
             data = yaml.safe_load(file)
+            if data is None:
+                data = {}
             return data.get('reminders', [])
 
     @staticmethod
