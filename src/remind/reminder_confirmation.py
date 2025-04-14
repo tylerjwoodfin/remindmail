@@ -236,9 +236,9 @@ class ReminderConfirmation:
         Generate checkbox display text based on current state.
         
         Returns:
-            str: [X] if checked, [ ] if unchecked
+            str: ✅ if checked, ❌ if unchecked
         """
-        return "[X]" if self.delete_checkbox_checked else "[ ]"
+        return "✅" if self.delete_checkbox_checked else "❌"
         
     def toggle_delete_checkbox(self) -> None:
         """

@@ -6,7 +6,7 @@ import os
 import glob
 import readline
 from datetime import date, timedelta, datetime
-from typing import List, Optional
+from typing import Any, Dict, List
 from rich.console import Console
 from remind.reminder import ReminderKeyType
 from remind.yaml_manager import YAMLManager
@@ -89,8 +89,8 @@ class ReminderManager:
             self.cabinet.log(f"Error parsing reminders in {filename}: {e}", level="error")
             return []
 
-        reminders = []
-        new_reminders = []
+        reminders: List[reminder.Reminder] = []
+        new_reminders: List[Dict[str, Any]] = []
 
         for reminder_dict in reminder_dicts:
             parsed_reminders = YAMLManager.dict_to_reminders(reminder_dict, self.cabinet, self.mail, filename)

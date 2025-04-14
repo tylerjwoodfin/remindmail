@@ -4,7 +4,6 @@ Handles YAML parsing and writing for reminders
 
 import yaml
 from typing import List, Dict, Any
-from datetime import datetime
 from .reminder import Reminder, ReminderKeyType
 
 class YAMLManager:
@@ -64,7 +63,10 @@ class YAMLManager:
         elif reminder.key == ReminderKeyType.DATE:
             reminder_dict['date'] = reminder.value
         elif reminder.key == ReminderKeyType.DAY_OF_MONTH:
-            reminder_dict['dom'] = int(reminder.value)
+            if reminder.value and type(reminder.value) == int:
+                reminder_dict['dom'] = int(reminder.value)
+            else:
+                raise ValueError("Reminder day of month cannot be empty and must be an integer for day of month reminders.")
         elif reminder.key in [ReminderKeyType.MONDAY, ReminderKeyType.TUESDAY,
                             ReminderKeyType.WEDNESDAY, ReminderKeyType.THURSDAY,
                             ReminderKeyType.FRIDAY, ReminderKeyType.SATURDAY,

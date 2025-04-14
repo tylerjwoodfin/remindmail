@@ -2,7 +2,7 @@
 The main class
 """
 import calendar
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import os
 from pathlib import Path
 import subprocess
@@ -180,19 +180,18 @@ class Reminder:
                     year += 1
             else:  # YYYY-MM-DD format
                 year, month, day = map(int, date_parts)
-                
-            # if date is in the past and target date is today, append warning to notes
-            if (year, month, day) < (target_date.year, target_date.month, target_date.day):
-                self.notes += f"Warning: Reminder was scheduled for {self.value}."
-                self.value = date(year, month, day)
 
+            # if date is in the past and target date is today, append warning to notes
+            if (year, month, day) < (target_date.year, target_date.month, target_date.day) \
+                and not self.canceled:
+                self.notes += f"Warning: Reminder was scheduled for {self.value}."
+                self.value = date(target_date.year, target_date.month, target_date.day) + timedelta(days=1)
+
+            self.canceled = True
             return (target_date.year, target_date.month, target_date.day) == (year, month, day)
 
         elif self.key == ReminderKeyType.DAY_OF_MONTH:
             if not self.value or not str(self.value).isdigit():
-                self.cabinet.log(self.__repr__(), level="debug")
-                print(self.value)
-                print(type(self.value))
                 raise ValueError("Reminder day of month cannot be empty and must be an integer for day of month reminders.")
             return target_date.day == self.value
 
