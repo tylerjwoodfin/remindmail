@@ -44,6 +44,14 @@ class ReminderConfirmation:
         self.reminder.notes = self.notes_text_area.text
         self.reminder.offset = int(self.offset_input_text_area.text) \
             if self.offset_input_text_area.text.isdigit() else 0
+        self.reminder.command = self.command_text_area.text
+        self.reminder.delete = self.delete_checkbox_checked
+        
+        # warn if reminder is in the past
+        if self.reminder.key == ReminderKeyType.DATE and self.reminder.value and \
+            datetime.datetime.strptime(self.reminder.value, '%Y-%m-%d') < datetime.datetime.now():
+            print_formatted_text(HTML(
+                f'<ansired><b>Warning: Reminder date is in the past.\nReminder will be sent next time `generate` is run.</b></ansired>'))
 
         confirmation_text = "Saved"
         if self.reminder.key == ReminderKeyType.NOW:
@@ -58,6 +66,7 @@ class ReminderConfirmation:
         self.toolbar_text: str = ""
         self.is_vi_mode: bool = False
         self.key_value_cache: dict = {}
+        self.delete_checkbox_checked: bool = getattr(reminder, 'delete', False)  # Initialize delete checkbox state
         self.default_frequency()
         self.bindings = KeyBindings()
         self.initialize_ui_components()
@@ -88,6 +97,7 @@ class ReminderConfirmation:
         """
         self.setup_key_handlers()
         self.setup_adjustable_property_handlers()
+        self.setup_delete_checkbox_handler()
         self.setup_save_and_cancel_handlers()
 
     def initialize_ui_components(self):
@@ -140,12 +150,26 @@ class ReminderConfirmation:
         # text areas
         self.title_text_area = generate_textarea(self.reminder.title, 'Title')
         self.type_text_area = generate_textarea(self.reminder.key.label, 'Type', True)
-        self.value_text_area = generate_textarea(self.reminder.value, 'Value', True)
+        self.value_text_area = generate_textarea(str(self.reminder.value), 'Value', True)
         self.frequency_text_area = generate_textarea(str(self.reminder.frequency),
                                                      'Frequency', True)
         self.starts_on_text_area = generate_textarea(self.reminder.starts_on, 'Starts On')
         self.offset_input_text_area = generate_textarea(str(self.reminder.offset), 'Offset', True)
-        self.modifiers_input_text_area = generate_textarea(self.reminder.modifiers, 'Modifiers')
+        
+        # Add command text area (optional)
+        self.command_text_area = generate_textarea(
+            getattr(self.reminder, 'command', ''), 
+            'Command (optional)'
+        )
+
+        # Create delete checkbox
+        self.delete_checkbox = TextArea(
+            text=self.get_checkbox_text(),
+            multiline=False,
+            read_only=True,
+            prompt=HTML('<b><ansiblue>Delete After Sending: </ansiblue></b>'),
+            height=1
+        )
 
         self.value_input = ConditionalContainer(
             content=self.value_text_area,
@@ -170,10 +194,16 @@ class ReminderConfirmation:
             filter=Condition(self.is_offset_enabled)
         )
 
-        # modifiers
-        self.modifiers_input = ConditionalContainer(
-            content=self.modifiers_input_text_area,
-            filter=Condition(self.is_modifiers_enabled)
+        # command
+        self.command_input = ConditionalContainer(
+            content=self.command_text_area,
+            filter=Condition(self.is_command_enabled)
+        )
+
+        # delete
+        self.delete_input = ConditionalContainer(
+            content=self.delete_checkbox,
+            filter=Condition(self.is_delete_enabled)
         )
 
         # notes
@@ -201,6 +231,34 @@ class ReminderConfirmation:
             padding_right=0
         )
 
+    def get_checkbox_text(self) -> str:
+        """
+        Generate checkbox display text based on current state.
+        
+        Returns:
+            str: [X] if checked, [ ] if unchecked
+        """
+        return "[X]" if self.delete_checkbox_checked else "[ ]"
+        
+    def toggle_delete_checkbox(self) -> None:
+        """
+        Toggle the state of the delete checkbox.
+        """
+        self.delete_checkbox_checked = not self.delete_checkbox_checked
+        self.delete_checkbox.text = self.get_checkbox_text()
+
+    def setup_delete_checkbox_handler(self):
+        """
+        Set up key bindings for toggling the delete checkbox state.
+        """
+        @self.bindings.add('enter', filter=has_focus(self.delete_checkbox))
+        @self.bindings.add(' ', filter=has_focus(self.delete_checkbox))
+        @self.bindings.add('y', filter=has_focus(self.delete_checkbox))
+        @self.bindings.add('n', filter=has_focus(self.delete_checkbox))
+        def _(event): # pylint: disable=unused-argument
+            self.toggle_delete_checkbox()
+            self.update_toolbar_text()
+
     def build_main_container(self) -> HSplit:
         """
         Constructs and returns the main container for the confirmation interface.
@@ -221,9 +279,8 @@ class ReminderConfirmation:
             self.frequency_input,
             self.starts_on_input,
             self.offset_input,
-            HSplit(children=[
-                self.modifiers_input
-            ], height=2),
+            self.command_input,
+            self.delete_input,
             HSplit(children=[
                 self.notes_text_area
             ], height=3,
@@ -311,8 +368,8 @@ class ReminderConfirmation:
 
         text_areas: List[TextArea] = [
             self.title_text_area,
-            self.modifiers_input_text_area,
-            self.notes_text_area
+            self.notes_text_area,
+            self.command_text_area  # Add command text area for VI navigation
         ]
 
         def create_vi_binding(text_area: TextArea):
@@ -431,7 +488,7 @@ class ReminderConfirmation:
         @self.bindings.add('q', filter=Condition(_is_vi_mode_or_save_button))
         def _(event): #pylint: disable=unused-argument
             print_formatted_text(HTML('<ansired><b>Cancelled.</b></ansired>'))
-            self.reminder.modifiers = "x"
+            self.reminder.canceled = True
             self.application.exit()
 
     def cycle_types(self, direction) -> None:
@@ -527,7 +584,7 @@ class ReminderConfirmation:
         information related to the input field currently in focus. It constructs a
         frequency text string that varies based on the selected reminder type and its
         frequency, and then updates the toolbar text to reflect the current interaction context,
-        such as editing the title, type, value, frequency, or modifiers of the reminder.
+        such as editing the title, type, value, frequency, or whether to delete or execute the reminder as a command.
         """
 
         rtype = self.reminder.key.label
@@ -576,8 +633,10 @@ class ReminderConfirmation:
             self.toolbar_text = "When the reminder should start (YYYY-MM-DD)"
         elif self.application.layout.has_focus(self.offset_input_text_area):
             self.toolbar_text = f"How many {rtype}s to offset the current schedule"
-        elif self.application.layout.has_focus(self.modifiers_input_text_area):
-            self.toolbar_text = "d: delete after sending; c: execute as command instead of email"
+        elif self.application.layout.has_focus(self.command_text_area):
+            self.toolbar_text = "Optional command to execute when reminder is triggered"
+        elif self.application.layout.has_focus(self.delete_checkbox):
+            self.toolbar_text = "Delete the reminder after it's triggered"
         elif self.application.layout.has_focus(self.notes_text_area):
             self.toolbar_text = "Add notes to your reminder"
         elif self.application.layout.has_focus(self.save_button):
@@ -622,13 +681,23 @@ class ReminderConfirmation:
         return self.type_text_area.text not in [ReminderKeyType.DATE.label,
                                             ReminderKeyType.LATER.label,
                                             ReminderKeyType.NOW.label]
-
-    def is_modifiers_enabled(self) -> bool:
+    
+    def is_command_enabled(self) -> bool:
         """
-        Evaluates whether modifier options should be available for the reminder type.
+        Determines if the 'Command' field should be enabled based on the selected reminder type.
 
         Returns:
-            bool: True if modifiers are applicable, False otherwise.
+            bool: True if the reminder type allows for a command, False otherwise.
+        """
+
+        return self.type_text_area.text not in [ReminderKeyType.LATER.label]
+    
+    def is_delete_enabled(self) -> bool:
+        """
+        Determines if the 'Delete' checkbox should be enabled based on the selected reminder type.
+
+        Returns:
+            bool: True if the reminder type allows for deletion, False otherwise.
         """
 
         return self.type_text_area.text not in [ReminderKeyType.LATER.label,

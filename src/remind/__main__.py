@@ -3,7 +3,7 @@ The main entrypoint
 """
 
 import argparse
-
+from importlib.metadata import version
 from . import reminder_manager
 from . import query_manager
 
@@ -70,6 +70,13 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         "--g",
         action="store_true",
         help="generate reminders.",
+    )
+
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=version('remindmail')
     )
 
     parser.add_argument(
