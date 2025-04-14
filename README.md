@@ -3,8 +3,7 @@ A powerful CLI designed to help you schedule and organize reminders efficiently 
 Easily manage your To Do list, schedule one-time or recurring reminders, add notes, and view and manage upcoming reminders, all from the comfort of your terminal.
 
 ## Table of Contents
-- [RemindMail: Reminder Management Tool](#remindmail-reminder-management-tool)
-  - [Table of Contents](#table-of-contents)
+- [✨ New in 3.0.0:](#-new-in-300)
 - [Features](#features)
 - [Dependencies](#dependencies)
 - [Installation and Setup](#installation-and-setup)
@@ -34,6 +33,13 @@ Easily manage your To Do list, schedule one-time or recurring reminders, add not
 - [License](#license)
 - [Disclaimer](#disclaimer)
 - [Author Info](#author-info)
+
+# ✨ New in 3.0.0:
+- Migrated from a custom `.md` file to a YAML file
+  - Allows for easier extensibility in future releases
+- Added optional tags for more flexible scheduling
+- Better handling for errors and edge case
+- Improved TUI for delete and command options
 
 # Features
 RemindMail offers a variety of features to enhance your productivity:
