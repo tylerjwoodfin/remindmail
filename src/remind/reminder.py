@@ -1,19 +1,17 @@
 """
 The main class
 """
-from datetime import datetime, date, timedelta
+import calendar
+from datetime import date, datetime, timedelta
+import os
+from pathlib import Path
+import subprocess
 from typing import Optional
 from enum import Enum
 from cabinet import Cabinet, Mail
-
+import yaml
+from remind.error_handler import ErrorHandler
 class ReminderKeyType(Enum):
-    """
-    Enum for `Reminder.key` with database value and label.
-
-    Attributes:
-        db_value (str): The database value associated with the enum member.
-        label (str): The human-readable label for the enum member.
-    """
     DATE = ("date", "Date")
     DAY = ("d", "Day")
     WEEK = ("w", "Week")
@@ -31,22 +29,24 @@ class ReminderKeyType(Enum):
 
     @classmethod
     def from_db_value(cls, db_value):
-        """
-        Retrieves the enum member associated with a specific database value.
-
-        Args:
-            db_value (str): The database value to match against enum members.
-
-        Raises:
-            ValueError: If `db_value` does not correspond to any enum members.
-
-        Returns:
-            ReminderKeyType: The enum member matching the given database value.
-        """
         for member in cls:
             if member.db_value == db_value:
                 return member
         raise ValueError(f"{db_value} is not a valid db_value of ReminderKeyType")
+
+    @classmethod
+    def from_csv_values(cls, csv_string):
+        """
+        Parses a comma-separated string of db_values and returns a list of matching enum members.
+
+        Args:
+            csv_string (str): Comma-separated string of db_values like 'mon,wed,fri'
+
+        Returns:
+            List[ReminderKeyType]: List of corresponding enum members
+        """
+        values = [v.strip() for v in csv_string.split(",")]
+        return [cls.from_db_value(v) for v in values]
 
     @classmethod
     def is_key_day_of_week(cls, key):
@@ -94,40 +94,48 @@ class Reminder:
             - otherwise, value is ignored
         frequency (Optional[int]): Defines the frequency or interval for the reminder.
         offset (int): Adjusts the starting point of the reminder.
-        modifiers (str): Contains actions for the reminder, such as delete ('d') or command ('c').
+        delete (bool): Whether to delete the reminder.
+        command (str): If set, runs the command and outputs the results to the body of the email.
         title (str): The title or main content of the reminder.
         notes (str): Additional notes associated with the reminder.
-        index (int): The index of the actual line in which this reminder starts in remind.md
+        index (int): The index of the actual line in which this reminder starts in remindmail.yml
         cabinet (Cabinet): instance of Cabinet, a file management tool
         mail (Mail): The instance in which to send reminders as emails
-        path_remind_file: The path from ReminderManager in which to access remind.md
+        path_remind_file: The path from ReminderManager in which to access remindmail.yml
     """
     def __init__(self,
-                 key,
-                 value: Optional[str],
+                 key: ReminderKeyType,
+                 title: str,
+                 value: Optional[date|str],
                  frequency: Optional[int],
                  starts_on: Optional[str],
                  offset: int,
-                 modifiers: str,
-                 title: str,
-                 notes: Optional[str],
+                 delete: bool,
+                 command: str,
+                 notes: str,
                  index: int,
                  cabinet: Cabinet,
                  mail: Mail,
-                 path_remind_file: str | None):
+                 path_remind_file: str) -> None:
         self.key = key
-        self.value: Optional[str] = value
-        self.frequency: int = frequency or 0
-        self.offset: int = offset
-        self.modifiers: str = modifiers
-        self.title: str = title
-        self.notes: Optional[str] = notes
-        self.starts_on: Optional[str] = starts_on
-        self.index: int = index
-        self.should_send_today: Optional[bool] = False
-        self.cabinet: Cabinet = cabinet
-        self.mail: Mail = mail
-        self.path_remind_file: str | None = path_remind_file
+        self.value = value
+        self.frequency = frequency
+        self.starts_on = starts_on
+        self.offset = offset
+        self.delete = delete
+        self.command = command
+        self.title = title
+        self.notes = notes
+        self.index = index
+        self.cabinet = cabinet
+        self.mail = mail
+        self.path_remind_file = path_remind_file
+        self.should_send_today = False
+        self.canceled = False # set to True if user cancels reminder in confirmation
+        self.error_handler = ErrorHandler()
+        
+        if self.path_remind_file == '':
+            raise ValueError("path_remind_file cannot be empty")
 
     def __repr__(self) -> str:
         return (
@@ -136,126 +144,170 @@ class Reminder:
             f"frequency={self.frequency}, "
             f"starts_on={self.starts_on}, "
             f"offset={self.offset}, "
-            f"modifiers='{self.modifiers}', "
+            f"delete={self.delete}, "
+            f"command='{self.command}', "
             f"title='{self.title}', "
             f"notes='{self.notes}', "
             f"should_send_today={self.should_send_today})"
             "\n"
         )
+    
+    def __str__(self):
+        return self.__repr__()
 
-    def get_should_send_today(self, date_override: date | None = None) -> bool:
+    def get_should_send_today(self, target_date: date | None = None) -> bool:
         """
-        Determines whether the reminder should be sent today based on its scheduling configuration.
-
-        This method evaluates the reminder's key, value, frequency, start date, and offset to
-        calculate whether the current day matches the scheduled day for the reminder to be sent.
-        It supports various reminder keys, including specific dates, days of the week,
-        daily/weekly/monthly intervals, and specific days of the month. The calculation considers
-        the current date, or an optional override date, to determine if the conditions for sending
-        the reminder are met today.
+        Determines if the reminder should be sent today.
 
         Args:
-            date_override (datetime.date, optional): A specific date to evaluate the reminder
-            against, instead of the current date.
+            target_date (date, optional): The date to check against. If None, uses today's date.
 
         Returns:
-            bool:   True if the reminder should be sent today based on its scheduling details
-                    False otherwise.
+            bool: True if the reminder should be sent today, False otherwise.
         """
-        today = date_override or datetime.now().date()
+        if target_date is None:
+            target_date = date.today()
 
-        # Handle starts_on
-        if self.starts_on:
-            start_date = datetime.strptime(self.starts_on, '%Y-%m-%d').date()
-            if today < start_date:
-                return False
-
-        # Handle date-specific reminders
-        if self.key == ReminderKeyType.DATE and self.value:
-            if len(self.value) == 5:  # MM-DD format
-                reminder_date = datetime.strptime(f"{today.year}-{self.value}", '%Y-%m-%d').date()
-                if reminder_date < today:
-                    reminder_date = datetime.strptime(
-                        f"{today.year + 1}-{self.value}", '%Y-%m-%d').date()
+        # Handle different reminder types
+        if self.key == ReminderKeyType.DATE:
+            # Parse the date string (YYYY-MM-DD or MM-DD)
+            date_parts = str(self.value).split('-')
+            if len(date_parts) == 2:  # MM-DD format
+                month, day = map(int, date_parts)
+                year = target_date.year
+                # If the date has already passed this year, use next year
+                if (month, day) < (target_date.month, target_date.day):
+                    year += 1
             else:  # YYYY-MM-DD format
-                reminder_date = datetime.strptime(self.value, '%Y-%m-%d').date()
+                year, month, day = map(int, date_parts)
 
-                # if the reminder is scheduled in the past as YYYY-MM-DD
-                # and it didn't send, then for the purposes of `generate()`,
-                # set the date to today so it can send, then add a note about it.
-                if reminder_date < today:
-                    if not self.notes:
-                        self.notes = ""
-                    self.notes += f"This was scheduled to send on {reminder_date}.\n"
-                    reminder_date = datetime.now().date()
-            return reminder_date == today
+            # if date is in the past and target date is today, append warning to notes
+            if (year, month, day) < (target_date.year, target_date.month, target_date.day) \
+                and not self.canceled:
+                self.notes += f"Warning: Reminder was scheduled for {self.value}."
+                self.value = date(target_date.year, target_date.month, target_date.day) + timedelta(days=1)
 
-        # Handle day of the week reminders
-        elif ReminderKeyType.is_key_day_of_week(self.key) and self.value:
-            dow_mapping = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
+            self.canceled = True
+            return (target_date.year, target_date.month, target_date.day) == (year, month, day)
 
-            # default to non-existant day
-            target_dow = dow_mapping.get(self.value.lower(), 7)
+        elif self.key == ReminderKeyType.DAY_OF_MONTH:
+            if not self.value or not str(self.value).isdigit():
+                raise ValueError("Reminder day of month cannot be empty and must be an integer for day of month reminders.")
+            return target_date.day == self.value
 
-            # handle day not found
-            if target_dow == 7:
-                self.cabinet.log(
-                    f"Could not map {self.value} to a day of the week. Use [sun] to [sat].",
-                    level="warn"
-                )
+        elif self.key in [ReminderKeyType.MONDAY, ReminderKeyType.TUESDAY,
+                         ReminderKeyType.WEDNESDAY, ReminderKeyType.THURSDAY,
+                         ReminderKeyType.FRIDAY, ReminderKeyType.SATURDAY,
+                         ReminderKeyType.SUNDAY]:
+            # Get the weekday number (0-6, Monday-Sunday)
+            target_weekday = target_date.weekday()
 
-            if today.weekday() != target_dow:
+            reminder_weekday_str = self.key.label  # e.g., "Sunday"
+            reminder_weekday_int = list(calendar.day_name).index(reminder_weekday_str)
+
+            if target_weekday != reminder_weekday_int:
                 return False
 
-            # calculate the number of days since the epoch start
-            epoch_start = date(1970, 1, 1)
-            days_since_epoch = (today - epoch_start).days
+            # If frequency is set, check if it's the right week
+            if self.frequency and self.frequency > 1:
+                # Calculate weeks since epoch
+                epoch = date(1970, 1, 1)
+                days_since_epoch = (target_date - epoch).days
+                weeks_since_epoch = days_since_epoch // 7
 
-            # find the first occurrence of the target day of the week from epoch
-            days_to_target_dow = (target_dow - epoch_start.weekday()) % 7
-            first_target_dow = epoch_start + timedelta(days=days_to_target_dow)
+                # Apply offset
+                weeks_since_epoch -= self.offset
 
-            # calculate weeks since the first occurrence of the target day
-            weeks_since_first_target = (today - first_target_dow).days // 7
+                # Check if it's the right week
+                return weeks_since_epoch % self.frequency == 0
 
-            # adjust for offset and check against frequency
-            adjusted_weeks = weeks_since_first_target - self.offset
-            return adjusted_weeks % self.frequency == 0
+            return True
 
-        # Handle every n days
         elif self.key == ReminderKeyType.DAY:
-            if self.frequency > 0:
-                epoch_start = date(1970, 1, 1)
-                days_since_epoch = (today - epoch_start).days
-                adjusted_days = days_since_epoch - self.offset
-                return adjusted_days % self.frequency == 0
-            return True
+            if not self.frequency:
+                return True
 
-        # Handle weekly reminders
+            # Calculate days since epoch
+            epoch = date(1970, 1, 1)
+            days_since_epoch = (target_date - epoch).days
+
+            # Apply offset
+            days_since_epoch -= self.offset
+
+            # Check if it's the right day
+            return days_since_epoch % self.frequency == 0
+
         elif self.key == ReminderKeyType.WEEK:
-            if self.frequency > 0:
-                start_date = today - timedelta(weeks=self.offset)
-                weeks_diff = (today - start_date).days // 7
-                return weeks_diff % self.frequency == 0 and today.weekday() == 6
+            if not self.frequency:
+                return True
+
+            # Calculate weeks since epoch
+            epoch = date(1970, 1, 1)
+            days_since_epoch = (target_date - epoch).days
+            weeks_since_epoch = days_since_epoch // 7
+
+            # Apply offset
+            weeks_since_epoch -= self.offset
+
+            # Check if it's the right week
+            return weeks_since_epoch % self.frequency == 0
+
+        elif self.key == ReminderKeyType.MONTH:
+            if not self.frequency:
+                # return if first of the month
+                return target_date.day == 1
+
+            # Calculate months since epoch
+            epoch = date(1970, 1, 1)
+            months_since_epoch = (target_date.year - epoch.year) * 12 + \
+                               (target_date.month - epoch.month)
+
+            # Apply offset
+            months_since_epoch -= self.offset
+
+            # Check if it's the right month
+            return months_since_epoch % self.frequency == 0 and target_date.day == 1
+
+        elif self.key == ReminderKeyType.LATER:
+            return False
+
+        elif self.key == ReminderKeyType.NOW:
             return True
-
-        # Handle monthly reminders
-        elif self.key == ReminderKeyType.MONTH and self.frequency:
-            months_since_start = today.month + (today.year - 1970) * 12 - self.offset
-            return today.day == 1 and months_since_start % self.frequency == 0
-
-        # Handle day of the month reminders
-        elif self.key == ReminderKeyType.DAY_OF_MONTH and self.value:
-            day_of_month = int(self.value)
-
-            if day_of_month > 31:
-                self.cabinet.log(
-                    f"{day_of_month} in {self.title}: no month has more than 31 days",
-                    level="error")
-            return today.day == day_of_month
 
         return False
 
+    def send(self, is_quiet: bool = False) -> None:
+        """
+        Sends the reminder via email or executes it as a command.
+        """
+
+        if self.command:
+            # Execute as command
+            self.cabinet.log(f"Executing command: {self.command}", level="debug")
+            try:
+                # Add path so things like `cabinet` calls work from crontab
+                home_dir = os.path.expanduser("~")
+                path_local_bin = os.path.join(home_dir, ".local/bin")
+                os.environ["PATH"] = f"{path_local_bin}:{os.environ['PATH']}"
+
+                cmd_output = subprocess.check_output(
+                    self.command, shell=True, universal_newlines=True
+                )
+                self.cabinet.log(f"Results: {cmd_output}", level="debug")
+
+                if not self.notes:
+                    self.notes = ""
+                self.notes += f"<br><br>{cmd_output}"
+            except subprocess.CalledProcessError as error:
+                self.cabinet.log(
+                    f"Command execution failed with exit code: {error.returncode}",
+                    level="error",
+                )
+                self.cabinet.log(
+                    f"Error output: {error.output}", level="error"
+                )
+
+        self.send_email(is_quiet=is_quiet)
 
     def send_email(self, is_quiet: bool = False) -> None:
         """
@@ -266,71 +318,80 @@ class Reminder:
             Defaults to False.
         """
 
-        email_icons = ""
+        email_icons = "🗒️" if self.notes else ""
+        if self.command:
+            email_icons += "💻"
 
-        if self.notes:
-            email_icons += "🗒️"
-
-        # add more icons in future iterations
-
-        email_icons = f"{email_icons} " if email_icons else email_icons
         email_title = f"Reminder {email_icons}- {self.title}"
 
         self.cabinet.logdb(self.title, collection_name="reminders")
-
         self.mail.send(email_title, self.notes or "", is_quiet=is_quiet)
 
     def write_to_file(self, is_quiet: bool = True) -> None:
         """
-        Writes the reminder to remind.md.
+        Appends this reminder to `remindmail.yml` in valid YAML format.
 
         Args:
-            is_quiet (bool, optional): whether to print cabinet log.
-            Defaults to True.
+            is_quiet (bool, optional): Whether to print cabinet log output.
         """
+        reminder_dict = {
+            "name": self.title,
+            "date": self.value,
+        }
 
-        def format_reminder():
-            """
-            Formats the reminder for writing to file based on its attributes.
-            """
-            base_format = f"\n[{self.key.db_value}"
-            if self.key == ReminderKeyType.DATE:
-                base_format = "["
+        # Handle reminder type
+        if self.key == ReminderKeyType.LATER:
+            reminder_dict["later"] = True
+        elif self.key == ReminderKeyType.DATE:
+            if not self.value or not self.error_handler.is_valid_date(str(self.value)):
+                raise ValueError("Reminder date cannot be empty and must be a date for date reminders.")
+            reminder_dict["date"] = datetime.strptime(str(self.value), '%Y-%m-%d').date()
+        elif self.key == ReminderKeyType.DAY_OF_MONTH:
+            if not self.value or not self.error_handler.is_valid_date(str(self.value)):
+                raise ValueError("Reminder day of month cannot be empty and must be an integer for day of month reminders.")
+            reminder_dict["dom"] = self.value
+        elif self.key in {
+            ReminderKeyType.SUNDAY, ReminderKeyType.MONDAY, ReminderKeyType.TUESDAY,
+            ReminderKeyType.WEDNESDAY, ReminderKeyType.THURSDAY,
+            ReminderKeyType.FRIDAY, ReminderKeyType.SATURDAY
+        }:
+            reminder_dict["day"] = self.key.db_value
+        elif self.key == ReminderKeyType.WEEK:
+            reminder_dict["every"] = self.frequency
+            reminder_dict["unit"] = "weeks"
+        elif self.key == ReminderKeyType.MONTH:
+            reminder_dict["every"] = self.frequency
+            reminder_dict["unit"] = "months"
+        elif self.key == ReminderKeyType.DAY:
+            reminder_dict["every"] = self.frequency
 
-            if self.key not in [ReminderKeyType.DATE, ReminderKeyType.DAY_OF_MONTH]:
-                self.value = ""
+        # Optional fields
+        if self.offset:
+            reminder_dict["offset"] = self.offset
+        if self.notes:
+            reminder_dict["notes"] = self.notes
+        if self.delete:
+            reminder_dict["delete"] = True
+        if self.command:
+            reminder_dict["command"] = self.command
 
-            if self.value:
-                base_format += f",{self.value}"
-            if self.frequency:
-                base_format += f",{self.frequency}"
-                if self.starts_on: # requires frequency
-                    base_format += f"->{self.starts_on}"
-            if self.offset:
-                base_format += f",{self.offset}"
-
-            if self.key == ReminderKeyType.LATER:
-                base_format = "[later"
-                self.modifiers = ""
-
-            base_format += f"]{self.modifiers} {self.title}\n"
-
-
-            if self.notes:
-                base_format += f"{self.notes}\n"
-
-            base_format = base_format.replace("[,", "[")
-
-            return base_format
-
-        reminder_format = format_reminder()
-
+        # Load existing file (if any)
         path_remind_file = self.path_remind_file or \
             self.cabinet.get('path', 'remindmail', 'file') or ""
-        path_remind_folder = path_remind_file.replace("/remind.md", "")
+        remind_path = Path(path_remind_file)
 
-        self.cabinet.write_file('remind.md',
-                                path_remind_folder,
-                                reminder_format,
-                                append=True,
-                                is_quiet=is_quiet)
+        if remind_path.exists():
+            with open(remind_path, "r") as f:
+                data = yaml.safe_load(f) or {}
+        else:
+            data = {}
+
+        # Append new reminder
+        data.setdefault("reminders", []).append(reminder_dict)
+
+        # Write it back
+        with open(remind_path, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+
+        if not is_quiet:
+            self.cabinet.log(f"Wrote reminder to {remind_path}")

@@ -6,7 +6,7 @@ import traceback
 from typing import Callable
 from functools import wraps
 import sys
-
+from datetime import datetime
 class ErrorHandler:
     """
     Handles and tries to resolve errors
@@ -38,3 +38,13 @@ class ErrorHandler:
                 traceback.print_exc()
 
         return wrapper
+
+    def is_valid_date(self, date_str: str) -> bool:
+        """
+        Checks if a date string is valid
+        """
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            return True
+        except ValueError:
+            return False

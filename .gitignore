@@ -9,3 +9,4 @@ lib64
 include
 pyvenv.cfg
 remind.md
+remindmail.yml

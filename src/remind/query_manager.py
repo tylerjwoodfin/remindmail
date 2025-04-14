@@ -116,7 +116,7 @@ class QueryManager:
         key: ReminderKeyType | None = None
         value = ''
         frequency = None
-        modifiers = 'd'
+        delete = True
 
         # parse input_str
         if 'every' not in input_str:
@@ -175,6 +175,7 @@ class QueryManager:
             elif input_str == 'tomorrow':
                 key = ReminderKeyType.DATE
                 start_date += relativedelta(days=1)
+                delete = True
                 value = start_date.strftime('%Y-%m-%d')
 
             # now
@@ -184,11 +185,8 @@ class QueryManager:
             # later
             elif input_str == 'later':
                 key = ReminderKeyType.LATER
-
+                delete = False
         else:
-            # 'every'
-            modifiers = ''
-
             # every n days
             if match := regex_patterns['every_n_days'].match(input_str):
                 key = ReminderKeyType.DAY
@@ -238,7 +236,6 @@ class QueryManager:
             elif match := regex_patterns['every_weeks'].match(input_str):
                 key = ReminderKeyType.WEEK
                 frequency = int(match.group(1))
-                modifiers = ''
 
         if key is None:
             self.cabinet.log(f"Could not parse date: {input_str}",
@@ -249,14 +246,15 @@ class QueryManager:
                         value=value,
                         frequency=frequency,
                         starts_on='',
-                        modifiers=modifiers,
+                        delete=delete,
+                        command='',
                         title='',
                         notes='',
                         index=0,
                         offset=0,
                         cabinet=self.cabinet,
                         mail=self.mail,
-                        path_remind_file=self.manager.remind_path_file)
+                        path_remind_file=self.manager.remind_path_file or '')
 
     def wizard_manual_reminder(self, title: str | None = None,
                                when: str | None = None,
@@ -271,7 +269,7 @@ class QueryManager:
         Parameters:
             - title (str, optional): the reminder's title (email subject)
             - when (str, optional): when you should be reminded, in natural language
-            - notes (str, optional): notes (sent in the email body)
+            - notes (str, optional): notes (sent in the email body; HTML supported)
         Returns:
             - Reminder: An instance of the Reminder class with
             properties populated based on user input.
@@ -293,7 +291,7 @@ class QueryManager:
 
                 reminder: Reminder = self.interpret_reminder_date(reminder_date)
                 reminder.title = title
-                reminder.notes = notes
+                reminder.notes = notes or ''
                 reminder.starts_on = starts_on
                 reminder_date_success = True
             except ValueError as e:
@@ -309,8 +307,8 @@ class QueryManager:
         else:
             print_formatted_text(HTML('<ansigreen><b>Done.</b></ansigreen>'))
 
-        # 'x' placed by ReminderConfirmation if cancelled
-        if 'x' in reminder.modifiers:
+        # 'canceled' placed by ReminderConfirmation if canceled
+        if reminder.canceled:
             return reminder
 
         if reminder.key == ReminderKeyType.NOW:
