@@ -4,7 +4,7 @@ handles reminder requests
 
 import re
 import sys
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta, MO, TU, WE, TH, FR, SA, SU
 from remind.reminder import Reminder, ReminderKeyType
@@ -260,7 +260,8 @@ class QueryManager:
                                when: str | None = None,
                                notes: str | None = None,
                                starts_on: str | None = None,
-                               save: bool = False) -> Reminder:
+                               save: bool = False,
+                               tags: List[str] | None = None) -> Reminder:
         """
         Guides the user through the process of creating a new manual reminder
         by collecting necessary information
@@ -270,6 +271,9 @@ class QueryManager:
             - title (str, optional): the reminder's title (email subject)
             - when (str, optional): when you should be reminded, in natural language
             - notes (str, optional): notes (sent in the email body; HTML supported)
+            - starts_on (str, optional): when the reminder should start
+            - save (bool, optional): whether to save without confirmation
+            - tags (List[str], optional): list of tags for the reminder
         Returns:
             - Reminder: An instance of the Reminder class with
             properties populated based on user input.
@@ -293,6 +297,7 @@ class QueryManager:
                 reminder.title = title
                 reminder.notes = notes or ''
                 reminder.starts_on = starts_on
+                reminder.tags = tags or []
                 reminder_date_success = True
             except ValueError as e:
                 print(e)

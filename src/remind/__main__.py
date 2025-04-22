@@ -162,7 +162,8 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
                 when=args.when,
                 notes=args.notes,
                 starts_on=args.starts_on,
-                save=args.save
+                save=args.save,
+                tags=tags
             )
 
     except KeyboardInterrupt as exc:
