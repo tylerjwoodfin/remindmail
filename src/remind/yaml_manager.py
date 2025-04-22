@@ -59,6 +59,10 @@ class YAMLManager:
             'notes': reminder.notes
         }
 
+        # Add tags if present
+        if reminder.tags:
+            reminder_dict['tags'] = reminder.tags
+
         # Handle different reminder types
         if reminder.key == ReminderKeyType.LATER:
             reminder_dict['later'] = True
@@ -98,10 +102,10 @@ class YAMLManager:
     @staticmethod
     def dict_to_reminders(reminder_dict: Dict[str, Any], cabinet, mail, path_remind_file: str) -> list[Reminder]:
         """
-        Converts a dictionary to one or more Reminder objects.
+        Converts a dictionary to a list of Reminder objects.
         
         Args:
-            reminder_dict (Dict[str, Any]): Dictionary representation of the reminder
+            reminder_dict (Dict[str, Any]): Dictionary containing reminder data
             cabinet: Cabinet instance
             mail: Mail instance
             path_remind_file (str): Path to the reminders file
@@ -110,45 +114,113 @@ class YAMLManager:
             list[Reminder]: List of Reminder objects
         """
         reminders = []
-        frequency = None
-        base_kwargs = {
-            "starts_on": "",
-            "title": reminder_dict['name'],
-            "notes": reminder_dict.get('notes', ''),
-            "delete": reminder_dict.get('delete', False),
-            "command": reminder_dict.get('command', ''),
-            "index": 0,
-            "offset": reminder_dict.get('offset', 0),
-            "cabinet": cabinet,
-            "mail": mail,
-            "path_remind_file": path_remind_file
-        }
-
-        if reminder_dict.get('later', False):
-            reminders.append(Reminder(key=ReminderKeyType.LATER, frequency=None, value=None, **base_kwargs))
-
+        
+        # Get tags if present
+        tags = reminder_dict.get('tags', [])
+        if isinstance(tags, str):
+            tags = [tag.strip() for tag in tags.split(',')]
+        
+        # Create reminder based on type
+        if 'later' in reminder_dict:
+            reminders.append(Reminder(
+                key=ReminderKeyType.LATER,
+                title=reminder_dict['name'],
+                value=None,
+                frequency=None,
+                starts_on=None,
+                offset=0,
+                delete=reminder_dict.get('delete', False),
+                command=reminder_dict.get('command', ''),
+                notes=reminder_dict.get('notes', ''),
+                index=0,
+                cabinet=cabinet,
+                mail=mail,
+                path_remind_file=path_remind_file,
+                tags=tags
+            ))
         elif 'date' in reminder_dict:
-            reminders.append(Reminder(key=ReminderKeyType.DATE, frequency=None, value=reminder_dict['date'], **base_kwargs))
-
+            reminders.append(Reminder(
+                key=ReminderKeyType.DATE,
+                title=reminder_dict['name'],
+                value=reminder_dict['date'],
+                frequency=None,
+                starts_on=None,
+                offset=0,
+                delete=reminder_dict.get('delete', False),
+                command=reminder_dict.get('command', ''),
+                notes=reminder_dict.get('notes', ''),
+                index=0,
+                cabinet=cabinet,
+                mail=mail,
+                path_remind_file=path_remind_file,
+                tags=tags
+            ))
         elif 'dom' in reminder_dict:
-            reminders.append(Reminder(key=ReminderKeyType.DAY_OF_MONTH, frequency=None, value=str(reminder_dict['dom']), **base_kwargs))
-
+            reminders.append(Reminder(
+                key=ReminderKeyType.DAY_OF_MONTH,
+                title=reminder_dict['name'],
+                value=reminder_dict['dom'],
+                frequency=None,
+                starts_on=None,
+                offset=0,
+                delete=reminder_dict.get('delete', False),
+                command=reminder_dict.get('command', ''),
+                notes=reminder_dict.get('notes', ''),
+                index=0,
+                cabinet=cabinet,
+                mail=mail,
+                path_remind_file=path_remind_file,
+                tags=tags
+            ))
         elif 'day' in reminder_dict:
             day = reminder_dict['day']
-            keys = ReminderKeyType.from_csv_values(day) if ',' in day else [ReminderKeyType.from_db_value(day)]
-            frequency = reminder_dict.get('every', 1)
+            # Handle comma-separated days
+            if ',' in day:
+                keys = ReminderKeyType.from_csv_values(day)
+            else:
+                keys = [ReminderKeyType.from_db_value(day)]
+                
             for key in keys:
-                reminders.append(Reminder(key=key, value=None, frequency=frequency, **base_kwargs))
-
+                reminders.append(Reminder(
+                    key=key,
+                    title=reminder_dict['name'],
+                    value=None,
+                    frequency=reminder_dict.get('every', 1),
+                    starts_on=None,
+                    offset=reminder_dict.get('offset', 0),
+                    delete=reminder_dict.get('delete', False),
+                    command=reminder_dict.get('command', ''),
+                    notes=reminder_dict.get('notes', ''),
+                    index=0,
+                    cabinet=cabinet,
+                    mail=mail,
+                    path_remind_file=path_remind_file,
+                    tags=tags
+                ))
         elif 'every' in reminder_dict:
-            frequency = reminder_dict['every']
-            unit = reminder_dict.get('unit')
+            unit = reminder_dict.get('unit', 'days')
             if unit == 'weeks':
                 key = ReminderKeyType.WEEK
             elif unit == 'months':
                 key = ReminderKeyType.MONTH
             else:
                 key = ReminderKeyType.DAY
-            reminders.append(Reminder(key=key, value=None, frequency=frequency, **base_kwargs))
-
+                
+            reminders.append(Reminder(
+                key=key,
+                title=reminder_dict['name'],
+                value=None,
+                frequency=reminder_dict['every'],
+                starts_on=None,
+                offset=reminder_dict.get('offset', 0),
+                delete=reminder_dict.get('delete', False),
+                command=reminder_dict.get('command', ''),
+                notes=reminder_dict.get('notes', ''),
+                index=0,
+                cabinet=cabinet,
+                mail=mail,
+                path_remind_file=path_remind_file,
+                tags=tags
+            ))
+            
         return reminders

@@ -6,7 +6,7 @@ import os
 import glob
 import readline
 from datetime import date, timedelta, datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from rich.console import Console
 from remind.reminder import ReminderKeyType
 from remind.yaml_manager import YAMLManager
@@ -145,40 +145,35 @@ class ReminderManager:
         YAMLManager.write_yaml_file(self.remind_path_file, reminder_dicts)
 
     @error_handler.ErrorHandler.exception_handler
-    def generate(self, is_dry_run: bool) -> None:
+    def generate(self, is_dry_run: bool, tags: Optional[List[str]] = None) -> None:
         """
-        Sends or executes reminders from the file that are scheduled to send today 
-        (per parse_reminders_file).
+        Generates and sends reminders for today.
         
         Args:
-            is_dry_run (bool): If True, the method will not send emails or execute commands.
-                Instead, it will log the reminders that would be sent or executed
-        
-        Afterwards, delete the reminders from the file.
+            is_dry_run (bool): If True, only show what would be sent without actually sending
+            tags (Optional[List[str]]): Optional list of tags to filter reminders by
         """
-
-        if not self.parsed_reminders:
-            self.parse_reminders_file()
-
-        count_sent = 0
-
-        if self.mail is None:
-            self.mail = Mail()
-
-        self.cabinet.log("Generating Reminders")
-        for r in self.parsed_reminders:
-            if r.should_send_today:
+        self.parse_reminders_file()
+        self.cabinet.log(f"Parsed {len(self.parsed_reminders)} reminders", level="info")
+        
+        # Filter reminders by tags if specified
+        if tags:
+            self.cabinet.log(f"Filtering by tags: {tags}", level="info")
+            self.parsed_reminders = [
+                r for r in self.parsed_reminders 
+                if any(tag in r.tags for tag in tags)
+            ]
+            
+        # Send reminders
+        self.cabinet.log(f"{len(self.parsed_reminders)} with tags in: {tags}",
+                         level="info")
+        for reminder in self.parsed_reminders:
+            if reminder.should_send_today:
                 if is_dry_run:
-                    self.cabinet.log(f"Would send: {repr(r)}")
+                    self.console.print(f"[yellow]Would send reminder:\n[/yellow] {reminder}")
+                    self.cabinet.log(f"Would send reminder: {reminder}", level="info", is_quiet=True)
                 else:
-                    r.send()
-                count_sent += 1
-
-        self.cabinet.log(f"Sent {count_sent} reminders")
-
-        # Delete reminders that were sent
-        if not is_dry_run:
-            self.parse_reminders_file(is_delete=True)
+                    reminder.send()
 
     def show_later(self) -> None:
         """
@@ -193,16 +188,13 @@ class ReminderManager:
                 self.console.print(r.title, style="bold green")
                 print(r.notes)
 
-    def show_reminders_for_days(self, limit: int = 8) -> None:
+    def show_reminders_for_days(self, limit: int = 8, tags: Optional[List[str]] = None) -> None:
         """
         Displays reminders scheduled for the upcoming <limit> days.
 
-        This method calculates the dates for the next <limit> days, starting from tomorrow
-        (today if between midnight and 4am),
-        and it checks each day for scheduled reminders. For each day, it prints the date
-        and any corresponding reminders. If there are no reminders for a specific day,
-        it indicates so. Reminders with specific modifiers change the display style
-        to highlight their importance or category.
+        Args:
+            limit (int): The number of days to display reminders for
+            tags (Optional[List[str]]): Optional list of tags to filter reminders by
         """
 
         current_time = datetime.now().time()
@@ -216,10 +208,20 @@ class ReminderManager:
         if not self.parsed_reminders:
             self.parse_reminders_file()
 
+        # Filter reminders by tags if specified
+        if tags:
+            self.parsed_reminders = [
+                r for r in self.parsed_reminders 
+                if any(tag in r.tags for tag in tags)
+            ]
+
         # Iterate through each upcoming day
         for day in dates:
             formatted_date = day.strftime("%Y-%m-%d, %A")
-            self.console.print(f"[bold blue on white]{formatted_date}", highlight=False)
+            if tags:
+                formatted_date = f"{formatted_date} -> {tags}"
+            self.console.print(f"[bold blue on white]{formatted_date}[/bold blue on white]",
+                               highlight=False)
 
             # Track the number of reminders shown for the day
             reminder_shown = False
