@@ -377,6 +377,8 @@ class Reminder:
             reminder_dict["notes"] = self.notes
         if self.delete:
             reminder_dict["delete"] = True
+        if self.tags:
+            reminder_dict["tags"] = self.tags
         if self.command:
             reminder_dict["command"] = self.command
 

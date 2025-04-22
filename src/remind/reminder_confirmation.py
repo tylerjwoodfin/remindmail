@@ -47,17 +47,25 @@ class ReminderConfirmation:
         self.reminder.command = self.command_text_area.text
         self.reminder.delete = self.delete_checkbox_checked
         
+        # Handle tags
+        tags_text = self.tags_text_area.text.strip()
+        if tags_text:
+            self.reminder.tags = [tag.strip() for tag in tags_text.split(',')]
+        else:
+            self.reminder.tags = []
+        
         # warn if reminder is in the past
         if self.reminder.key == ReminderKeyType.DATE and self.reminder.value and \
             datetime.datetime.strptime(self.reminder.value, '%Y-%m-%d') < datetime.datetime.now():
             print_formatted_text(HTML(
                 f'<ansired><b>Warning: Reminder date is in the past.\nReminder will be sent next time `generate` is run.</b></ansired>'))
 
-        confirmation_text = "Saved"
+        confirmation_text = f"Saved"
         if self.reminder.key == ReminderKeyType.NOW:
             confirmation_text = "Sent"
 
         print_formatted_text(HTML(f'<ansigreen><b>{confirmation_text}.</b></ansigreen>'))
+
         self.application.exit(result="cancel")
         # save logic is handled in query manager
 
@@ -156,6 +164,11 @@ class ReminderConfirmation:
         self.starts_on_text_area = generate_textarea(self.reminder.starts_on, 'Starts On')
         self.offset_input_text_area = generate_textarea(str(self.reminder.offset), 'Offset', True)
         
+        # Add tags text area (optional)
+        self.tags_text_area = generate_textarea(
+            ','.join(self.reminder.tags) if self.reminder.tags else None,
+            'Tags (comma-separated)', False)
+
         # Add command text area (optional)
         self.command_text_area = generate_textarea(
             getattr(self.reminder, 'command', ''), 
@@ -194,6 +207,12 @@ class ReminderConfirmation:
             filter=Condition(self.is_offset_enabled)
         )
 
+        # tags
+        self.tags_input = ConditionalContainer(
+            content=self.tags_text_area,
+            filter=Condition(self.is_tags_enabled)
+        )
+
         # command
         self.command_input = ConditionalContainer(
             content=self.command_text_area,
@@ -211,10 +230,11 @@ class ReminderConfirmation:
                                     multiline=True, prompt='Notes: ')
 
         # save
-        self.save_button = TextArea(text='Save',
-                                    read_only=True,
-                                    multiline=False,
-                                    style='fg:ansigreen')
+        self.save_button = TextArea(
+            text='Send' if self.reminder.key == ReminderKeyType.NOW else 'Save',
+            read_only=True,
+            multiline=False,
+            style='fg:ansigreen')
 
         # cancel
         self.cancel_button = TextArea(text='Cancel',
@@ -280,6 +300,7 @@ class ReminderConfirmation:
             self.starts_on_input,
             self.offset_input,
             self.command_input,
+            self.tags_input,
             self.delete_input,
             HSplit(children=[
                 self.notes_text_area
@@ -533,6 +554,12 @@ class ReminderConfirmation:
         # update the type area with the new type label
         self.type_text_area.text = self.reminder.key.label
 
+        # update the save button text
+        if self.reminder.key == ReminderKeyType.NOW:
+            self.save_button.text = "Send"
+        else:
+            self.save_button.text = "Save"
+
         self.update_toolbar_text()
 
         # get cache
@@ -680,6 +707,17 @@ class ReminderConfirmation:
 
         return self.type_text_area.text not in [ReminderKeyType.DATE.label,
                                             ReminderKeyType.LATER.label,
+                                            ReminderKeyType.NOW.label]
+    
+    def is_tags_enabled(self) -> bool:
+        """
+        Determines if the 'Tags' field should be enabled based on the selected reminder type.
+
+        Returns:
+            bool: True if the reminder type allows for tags, False otherwise.
+        """
+
+        return self.type_text_area.text not in [ReminderKeyType.LATER.label,
                                             ReminderKeyType.NOW.label]
     
     def is_command_enabled(self) -> bool:
