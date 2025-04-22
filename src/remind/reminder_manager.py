@@ -230,7 +230,13 @@ class ReminderManager:
             for r in self.parsed_reminders:
                 if r.get_should_send_today(day):
                     reminder_style = f"bold {'purple' if r.command else 'green'}"
-                    self.console.print(f"- {r.title}", style=reminder_style, highlight=False)
+                    reminder_title = f"{r.title}"
+                    reminder_tags = ""
+                    if r.tags:
+                        formatted_tags = f"\n    - #{', #'.join(r.tags)}"
+                        reminder_tags = f"[bold blue]{formatted_tags}[/bold blue]"
+                    self.console.print(f"- {reminder_title} {reminder_tags}", 
+                                       style=reminder_style, highlight=False)
                     if r.notes:
                         self.console.print(r.notes, style="italic")
                     reminder_shown = True
