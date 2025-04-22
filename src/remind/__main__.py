@@ -73,6 +73,13 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
     )
 
     parser.add_argument(
+        "--tags",
+        help="comma-separated list of tags to filter reminders by",
+        nargs="?",
+        const=""
+    )
+
+    parser.add_argument(
         "-v",
         "--version",
         action="version",
@@ -102,20 +109,19 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         "--show-week",
         "--sw",
         action="store_true",
-        help="show reminders through next 7 days",
+        help="show a list of reminders scheduled for the next 7 days",
     )
 
     parser.add_argument(
         "--list-all",
-        "--la",
         action="store_true",
-        help="list all reminders (can help with debugging)",
+        help="list all reminders in remindmail.yml",
     )
 
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="run the command without actually executing it"
+        help="show what would be sent without actually sending",
     )
 
     try:
@@ -124,16 +130,21 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         # set manager_r props
         manager_r.remind_path_file = args.file if args.file else manager_r.remind_path_file
 
+        # Handle tags
+        tags = None
+        if args.tags:
+            tags = [tag.strip() for tag in args.tags.split(',')]
+
         if args.generate:
-            manager_r.generate(is_dry_run=args.dry_run)
+            manager_r.generate(is_dry_run=args.dry_run, tags=tags)
         elif args.later:
             manager_r.show_later()
         elif args.edit:
             manager_r.edit_reminders_file()
         elif args.show_tomorrow:
-            manager_r.show_reminders_for_days(2)
+            manager_r.show_reminders_for_days(limit=2, tags=tags)
         elif args.show_week:
-            manager_r.show_reminders_for_days()
+            manager_r.show_reminders_for_days(limit=8, tags=tags)
         elif args.send_later:
             manager_r.send_later()
         elif args.list_all:
@@ -151,7 +162,8 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
                 when=args.when,
                 notes=args.notes,
                 starts_on=args.starts_on,
-                save=args.save
+                save=args.save,
+                tags=tags
             )
 
     except KeyboardInterrupt as exc:

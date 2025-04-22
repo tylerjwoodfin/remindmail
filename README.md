@@ -3,6 +3,8 @@ A powerful CLI designed to help you schedule and organize reminders efficiently 
 Easily manage your To Do list, schedule one-time or recurring reminders, add notes, and view and manage upcoming reminders, all from the comfort of your terminal.
 
 ## Table of Contents
+- [RemindMail: Reminder Management Tool](#remindmail-reminder-management-tool)
+  - [Table of Contents](#table-of-contents)
 - [✨ New in 3.0.0:](#-new-in-300)
 - [Features](#features)
 - [Dependencies](#dependencies)
@@ -28,6 +30,7 @@ Easily manage your To Do list, schedule one-time or recurring reminders, add not
       - [`delete`](#delete)
       - [`notes`](#notes)
       - [`command`](#command)
+      - [`tags`](#tags)
     - [Good Examples](#good-examples)
 - [Contributing](#contributing)
 - [License](#license)
@@ -48,6 +51,7 @@ RemindMail offers a variety of features to enhance your productivity:
 - Send one-time or recurring reminders to your inbox
 - Add notes or "for later" reminders
 - View and manage upcoming reminders
+- Organize reminders with tags for better filtering
 
 # Dependencies
 - `zsh` or `bash`
@@ -214,6 +218,39 @@ remind -m cabinet --config
 #### `command`
 - **Type:** `string`
 - **Description:** If set, runs the command and outputs the results to the body of the email.
+
+#### `tags`
+Optional list of tags to categorize and filter reminders. Tags can be used to group related reminders and filter which reminders are sent when using the `--generate` command.
+
+Example:
+```yaml
+reminders:
+  - name: "Weekly team meeting"
+    day: "mon"
+    tags: ["work", "meeting"]
+    notes: "Don't forget to prepare the agenda"
+    
+  - name: "Grocery shopping"
+    every: 7
+    tags: ["personal", "shopping"]
+    notes: "Buy milk and eggs"
+```
+
+You can then filter reminders by tags when generating:
+```bash
+remindmail --generate --tags work,meeting  # Only sends reminders with work or meeting tags
+remindmail --generate --tags personal      # Only sends reminders with personal tag
+remindmail --generate                      # Sends all reminders (default behavior)
+```
+
+Tags can be specified by a string or list in the YAML file:
+```yaml
+tags: "meeting"
+```
+or
+```yaml
+tags: ["work", "meeting"]
+```
 
 ### Good Examples
 Here are some examples of how your remindmail.yml file could look:

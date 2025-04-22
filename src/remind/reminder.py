@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 import os
 from pathlib import Path
 import subprocess
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 from cabinet import Cabinet, Mail
 import yaml
@@ -98,6 +98,7 @@ class Reminder:
         command (str): If set, runs the command and outputs the results to the body of the email.
         title (str): The title or main content of the reminder.
         notes (str): Additional notes associated with the reminder.
+        tags (List[str]): Optional list of tags associated with the reminder.
         index (int): The index of the actual line in which this reminder starts in remindmail.yml
         cabinet (Cabinet): instance of Cabinet, a file management tool
         mail (Mail): The instance in which to send reminders as emails
@@ -116,7 +117,8 @@ class Reminder:
                  index: int,
                  cabinet: Cabinet,
                  mail: Mail,
-                 path_remind_file: str) -> None:
+                 path_remind_file: str,
+                 tags: Optional[List[str]] = None) -> None:
         self.key = key
         self.value = value
         self.frequency = frequency
@@ -130,6 +132,7 @@ class Reminder:
         self.cabinet = cabinet
         self.mail = mail
         self.path_remind_file = path_remind_file
+        self.tags = tags or []
         self.should_send_today = False
         self.canceled = False # set to True if user cancels reminder in confirmation
         self.error_handler = ErrorHandler()
@@ -148,6 +151,8 @@ class Reminder:
             f"command='{self.command}', "
             f"title='{self.title}', "
             f"notes='{self.notes}', "
+            f"tags={self.tags}, "
+            f"canceled={self.canceled}, "
             f"should_send_today={self.should_send_today})"
             "\n"
         )
@@ -372,6 +377,8 @@ class Reminder:
             reminder_dict["notes"] = self.notes
         if self.delete:
             reminder_dict["delete"] = True
+        if self.tags:
+            reminder_dict["tags"] = self.tags
         if self.command:
             reminder_dict["command"] = self.command
 
