@@ -149,6 +149,10 @@ remind -m cabinet --config
 - `remind --sw` (or `--show-week`): Lists reminders for the next 7 days
 - `remind -e` (or `--edit`): Opens `remindmail.yml` in your configured editor
 - `remind --list-all`: Lists all reminders in `remindmail.yml`. Useful for debugging.
+- `remind --find 'search text'`: Displays reminders containing the given text in title, date, or day fields.
+  - Text search examples: `remind --find laundry`, `remind --find monday`
+  - Date search examples: `remind --find 2025-04-24`, `remind --find 04/24`
+  - If search text is a valid date, displays reminders that would send on that date.
 - `cabinet --config`: Configures [cabinet](https://pypi.org/project/cabinet/)
 
 ## Scheduling Reminders With TUI

@@ -124,6 +124,13 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         help="show what would be sent without actually sending",
     )
 
+    parser.add_argument(
+        "--find",
+        help="search for reminders containing the given text in title, date, or day fields",
+        nargs="?",
+        const=""
+    )
+
     try:
         args = parser.parse_args()
 
@@ -149,6 +156,8 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
             manager_r.send_later()
         elif args.list_all:
             manager_r.parse_reminders_file(is_print=True)
+        elif args.find:
+            manager_r.find_reminders(args.find)
         else:
             # handle title
             title = args.title
