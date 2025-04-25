@@ -416,3 +416,71 @@ class ReminderManager:
                         email_body)
         else:
             self.cabinet.log("No reminders were found for 'later'.")
+
+    def find_reminders(self, search_text: str) -> None:
+        """
+        Searches for reminders containing the given text in title, date, or day fields.
+        If the search text is a valid date, also finds all reminders that would send on that date.
+
+        Args:
+            search_text (str): The text to search for in reminders.
+        """
+        if not self.parsed_reminders:
+            self.parse_reminders_file()
+
+        search_text = search_text.lower()
+        found_reminders = set()  # Use set to avoid duplicates
+
+        # Try to parse the search text as a date
+        target_date = None
+        try:
+            # Try different date formats
+            for fmt in ['%Y-%m-%d', '%m-%d', '%m/%d', '%m/%d/%Y']:
+                try:
+                    target_date = datetime.strptime(search_text, fmt).date()
+                    break
+                except ValueError:
+                    continue
+        except ValueError:
+            pass
+
+        for reminder in self.parsed_reminders:
+            # If we have a valid date, check if reminder would send on that date
+            if target_date and reminder.get_should_send_today(target_date):
+                found_reminders.add(reminder)
+                continue
+
+            # Search in title
+            if search_text in reminder.title.lower():
+                found_reminders.add(reminder)
+                continue
+
+            # Search in date or day value
+            if reminder.value and search_text in str(reminder.value).lower():
+                found_reminders.add(reminder)
+                continue
+
+            # Search in day of week
+            if reminder.key in [
+                ReminderKeyType.MONDAY, ReminderKeyType.TUESDAY,
+                ReminderKeyType.WEDNESDAY, ReminderKeyType.THURSDAY,
+                ReminderKeyType.FRIDAY, ReminderKeyType.SATURDAY,
+                ReminderKeyType.SUNDAY
+            ] and search_text in reminder.key.label.lower():
+                found_reminders.add(reminder)
+                continue
+
+        if found_reminders:
+            self.console.print(f"\nFound {len(found_reminders)} reminder{\
+                's' if len(found_reminders) > 1 else ''} containing or sending on '{search_text}':\n", 
+                style="bold green")
+            for reminder in found_reminders:
+                self.console.print(reminder.title, style="bold green")
+                self.console.print(reminder, style="bold blue")
+                if reminder.notes:
+                    self.console.print(reminder.notes, style="italic")
+                print()
+        else:
+            self.console.print(f"\nNo reminders found containing '{search_text}'" + \
+                (f" or sending on {target_date}" if target_date else "") + "\n", 
+                style="bold yellow")
