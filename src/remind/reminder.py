@@ -142,19 +142,18 @@ class Reminder:
 
     def __repr__(self) -> str:
         return (
-            f"Reminder(key={self.key.db_value}, "
-            f"value={self.value}, "
-            f"frequency={self.frequency}, "
-            f"starts_on={self.starts_on}, "
-            f"offset={self.offset}, "
-            f"delete={self.delete}, "
-            f"command='{self.command}', "
-            f"title='{self.title}', "
-            f"notes='{self.notes}', "
-            f"tags={self.tags}, "
-            f"canceled={self.canceled}, "
+            f"Reminder(key={self.key.db_value},\n"
+            f"title='{self.title}',\n"
+            f"value={self.value},\n"
+            f"frequency={self.frequency},\n"
+            f"starts_on={self.starts_on},\n"
+            f"offset={self.offset},\n"
+            f"delete={self.delete},\n"
+            f"command='{self.command}',\n"
+            f"notes='{self.notes}',\n"
+            f"tags={self.tags},\n"
+            f"canceled={self.canceled},\n"
             f"should_send_today={self.should_send_today})"
-            "\n"
         )
     
     def __str__(self):
@@ -186,13 +185,12 @@ class Reminder:
             else:  # YYYY-MM-DD format
                 year, month, day = map(int, date_parts)
 
-            # if date is in the past and target date is today, append warning to notes
+            # if date is in the past and target date is today, send it today
             if (year, month, day) < (target_date.year, target_date.month, target_date.day) \
                 and not self.canceled:
                 self.notes += f"Warning: Reminder was scheduled for {self.value}."
-                self.value = date(target_date.year, target_date.month, target_date.day) + timedelta(days=1)
+                return True
 
-            self.canceled = True
             return (target_date.year, target_date.month, target_date.day) == (year, month, day)
 
         elif self.key == ReminderKeyType.DAY_OF_MONTH:
