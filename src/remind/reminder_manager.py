@@ -1,5 +1,9 @@
 """
 Utils for groups of reminders
+
+This module provides functionality for managing and processing reminders, including parsing,
+generating, and sending reminders based on various criteria. It handles YAML-based reminder
+storage and integrates with email functionality for notification delivery.
 """
 
 import os
@@ -14,41 +18,43 @@ from cabinet import Cabinet, Mail
 import yaml
 from . import reminder, error_handler
 
-def complete_file_input(text, state):
+def complete_file_input(text: str, state: int) -> str:
     """
     Provides tab completion for file paths in a command-line interface.
 
-    This function expands user and environment variables in the input path,
-    then lists files and directories that match the expanded path. It is typically
-    used to provide tab completion support for entering file locations, facilitating
-    the user to quickly find and select files.
-
-    Parameters:
-    - text (str): The initial text input by the user which may include unexpanded
-      variables and partial file or directory names.
-    - state (int): The index of the item to return, which corresponds to the number
-      of times the user has pressed the tab key.
+    Args:
+        text (str): The initial text input by the user which may include unexpanded
+            variables and partial file or directory names.
+        state (int): The index of the item to return, which corresponds to the number
+            of times the user has pressed the tab key.
 
     Returns:
-    - str: The nth file or directory name that matches the input text, where n is
-      determined by the 'state' parameter. Each subsequent press of the tab key
-      increments the state, cycling through the list of possible completions.
+        str: The nth file or directory name that matches the input text, where n is
+            determined by the 'state' parameter.
 
     Raises:
-    - IndexError: If the 'state' index is out of the range of available completions.
+        IndexError: If the 'state' index is out of the range of available completions.
     """
     text = os.path.expanduser(os.path.expandvars(text))
-
-    # List all files that match the current input
     return [x for x in glob.glob(text + '*')][state]
 
 class ReminderManager:
     """
     A utility class for handling reminders and email operations.
+
+    This class manages the lifecycle of reminders, including parsing from YAML files,
+    generating and sending reminders, and handling reminder deletion. It integrates
+    with a cabinet system for configuration and email functionality for notifications.
     """
 
     def __init__(self, remind_path_file: str | None = None) -> None:
+        """
+        Initializes the ReminderManager with configuration and setup.
 
+        Args:
+            remind_path_file (str | None): Optional path to the reminders YAML file.
+                If not provided, will be retrieved from Cabinet.
+        """
         # file and data management
         self.cabinet = Cabinet()
 
@@ -75,6 +81,19 @@ class ReminderManager:
                          is_print: bool = False) -> List[reminder.Reminder]:
         """
         Parses a YAML file containing reminders into an array of Reminder objects.
+
+        Args:
+            filename (str | None): Path to the YAML file containing reminders.
+                If None, uses the configured remind_path_file.
+            is_delete (bool): If True, will process reminders for deletion.
+            is_print (bool): If True, will print reminder details to console.
+
+        Returns:
+            List[reminder.Reminder]: List of parsed Reminder objects.
+
+        Raises:
+            FileNotFoundError: If no filename is provided and remind_path_file is not set.
+            yaml.YAMLError: If there is an error parsing the YAML file.
         """
         filename = filename or self.remind_path_file
 
@@ -147,13 +166,22 @@ class ReminderManager:
     @error_handler.ErrorHandler.exception_handler
     def generate(self, is_dry_run: bool, tags: Optional[List[str]] = None) -> None:
         """
-        Generates and sends reminders for today.
-        
+        Generates and sends reminders for today, optionally deleting them after sending.
+
+        This method parses the reminders file, filters by tags if specified, and sends
+        the appropriate reminders. If a reminder is marked for deletion and should be
+        sent today, it will be removed from the file after sending.
+
         Args:
-            is_dry_run (bool): If True, only show what would be sent without actually sending
-            tags (Optional[List[str]]): Optional list of tags to filter reminders by
+            is_dry_run (bool): If True, only show what would be sent without actually sending.
+            tags (Optional[List[str]]): Optional list of tags to filter reminders by.
+
+        Raises:
+            FileNotFoundError: If the reminders file cannot be found.
+            yaml.YAMLError: If there is an error parsing the YAML file.
         """
-        self.parse_reminders_file()
+        # First parse without deletion to get all reminders
+        self.parse_reminders_file(is_delete=False)
         self.cabinet.log(f"Parsed {len(self.parsed_reminders)} reminders", level="info")
         
         # Filter reminders by tags if specified
@@ -164,20 +192,40 @@ class ReminderManager:
                 if any(tag in r.tags for tag in tags)
             ]
             
-        # Send reminders
+        # Send reminders and handle deletion
         self.cabinet.log(f"{len(self.parsed_reminders)} with tags in: {tags}",
                          level="info")
+        
+        # Track which reminders need to be deleted
+        reminders_to_delete = []
+        
         for reminder in self.parsed_reminders:
             if reminder.should_send_today:
                 if is_dry_run:
-                    self.console.print(f"[yellow]Would send reminder:\n[/yellow] {reminder}")
-                    self.cabinet.log(f"Would send reminder: {reminder}", level="info", is_quiet=True)
+                    reminder_output = f"\n[yellow]Would send reminder[/yellow]" 
+                    if reminder.delete:
+                        reminder_output += f"[red] and delete after sending[/red]"
+                    reminder_output += f":\n{reminder}"
+                    self.console.print(reminder_output)
+                    self.cabinet.log(reminder_output, level="info", is_quiet=True)
                 else:
                     reminder.send()
+                    if reminder.delete:
+                        reminders_to_delete.append(reminder)
+                        self.cabinet.log(f"Marked for deletion: {reminder}", level="info")
+        
+        # If any reminders need to be deleted, parse the file again with deletion enabled
+        if reminders_to_delete and not is_dry_run:
+            self.cabinet.log(f"Deleting {len(reminders_to_delete)} reminders after sending", level="info")
+            self.parse_reminders_file(is_delete=True)
 
     def show_later(self) -> None:
         """
-        Shows all reminders tagged as 'later'
+        Displays all reminders that are tagged as 'later'.
+
+        This method shows the title and notes for each reminder that has been
+        marked for later viewing. If no reminders have been parsed yet, it will
+        parse the reminders file first.
         """
 
         if not self.parsed_reminders:
@@ -190,11 +238,18 @@ class ReminderManager:
 
     def show_reminders_for_days(self, limit: int = 8, tags: Optional[List[str]] = None) -> None:
         """
-        Displays reminders scheduled for the upcoming <limit> days.
+        Displays reminders scheduled for the upcoming specified number of days.
 
         Args:
-            limit (int): The number of days to display reminders for
-            tags (Optional[List[str]]): Optional list of tags to filter reminders by
+            limit (int): The number of days to display reminders for. Defaults to 8.
+            tags (Optional[List[str]]): Optional list of tags to filter reminders by.
+
+        The display includes:
+        - The date and day of the week
+        - Reminder titles with appropriate styling
+        - Tags associated with each reminder
+        - Notes for each reminder
+        - A "No Reminders" message if no reminders are scheduled for a day
         """
 
         current_time = datetime.now().time()
@@ -249,10 +304,14 @@ class ReminderManager:
     @error_handler.ErrorHandler.exception_handler
     def edit_reminders_file(self) -> None:
         """
-        Edits the remindmail.yml file
-        You must configure the path to remindmail.yml in
+        Opens the reminders YAML file for editing.
 
+        This method uses the configured editor to open the reminders file for manual editing.
+        The path to the file must be configured in Cabinet under:
         cabinet -> remindmail -> path -> file
+
+        Raises:
+            FileNotFoundError: If the reminders file path is not configured.
         """
 
         if self.remind_path_file is None:
@@ -261,11 +320,18 @@ class ReminderManager:
 
     def help_set_path_remindmd(self) -> bool:
         """
-        A fallback function to ensure remindmail.yml is set
-        to a default path if not configured.
+        Ensures the remindmail.yml file path is properly configured.
+
+        This method checks if the path to remindmail.yml is set, and if not,
+        it sets up a default path and creates the necessary file and directories.
+        It also updates Cabinet accordingly.
 
         Returns:
-            bool: whether the path to remindmail.yml has been set
+            bool: True if the path was set or updated, False otherwise.
+
+        Raises:
+            FileNotFoundError: If the remindmail.yml file cannot be found and no
+                default path can be established.
         """
         default_path = os.path.expanduser('~/remindmail/remindmail.yml')
 
@@ -317,10 +383,15 @@ class ReminderManager:
 
         return False
 
-    def send_later(self):
+    def send_later(self) -> None:
         """
-        Sends an email containing reminders
-        tagged as `later`
+        Sends an email containing all reminders tagged as 'later'.
+
+        This method collects all reminders marked for later viewing and sends them
+        in a formatted email. The email includes the current date and a bulleted
+        list of reminders with their titles and notes.
+
+        If no 'later' reminders are found, a log message is generated to indicate this.
         """
 
         if not self.parsed_reminders:
