@@ -283,7 +283,8 @@ class ReminderManager:
 
             # Display each reminder scheduled for this day
             for r in self.parsed_reminders:
-                if r.get_should_send_today(day):
+                hide_past_warning: bool = day != date.today() + timedelta(days=1)
+                if r.get_should_send_today(day, hide_past_warning = hide_past_warning):
                     reminder_style = f"bold {'purple' if r.command else 'green'}"
                     reminder_title = f"{r.title}"
                     reminder_tags = ""
