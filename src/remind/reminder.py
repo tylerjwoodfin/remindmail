@@ -159,7 +159,7 @@ class Reminder:
     def __str__(self):
         return self.__repr__()
 
-    def get_should_send_today(self, target_date: date | None = None) -> bool:
+    def get_should_send_today(self, target_date: date | None = None, hide_past_warning: bool = False) -> bool:
         """
         Determines if the reminder should be sent today.
 
@@ -187,7 +187,7 @@ class Reminder:
 
             # if date is in the past and target date is today, send it today
             if (year, month, day) < (target_date.year, target_date.month, target_date.day) \
-                and not self.canceled:
+                and not self.canceled and not hide_past_warning:
                 self.notes += f"Warning: Reminder was scheduled for {self.value}."
                 return True
 
