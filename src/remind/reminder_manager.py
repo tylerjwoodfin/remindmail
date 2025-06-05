@@ -141,28 +141,6 @@ class ReminderManager:
 
         return reminders
 
-    def write_reminder(self, reminder: reminder.Reminder) -> None:
-        """
-        Writes a reminder to the YAML file.
-        
-        Args:
-            reminder (Reminder): The reminder to write
-        """
-        # Read existing reminders
-        if not self.remind_path_file:
-            raise ValueError("remind_path_file is not set. Set with `cabinet -p remindmail path file <path>`")
-
-        reminder_dicts = YAMLManager.parse_yaml_file(self.remind_path_file)
-        
-        # Convert new reminder to dict
-        new_reminder_dict = YAMLManager.reminder_to_dict(reminder)
-        
-        # Add new reminder
-        reminder_dicts.append(new_reminder_dict)
-        
-        # Write back to file
-        YAMLManager.write_yaml_file(self.remind_path_file, reminder_dicts)
-
     @error_handler.ErrorHandler.exception_handler
     def generate(self, is_dry_run: bool, tags: Optional[List[str]] = None) -> None:
         """

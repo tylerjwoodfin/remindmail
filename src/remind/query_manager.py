@@ -187,6 +187,7 @@ class QueryManager:
                 key = ReminderKeyType.LATER
                 delete = False
         else:
+            delete = False
             # every n days
             if match := regex_patterns['every_n_days'].match(input_str):
                 key = ReminderKeyType.DAY
