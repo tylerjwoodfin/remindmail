@@ -359,6 +359,8 @@ class Reminder:
             ReminderKeyType.FRIDAY, ReminderKeyType.SATURDAY
         }:
             reminder_dict["day"] = self.key.db_value
+            reminder_dict["every"] = self.frequency or 1
+            del reminder_dict["date"]
         elif self.key == ReminderKeyType.WEEK:
             reminder_dict["every"] = self.frequency
             reminder_dict["unit"] = "weeks"
