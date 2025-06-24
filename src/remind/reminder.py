@@ -356,7 +356,6 @@ class Reminder:
         """
         reminder_dict = {
             "name": self.title,
-            "date": self.value,
         }
 
         # Handle reminder type
@@ -377,7 +376,6 @@ class Reminder:
         }:
             reminder_dict["day"] = self.key.db_value
             reminder_dict["every"] = self.frequency or 1
-            del reminder_dict["date"]
         elif self.key == ReminderKeyType.WEEK:
             reminder_dict["every"] = self.frequency
             reminder_dict["unit"] = "weeks"
@@ -385,7 +383,8 @@ class Reminder:
             reminder_dict["every"] = self.frequency
             reminder_dict["unit"] = "months"
         elif self.key == ReminderKeyType.DAY:
-            reminder_dict["every"] = self.frequency
+            reminder_dict["every"] = self.frequency or 1
+            reminder_dict["unit"] = "days"
 
         # Optional fields
         if self.offset:
