@@ -174,16 +174,33 @@ class Reminder:
 
         # Handle different reminder types
         if self.key == ReminderKeyType.DATE:
+            # Validate that value is not empty or None
+            if not self.value or str(self.value).strip() == '':
+                return False
+                
             # Parse the date string (YYYY-MM-DD or MM-DD)
             date_parts = str(self.value).split('-')
-            if len(date_parts) == 2:  # MM-DD format
-                month, day = map(int, date_parts)
-                year = target_date.year
-                # If the date has already passed this year, use next year
-                if (month, day) < (target_date.month, target_date.day):
-                    year += 1
-            else:  # YYYY-MM-DD format
-                year, month, day = map(int, date_parts)
+            
+            # Validate that we have valid date parts
+            if len(date_parts) != 2 and len(date_parts) != 3:
+                return False
+                
+            # Check for empty parts
+            if any(not part.strip() for part in date_parts):
+                return False
+                
+            try:
+                if len(date_parts) == 2:  # MM-DD format
+                    month, day = map(int, date_parts)
+                    year = target_date.year
+                    # If the date has already passed this year, use next year
+                    if (month, day) < (target_date.month, target_date.day):
+                        year += 1
+                else:  # YYYY-MM-DD format
+                    year, month, day = map(int, date_parts)
+            except ValueError:
+                # If we can't parse the date parts as integers, return False
+                return False
 
             # if date is in the past and target date is today, send it today
             if (year, month, day) < (target_date.year, target_date.month, target_date.day) \
