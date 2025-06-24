@@ -82,6 +82,7 @@ class YAMLManager:
                 reminder_dict['every'] = reminder.frequency
         elif reminder.key == ReminderKeyType.DAY:
             reminder_dict['every'] = reminder.frequency or 1
+            reminder_dict['unit'] = 'days'
         elif reminder.key == ReminderKeyType.WEEK:
             reminder_dict['every'] = reminder.frequency or 1
             reminder_dict['unit'] = 'weeks'
