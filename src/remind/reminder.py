@@ -1,10 +1,12 @@
 """
 The main class
 """
+
 from datetime import datetime, date, timedelta
 from typing import Optional
 from enum import Enum
 from cabinet import Cabinet, Mail
+
 
 class ReminderKeyType(Enum):
     """
@@ -14,6 +16,7 @@ class ReminderKeyType(Enum):
         db_value (str): The database value associated with the enum member.
         label (str): The human-readable label for the enum member.
     """
+
     DATE = ("date", "Date")
     DAY = ("d", "Day")
     WEEK = ("w", "Week")
@@ -66,7 +69,7 @@ class ReminderKeyType(Enum):
             cls.WEDNESDAY,
             cls.THURSDAY,
             cls.FRIDAY,
-            cls.SATURDAY
+            cls.SATURDAY,
         ]
 
     def __init__(self, db_value, label):
@@ -80,6 +83,7 @@ class ReminderKeyType(Enum):
         self.db_value: str = db_value
         self.label: str = label
 
+
 class Reminder:
     """
     Represents a reminder with various attributes defining its schedule and actions.
@@ -87,7 +91,7 @@ class Reminder:
     Attributes:
         key (ReminderKeyType).
         - This is the type of reminder, such as on a certain day, date, or month.
-        value (Optional[str]): Specific value, depending on the `key`. 
+        value (Optional[str]): Specific value, depending on the `key`.
             - if key is "date", expect YYYY-MM-DD str
             - if key is "dow", expect "sun" - "sat"
             - if key is "dom", expect 1-30 as string
@@ -102,19 +106,22 @@ class Reminder:
         mail (Mail): The instance in which to send reminders as emails
         path_remind_file: The path from ReminderManager in which to access remind.md
     """
-    def __init__(self,
-                 key,
-                 value: Optional[str],
-                 frequency: Optional[int],
-                 starts_on: Optional[str],
-                 offset: int,
-                 modifiers: str,
-                 title: str,
-                 notes: Optional[str],
-                 index: int,
-                 cabinet: Cabinet,
-                 mail: Mail,
-                 path_remind_file: str | None):
+
+    def __init__(
+        self,
+        key,
+        value: Optional[str],
+        frequency: Optional[int],
+        starts_on: Optional[str],
+        offset: int,
+        modifiers: str,
+        title: str,
+        notes: Optional[str],
+        index: int,
+        cabinet: Cabinet,
+        mail: Mail,
+        path_remind_file: str | None,
+    ):
         self.key = key
         self.value: Optional[str] = value
         self.frequency: int = frequency or 0
@@ -166,19 +173,22 @@ class Reminder:
 
         # Handle starts_on
         if self.starts_on:
-            start_date = datetime.strptime(self.starts_on, '%Y-%m-%d').date()
+            start_date = datetime.strptime(self.starts_on, "%Y-%m-%d").date()
             if today < start_date:
                 return False
 
         # Handle date-specific reminders
         if self.key == ReminderKeyType.DATE and self.value:
             if len(self.value) == 5:  # MM-DD format
-                reminder_date = datetime.strptime(f"{today.year}-{self.value}", '%Y-%m-%d').date()
+                reminder_date = datetime.strptime(
+                    f"{today.year}-{self.value}", "%Y-%m-%d"
+                ).date()
                 if reminder_date < today:
                     reminder_date = datetime.strptime(
-                        f"{today.year + 1}-{self.value}", '%Y-%m-%d').date()
+                        f"{today.year + 1}-{self.value}", "%Y-%m-%d"
+                    ).date()
             else:  # YYYY-MM-DD format
-                reminder_date = datetime.strptime(self.value, '%Y-%m-%d').date()
+                reminder_date = datetime.strptime(self.value, "%Y-%m-%d").date()
 
                 # if the reminder is scheduled in the past as YYYY-MM-DD
                 # and it didn't send, then for the purposes of `generate()`,
@@ -192,7 +202,15 @@ class Reminder:
 
         # Handle day of the week reminders
         elif ReminderKeyType.is_key_day_of_week(self.key) and self.value:
-            dow_mapping = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
+            dow_mapping = {
+                "mon": 0,
+                "tue": 1,
+                "wed": 2,
+                "thu": 3,
+                "fri": 4,
+                "sat": 5,
+                "sun": 6,
+            }
 
             # default to non-existant day
             target_dow = dow_mapping.get(self.value.lower(), 7)
@@ -201,7 +219,7 @@ class Reminder:
             if target_dow == 7:
                 self.cabinet.log(
                     f"Could not map {self.value} to a day of the week. Use [sun] to [sat].",
-                    level="warn"
+                    level="warn",
                 )
 
             if today.weekday() != target_dow:
@@ -251,11 +269,11 @@ class Reminder:
             if day_of_month > 31:
                 self.cabinet.log(
                     f"{day_of_month} in {self.title}: no month has more than 31 days",
-                    level="error")
+                    level="error",
+                )
             return today.day == day_of_month
 
         return False
-
 
     def send_email(self, is_quiet: bool = False) -> None:
         """
@@ -274,7 +292,12 @@ class Reminder:
         # add more icons in future iterations
 
         email_icons = f"{email_icons} " if email_icons else email_icons
-        email_title = f"Reminder {email_icons}- {self.title}"
+
+        # Get subject prefix from configuration, fallback to pin emoji
+        subject_prefix = (
+            self.cabinet.get("remindmail", "subject_prefix", return_type=str) or "📌 "
+        )
+        email_title = f"{subject_prefix}{email_icons} {self.title}"
 
         self.cabinet.logdb(self.title, collection_name="reminders")
 
@@ -304,7 +327,7 @@ class Reminder:
                 base_format += f",{self.value}"
             if self.frequency:
                 base_format += f",{self.frequency}"
-                if self.starts_on: # requires frequency
+                if self.starts_on:  # requires frequency
                     base_format += f"->{self.starts_on}"
             if self.offset:
                 base_format += f",{self.offset}"
@@ -315,7 +338,6 @@ class Reminder:
 
             base_format += f"]{self.modifiers} {self.title}\n"
 
-
             if self.notes:
                 base_format += f"{self.notes}\n"
 
@@ -325,12 +347,17 @@ class Reminder:
 
         reminder_format = format_reminder()
 
-        path_remind_file = self.path_remind_file or \
-            self.cabinet.get('path', 'remindmail', 'file') or ""
+        path_remind_file = (
+            self.path_remind_file
+            or self.cabinet.get("path", "remindmail", "file")
+            or ""
+        )
         path_remind_folder = path_remind_file.replace("/remind.md", "")
 
-        self.cabinet.write_file('remind.md',
-                                path_remind_folder,
-                                reminder_format,
-                                append=True,
-                                is_quiet=is_quiet)
+        self.cabinet.write_file(
+            "remind.md",
+            path_remind_folder,
+            reminder_format,
+            append=True,
+            is_quiet=is_quiet,
+        )
