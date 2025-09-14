@@ -94,6 +94,7 @@ remind -m cabinet --config
 {
   "remindmail": {
     "mongodb_enabled": true, # optional if using mongodb - default false
+    "subject_prefix": "Reminder ", # optional - custom prefix for email subjects (default: "📌 ")
     "path": {
         "file": "/path/to/remindmail.yml"
     }
