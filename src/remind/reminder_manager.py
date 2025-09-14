@@ -1,54 +1,60 @@
 """
 Utils for groups of reminders
+
+This module provides functionality for managing and processing reminders, including parsing,
+generating, and sending reminders based on various criteria. It handles YAML-based reminder
+storage and integrates with email functionality for notification delivery.
 """
 
-import re
 import os
-import subprocess
 import glob
 import readline
 from datetime import date, timedelta, datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from rich.console import Console
 from remind.reminder import ReminderKeyType
+from remind.yaml_manager import YAMLManager
 from cabinet import Cabinet, Mail
+import yaml
 from . import reminder, error_handler
 
-def complete_file_input(text, state):
+def complete_file_input(text: str, state: int) -> str:
     """
     Provides tab completion for file paths in a command-line interface.
 
-    This function expands user and environment variables in the input path,
-    then lists files and directories that match the expanded path. It is typically
-    used to provide tab completion support for entering file locations, facilitating
-    the user to quickly find and select files.
-
-    Parameters:
-    - text (str): The initial text input by the user which may include unexpanded
-      variables and partial file or directory names.
-    - state (int): The index of the item to return, which corresponds to the number
-      of times the user has pressed the tab key.
+    Args:
+        text (str): The initial text input by the user which may include unexpanded
+            variables and partial file or directory names.
+        state (int): The index of the item to return, which corresponds to the number
+            of times the user has pressed the tab key.
 
     Returns:
-    - str: The nth file or directory name that matches the input text, where n is
-      determined by the 'state' parameter. Each subsequent press of the tab key
-      increments the state, cycling through the list of possible completions.
+        str: The nth file or directory name that matches the input text, where n is
+            determined by the 'state' parameter.
 
     Raises:
-    - IndexError: If the 'state' index is out of the range of available completions.
+        IndexError: If the 'state' index is out of the range of available completions.
     """
     text = os.path.expanduser(os.path.expandvars(text))
-
-    # List all files that match the current input
     return [x for x in glob.glob(text + '*')][state]
 
 class ReminderManager:
     """
     A utility class for handling reminders and email operations.
+
+    This class manages the lifecycle of reminders, including parsing from YAML files,
+    generating and sending reminders, and handling reminder deletion. It integrates
+    with a cabinet system for configuration and email functionality for notifications.
     """
 
     def __init__(self, remind_path_file: str | None = None) -> None:
+        """
+        Initializes the ReminderManager with configuration and setup.
 
+        Args:
+            remind_path_file (str | None): Optional path to the reminders YAML file.
+                If not provided, will be retrieved from Cabinet.
+        """
         # file and data management
         self.cabinet = Cabinet()
 
@@ -71,34 +77,24 @@ class ReminderManager:
 
     @error_handler.ErrorHandler.exception_handler
     def parse_reminders_file(self, filename: str | None = None,
-                            is_delete: bool = False,
-                            is_print: bool = False) -> List[reminder.Reminder]:
+                         is_delete: bool = False,
+                         is_print: bool = False) -> List[reminder.Reminder]:
         """
-        Parses a markdown file containing reminders into an array of Reminder objects.
-
-        After parsing Reminders into a List, delete
-        reminders scheduled for today with a "d" modifier from the file.
-        This deletion removes the reminder and any notes associated with it
-        until the next reminder line is encountered.
+        Parses a YAML file containing reminders into an array of Reminder objects.
 
         Args:
-            filename (str, optional): The path to the markdown file containing the reminders.
-                If unset, defaults to self.path_remind_file
-            is_delete (bool, optional): If enabled, delete all reminders scheduled for
-                today that are also scheduled for deletion.
-            is_print (bool, optional): If enabled, print the reminders to the console.
-                This is useful for debugging and testing.
+            filename (str | None): Path to the YAML file containing reminders.
+                If None, uses the configured remind_path_file.
+            is_delete (bool): If True, will process reminders for deletion.
+            is_print (bool): If True, will print reminder details to console.
 
         Returns:
-            List[Reminder]: A list of Reminder objects parsed from the file.
+            List[reminder.Reminder]: List of parsed Reminder objects.
+
+        Raises:
+            FileNotFoundError: If no filename is provided and remind_path_file is not set.
+            yaml.YAMLError: If there is an error parsing the YAML file.
         """
-
-        reminders: List[reminder.Reminder] = []
-        current_notes: List[str] = []
-        new_lines: List[str] = []
-        delete_current_reminder: bool = False
-
-        # handle filename
         filename = filename or self.remind_path_file
 
         if filename is None:
@@ -106,110 +102,32 @@ class ReminderManager:
 
         self.cabinet.log(f"Parsing reminders in {filename}", is_quiet=True)
 
-        with open(filename, 'r', encoding='utf-8') as file:
-            for index, line in enumerate(file):
-                stripped_line = line.strip()
+        try:
+            reminder_dicts = YAMLManager.parse_yaml_file(filename)
+        except yaml.YAMLError as e:
+            self.cabinet.log(f"Error parsing reminders in {filename}: {e}", level="error")
+            return []
 
-                if stripped_line.startswith("["):
-                    # save previous reminder notes
-                    if current_notes and not delete_current_reminder:
-                        if not reminders[-1].notes:
-                            reminders[-1].notes = ""
-                        reminders[-1].notes += "\n".join(current_notes)
-                        current_notes = []  # reset notes for next reminder
-                    else:
-                        delete_current_reminder = False
+        reminders: List[reminder.Reminder] = []
+        new_reminders: List[Dict[str, Any]] = []
 
-                    pattern_any_reminder = r"\[(.*?)\](c?d?)\s*(.*)"
-                    match = re.match(pattern_any_reminder, stripped_line)
-                    if match:
-                        details, reminder_modifiers, title = match.groups()
-                        details = details.lower()
+        for reminder_dict in reminder_dicts:
+            parsed_reminders = YAMLManager.dict_to_reminders(reminder_dict, self.cabinet, self.mail, filename)
 
-                        # Split details and check for starts_on syntax
-                        details = details.split(",")
-                        reminder_starts_on = None
+            should_keep = False
+            for r in parsed_reminders:
+                r.should_send_today = r.get_should_send_today()
+                if is_delete and r.should_send_today and r.delete:
+                    self.cabinet.log(f"Will Delete: {r}")
+                else:
+                    should_keep = True
+                    reminders.append(r)
 
-                        # remove comments from title (anything after #)
-                        title = re.sub(r"\s*#.*", "", title)
+            if not is_delete or should_keep:
+                new_reminders.append(reminder_dict)
 
-                        if len(details) > 1 and "->" in details[1]:
-                            freq_start = details[1].split("->")
-                            details[1] = freq_start[0]
-                            reminder_starts_on = freq_start[1]
-
-                            # Validate starts_on format
-                            if not re.match(r"^\d{4}-\d{2}-\d{2}$", reminder_starts_on):
-                                err_str: str = (
-                                    f"Skipping Invalid Reminder: 'starts_on' must be YYYY-MM-DD "
-                                    f" in '{line.strip()}'"
-                                )
-                                self.cabinet.log(err_str, level="warn")
-                                continue
-
-                        reminder_key = self.parse_reminder_key(details[0], line)
-                        if not reminder_key:
-                            continue
-
-                        reminder_value: Optional[str] = None
-                        reminder_frequency: Optional[int] = None
-                        reminder_offset: int = 0
-
-                        if ReminderKeyType.is_key_day_of_week(reminder_key):
-                            reminder_frequency = int(details[1]) if len(details) > 1 else 1
-                            reminder_offset = int(details[2]) if len(details) > 2 else 0
-                            reminder_value = details[0]
-                        elif reminder_key == ReminderKeyType.DAY_OF_MONTH:
-                            reminder_value = details[1] or "1"
-                        elif reminder_key in [ReminderKeyType.DAY,
-                                              ReminderKeyType.WEEK,
-                                              ReminderKeyType.MONTH]:
-                            reminder_frequency = int(details[1]) if len(details) > 1 else None
-                            reminder_offset = int(details[2]) if len(details) > 2 else 0
-                        elif reminder_key == ReminderKeyType.LATER:
-                            reminder_value = "later"
-                        else:
-                            reminder_value = details[0]
-
-                        r = reminder.Reminder(
-                            reminder_key,
-                            reminder_value,
-                            reminder_frequency,
-                            reminder_starts_on,
-                            reminder_offset,
-                            reminder_modifiers,
-                            title.strip(),
-                            '',
-                            index,
-                            self.cabinet,
-                            self.mail,
-                            path_remind_file=self.remind_path_file,
-                        )
-
-                        r.should_send_today = r.get_should_send_today()
-
-                        if is_delete and r.should_send_today and 'd' in reminder_modifiers:
-                            delete_current_reminder = True
-                            self.cabinet.log(f"Will Delete: {r}")
-                        else:
-                            new_lines.append(line)  # Add non-deleted reminders back
-
-                        reminders.append(r)
-                elif not delete_current_reminder:
-                    if not stripped_line and not current_notes:
-                        new_lines.append(line)
-                    elif stripped_line and not stripped_line.startswith("#"):
-                        current_notes.append(stripped_line)
-                        new_lines.append(line)
-
-        if current_notes:  # Attach notes to the last reminder; hide comments
-            cleaned_notes = re.sub(r"\s*#.*", "", "\n".join(current_notes))
-            reminders[-1].notes = cleaned_notes
-
-        # Rewrite the file without deleted reminders
         if is_delete:
-            with open(filename, 'w', encoding='utf-8') as file:
-                file.writelines(new_lines)
+            YAMLManager.write_yaml_file(filename, new_reminders)
 
         self.parsed_reminders = reminders
 
@@ -223,133 +141,69 @@ class ReminderManager:
 
         return reminders
 
-    def parse_reminder_key(self, key: str, line: str) -> Optional[ReminderKeyType]:
-        """
-        Parses a reminder key from a string and returns the corresponding ReminderKeyType.
-        """
-        pattern_date_key = r"(?:\d{4}-)?\d{2}-\d{2}"
-        pattern_dow_key = (
-            r"^(sun(day)?|mon(day)?|tue(sday)?|wed(nesday)?|thu(rsday)?|fri(day)?|sat(urday)?)$"
-        )
-        try:
-            return ReminderKeyType.from_db_value(key)
-        except ValueError:
-            if re.match(pattern_date_key, key):
-                return ReminderKeyType.DATE
-            if re.match(pattern_dow_key, key):
-                # return matching day of week key
-                match = re.match(pattern_dow_key, key)
-                if match:
-                    return ReminderKeyType.from_db_value(match.group(1))
-                else:
-                    self.cabinet.log(
-                        f"'{key}' in '{line}' is not a valid day of the week key.", level="warn"
-                    )
-                    return None
-
-            self.cabinet.log(
-                f"'{key}' in '{line}' is not a valid Reminder key.", level="warn"
-            )
-            return None
-
     @error_handler.ErrorHandler.exception_handler
-    def generate(self, is_dry_run: bool) -> None:
+    def generate(self, is_dry_run: bool, tags: Optional[List[str]] = None) -> None:
         """
-        Sends or executes reminders from the file that are scheduled to send today 
-        (per parse_reminders_file).
-        
+        Generates and sends reminders for today, optionally deleting them after sending.
+
+        This method parses the reminders file, filters by tags if specified, and sends
+        the appropriate reminders. If a reminder is marked for deletion and should be
+        sent today, it will be removed from the file after sending.
+
         Args:
-            is_dry_run (bool): If True, the method will not send emails or execute commands.
-                Instead, it will log the reminders that would be sent or executed
-        
-        Afterwards, delete the reminders from the file.
+            is_dry_run (bool): If True, only show what would be sent without actually sending.
+            tags (Optional[List[str]]): Optional list of tags to filter reminders by.
+
+        Raises:
+            FileNotFoundError: If the reminders file cannot be found.
+            yaml.YAMLError: If there is an error parsing the YAML file.
         """
-
-        lines_to_delete: List[int] = []
-
-        if not self.parsed_reminders:
-            self.parse_reminders_file()
-
-        count_sent = 0
-
-        if self.mail is None:
-            self.mail = Mail()
-
-        self.cabinet.log("Generating Reminders")
-        for r in self.parsed_reminders:
-            if r.should_send_today:
-                self.cabinet.log(str(r), is_quiet=True)
-
-                if 'd' in r.modifiers:
-                    # mark the reminder line for deletion
-                    lines_to_delete.append(r.index+1)
-
-                    if r.notes:
-                        # add the lines for each note to lines_to_delete
-                        note_line_count = len(r.notes.splitlines())
-
-                        # handle missed reminders
-                        if r.notes.startswith("This was scheduled to send on "):
-                            note_line_count -= 1
-
-                        lines_to_delete.extend(
-                            range(r.index + 2, r.index + 2 + note_line_count)
-                        )
-
-                    if is_dry_run:
-                        self.cabinet.log(
-                            f"Would delete reminder: {r.title}\nand delete lines {lines_to_delete}",
-                            level="debug"
-                        )
-
-                # handle commands
-                if 'c' in r.modifiers:
-                    self.cabinet.log(
-                            f"Executing command: {r.title}", level="debug"
-                        )
-                    try:
-                        # add path so things like `cabinet` calls work from crontab
-                        home_dir = os.path.expanduser("~")
-                        path_local_bin = os.path.join(home_dir, ".local/bin")
-                        os.environ[
-                            "PATH"
-                        ] = f"{path_local_bin}:{os.environ['PATH']}"
-
-                        cmd_output = subprocess.check_output(
-                            r.title, shell=True, universal_newlines=True
-                        )
-                        self.cabinet.log(
-                            f"Results: {cmd_output}", level="debug"
-                        )
-                    except subprocess.CalledProcessError as error:
-                        self.cabinet.log(
-                            f"Command execution failed with exit code: {error.returncode}",
-                            level="error",
-                        )
-                        self.cabinet.log(
-                            f"Error output: {error.output}", level="error"
-                        )
-                    continue
-
-                r.mail = self.mail
-
-                if not is_dry_run:
-                    r.send_email()
-                    count_sent += 1
+        # First parse without deletion to get all reminders
+        self.parse_reminders_file(is_delete=False)
+        self.cabinet.log(f"Parsed {len(self.parsed_reminders)} reminders", level="info")
+        
+        # Filter reminders by tags if specified
+        if tags:
+            self.cabinet.log(f"Filtering by tags: {tags}", level="info")
+            self.parsed_reminders = [
+                r for r in self.parsed_reminders 
+                if any(tag in r.tags for tag in tags)
+            ]
+            
+        # Send reminders and handle deletion
+        self.cabinet.log(f"{len(self.parsed_reminders)} with tags in: {tags}",
+                         level="info")
+        
+        # Track which reminders need to be deleted
+        reminders_to_delete = []
+        
+        for reminder in self.parsed_reminders:
+            if reminder.should_send_today:
+                if is_dry_run:
+                    reminder_output = f"\n[yellow]Would send reminder[/yellow]" 
+                    if reminder.delete:
+                        reminder_output += f"[red] and delete after sending[/red]"
+                    reminder_output += f":\n{reminder}"
+                    self.console.print(reminder_output)
+                    self.cabinet.log(reminder_output, level="info", is_quiet=True)
                 else:
-                    self.cabinet.log(
-                        f"Would send email: {r.title} (notes: {r.notes or "None"})\n",
-                        level="debug")
-
-        # Remove lines corresponding to sent reminders from the reminders file.
-        self.delete_reminders(lines_to_delete, is_dry_run=is_dry_run)
-
-        if not is_dry_run:
-            self.cabinet.put("remindmail", "sent_today", count_sent, is_print=True)
+                    reminder.send()
+                    if reminder.delete:
+                        reminders_to_delete.append(reminder)
+                        self.cabinet.log(f"Marked for deletion: {reminder}", level="info")
+        
+        # If any reminders need to be deleted, parse the file again with deletion enabled
+        if reminders_to_delete and not is_dry_run:
+            self.cabinet.log(f"Deleting {len(reminders_to_delete)} reminders after sending", level="info")
+            self.parse_reminders_file(is_delete=True)
 
     def show_later(self) -> None:
         """
-        Shows all reminders tagged as 'later'
+        Displays all reminders that are tagged as 'later'.
+
+        This method shows the title and notes for each reminder that has been
+        marked for later viewing. If no reminders have been parsed yet, it will
+        parse the reminders file first.
         """
 
         if not self.parsed_reminders:
@@ -360,16 +214,20 @@ class ReminderManager:
                 self.console.print(r.title, style="bold green")
                 print(r.notes)
 
-    def show_reminders_for_days(self, limit: int = 8) -> None:
+    def show_reminders_for_days(self, limit: int = 8, tags: Optional[List[str]] = None) -> None:
         """
-        Displays reminders scheduled for the upcoming <limit> days.
+        Displays reminders scheduled for the upcoming specified number of days.
 
-        This method calculates the dates for the next <limit> days, starting from tomorrow
-        (today if between midnight and 4am),
-        and it checks each day for scheduled reminders. For each day, it prints the date
-        and any corresponding reminders. If there are no reminders for a specific day,
-        it indicates so. Reminders with specific modifiers change the display style
-        to highlight their importance or category.
+        Args:
+            limit (int): The number of days to display reminders for. Defaults to 8.
+            tags (Optional[List[str]]): Optional list of tags to filter reminders by.
+
+        The display includes:
+        - The date and day of the week
+        - Reminder titles with appropriate styling
+        - Tags associated with each reminder
+        - Notes for each reminder
+        - A "No Reminders" message if no reminders are scheduled for a day
         """
 
         current_time = datetime.now().time()
@@ -383,19 +241,36 @@ class ReminderManager:
         if not self.parsed_reminders:
             self.parse_reminders_file()
 
+        # Filter reminders by tags if specified
+        if tags:
+            self.parsed_reminders = [
+                r for r in self.parsed_reminders 
+                if any(tag in r.tags for tag in tags)
+            ]
+
         # Iterate through each upcoming day
         for day in dates:
             formatted_date = day.strftime("%Y-%m-%d, %A")
-            self.console.print(f"[bold blue on white]{formatted_date}", highlight=False)
+            if tags:
+                formatted_date = f"{formatted_date} -> {tags}"
+            self.console.print(f"[bold blue on white]{formatted_date}[/bold blue on white]",
+                               highlight=False)
 
             # Track the number of reminders shown for the day
             reminder_shown = False
 
             # Display each reminder scheduled for this day
             for r in self.parsed_reminders:
-                if r.get_should_send_today(day):
-                    reminder_style = f"bold {'purple' if 'c' in r.modifiers else 'green'}"
-                    self.console.print(r.title, style=reminder_style, highlight=False)
+                hide_past_warning: bool = day != date.today() + timedelta(days=1)
+                if r.get_should_send_today(day, hide_past_warning = hide_past_warning):
+                    reminder_style = f"bold {'purple' if r.command else 'green'}"
+                    reminder_title = f"{r.title}"
+                    reminder_tags = ""
+                    if r.tags:
+                        formatted_tags = f"\n    - #{', #'.join(r.tags)}"
+                        reminder_tags = f"[bold blue]{formatted_tags}[/bold blue]"
+                    self.console.print(f"- {reminder_title} {reminder_tags}", 
+                                       style=reminder_style, highlight=False)
                     if r.notes:
                         self.console.print(r.notes, style="italic")
                     reminder_shown = True
@@ -408,10 +283,14 @@ class ReminderManager:
     @error_handler.ErrorHandler.exception_handler
     def edit_reminders_file(self) -> None:
         """
-        Edits the remind.md file
-        You must configure the path to remind.md in
+        Opens the reminders YAML file for editing.
 
+        This method uses the configured editor to open the reminders file for manual editing.
+        The path to the file must be configured in Cabinet under:
         cabinet -> remindmail -> path -> file
+
+        Raises:
+            FileNotFoundError: If the reminders file path is not configured.
         """
 
         if self.remind_path_file is None:
@@ -420,13 +299,20 @@ class ReminderManager:
 
     def help_set_path_remindmd(self) -> bool:
         """
-        A fallback function to ensure remind.md is set
-        to a default path if not configured.
+        Ensures the remindmail.yml file path is properly configured.
+
+        This method checks if the path to remindmail.yml is set, and if not,
+        it sets up a default path and creates the necessary file and directories.
+        It also updates Cabinet accordingly.
 
         Returns:
-            bool: whether the path to remind.md has been set
+            bool: True if the path was set or updated, False otherwise.
+
+        Raises:
+            FileNotFoundError: If the remindmail.yml file cannot be found and no
+                default path can be established.
         """
-        default_path = os.path.expanduser('~/remindmail/remind.md')
+        default_path = os.path.expanduser('~/remindmail/remindmail.yml')
 
         # Check if the path is not set
         if not self.remind_path_file:
@@ -436,28 +322,28 @@ class ReminderManager:
             # Check if the default path exists; if not, create the file and its directories
             if not os.path.exists(default_path):
                 os.makedirs(os.path.dirname(default_path), exist_ok=True)
-                with open(default_path, 'w', encoding='utf-8'):
-                    pass  # Create an empty file
+                with open(default_path, 'w', encoding='utf-8') as file:
+                    yaml.dump({'reminders': []}, file)
 
             # Store the path in Cabinet
             self.cabinet.put('remindmail', 'path', 'file', default_path)
 
             print(
-                "Reminders will be stored in ~/remindmail/remind.md.\n"
+                "Reminders will be stored in ~/remindmail/remindmail.yml.\n"
                 "You can change this at any time by running:\n"
-                "`cabinet -p remindmail path file <full path to remind.md>`\n"
+                "`cabinet -p remindmail path file <full path to remindmail.yml>`\n"
                 "or simply `cabinet -e` and modifying the remindmail object.\n"
             )
 
             return True
 
         path = self.remind_path_file or self.cabinet.get('remindmail', 'path', 'file') or ""
-        self.remind_path_file = path.replace("remind.md", "")
+        self.remind_path_file = path.replace("remindmail.yml", "")
 
         # Ensure we have a directory and it ends correctly
         if not self.remind_path_file:
             raise FileNotFoundError(
-                "Cannot find remind.md. Set with `cabinet -p remindmail path file <path>`")
+                "Cannot find remindmail.yml. Set with `cabinet -p remindmail path file <path>`")
 
         if self.remind_path_file.endswith('/'):
             self.remind_path_file = self.remind_path_file.rstrip('/')
@@ -465,7 +351,7 @@ class ReminderManager:
         # Update path in Cabinet if it points to a directory
         if os.path.isdir(self.remind_path_file):
             old_value = self.remind_path_file
-            new_value = f"{self.remind_path_file}/remind.md"
+            new_value = f"{self.remind_path_file}/remindmail.yml"
             self.remind_path_file = new_value
             self.cabinet.log(
                 "Updating remindmail -> path -> file in "
@@ -476,11 +362,15 @@ class ReminderManager:
 
         return False
 
-
-    def send_later(self):
+    def send_later(self) -> None:
         """
-        Sends an email containing reminders
-        tagged as `later`
+        Sends an email containing all reminders tagged as 'later'.
+
+        This method collects all reminders marked for later viewing and sends them
+        in a formatted email. The email includes the current date and a bulleted
+        list of reminders with their titles and notes.
+
+        If no 'later' reminders are found, a log message is generated to indicate this.
         """
 
         if not self.parsed_reminders:
@@ -506,31 +396,70 @@ class ReminderManager:
         else:
             self.cabinet.log("No reminders were found for 'later'.")
 
-    @error_handler.ErrorHandler.exception_handler
-    def delete_reminders(self,
-                         lines_to_delete: List[int],
-                         is_dry_run: bool = False) -> None:
+    def find_reminders(self, search_text: str) -> None:
         """
-        Deletes specific lines from the reminders file.
+        Searches for reminders containing the given text in title, date, or day fields.
+        If the search text is a valid date, also finds all reminders that would send on that date.
 
         Args:
-        - lines_to_delete (List[int]): List of 1-based line indices to be deleted
-            from the reminders file.
-        - is_dry_run (bool): If True, the method will not delete the lines from the file.
+            search_text (str): The text to search for in reminders.
         """
+        if not self.parsed_reminders:
+            self.parse_reminders_file()
 
-        # Convert 1-based indices to 0-based indices for internal processing
-        zero_based_indices = {line - 1 for line in lines_to_delete}
+        search_text = search_text.lower()
+        found_reminders = set()  # Use set to avoid duplicates
 
-        if is_dry_run:
-            self.cabinet.log(
-                f"Would delete lines: {lines_to_delete}", level="debug")
-            return
+        # Try to parse the search text as a date
+        target_date = None
+        try:
+            # Try different date formats
+            for fmt in ['%Y-%m-%d', '%m-%d', '%m/%d', '%m/%d/%Y']:
+                try:
+                    target_date = datetime.strptime(search_text, fmt).date()
+                    break
+                except ValueError:
+                    continue
+        except ValueError:
+            pass
 
-        path: str = self.remind_path_file or self.cabinet.get('remindmail', 'path', 'file') or ""
-        with open(path, "r", encoding="utf-8") as file:
-            lines = file.readlines()
-        with open(path, "w", encoding="utf-8") as file:
-            for index, line in enumerate(lines):
-                if index not in zero_based_indices:
-                    file.write(line)
+        for reminder in self.parsed_reminders:
+            # If we have a valid date, check if reminder would send on that date
+            if target_date and reminder.get_should_send_today(target_date):
+                found_reminders.add(reminder)
+                continue
+
+            # Search in title
+            if search_text in reminder.title.lower():
+                found_reminders.add(reminder)
+                continue
+
+            # Search in date or day value
+            if reminder.value and search_text in str(reminder.value).lower():
+                found_reminders.add(reminder)
+                continue
+
+            # Search in day of week
+            if reminder.key in [
+                ReminderKeyType.MONDAY, ReminderKeyType.TUESDAY,
+                ReminderKeyType.WEDNESDAY, ReminderKeyType.THURSDAY,
+                ReminderKeyType.FRIDAY, ReminderKeyType.SATURDAY,
+                ReminderKeyType.SUNDAY
+            ] and search_text in reminder.key.label.lower():
+                found_reminders.add(reminder)
+                continue
+
+        if found_reminders:
+            self.console.print(f"\nFound {len(found_reminders)} reminder{\
+                's' if len(found_reminders) > 1 else ''} containing or sending on '{search_text}':\n", 
+                style="bold green")
+            for reminder in found_reminders:
+                self.console.print(reminder.title, style="bold green")
+                self.console.print(reminder, style="bold blue")
+                if reminder.notes:
+                    self.console.print(reminder.notes, style="italic")
+                print()
+        else:
+            self.console.print(f"\nNo reminders found containing '{search_text}'" + \
+                (f" or sending on {target_date}" if target_date else "") + "\n", 
+                style="bold yellow")

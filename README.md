@@ -3,6 +3,9 @@ A powerful CLI designed to help you schedule and organize reminders efficiently 
 Easily manage your To Do list, schedule one-time or recurring reminders, add notes, and view and manage upcoming reminders, all from the comfort of your terminal.
 
 ## Table of Contents
+- [RemindMail: Reminder Management Tool](#remindmail-reminder-management-tool)
+  - [Table of Contents](#table-of-contents)
+- [✨ New in 3.0.0:](#-new-in-300)
 - [Features](#features)
 - [Dependencies](#dependencies)
 - [Installation and Setup](#installation-and-setup)
@@ -14,16 +17,32 @@ Easily manage your To Do list, schedule one-time or recurring reminders, add not
 - [Usage](#usage)
   - [Scheduling Reminders With TUI](#scheduling-reminders-with-tui)
     - [VI Mode and Keybindings](#vi-mode-and-keybindings)
-  - [Scheduling Reminders With remind.md](#scheduling-reminders-with-remindmd)
-    - [Tags](#tags)
-    - [Frequency](#frequency)
-    - [Offset](#offset)
-    - [Modifiers](#modifiers)
+  - [Scheduling Reminders With remindmail.yml](#scheduling-reminders-with-remindmailyml)
+    - [YAML Key Reference](#yaml-key-reference)
+      - [`name`](#name)
+      - [`every`](#every)
+      - [`unit`](#unit)
+      - [`offset`](#offset)
+      - [`day`](#day)
+      - [`dom`](#dom)
+      - [`date`](#date)
+      - [`later`](#later)
+      - [`delete`](#delete)
+      - [`notes`](#notes)
+      - [`command`](#command)
+      - [`tags`](#tags)
     - [Good Examples](#good-examples)
 - [Contributing](#contributing)
 - [License](#license)
 - [Disclaimer](#disclaimer)
 - [Author Info](#author-info)
+
+# ✨ New in 3.0.0:
+- Migrated from a custom `.md` file to a YAML file
+  - Allows for easier extensibility in future releases
+- Added optional tags for more flexible scheduling
+- Better handling for errors and edge case
+- Improved TUI for delete and command options
 
 # Features
 RemindMail offers a variety of features to enhance your productivity:
@@ -32,12 +51,13 @@ RemindMail offers a variety of features to enhance your productivity:
 - Send one-time or recurring reminders to your inbox
 - Add notes or "for later" reminders
 - View and manage upcoming reminders
+- Organize reminders with tags for better filtering
 
 # Dependencies
 - `zsh` or `bash`
 - `python3`
 - [cabinet](https://pypi.org/project/cabinet/)
-  - used to store the `remind.md` path and other important variables
+  - used to store the `remindmail.yml` path and other important variables
 - a configured SMTP server (many email providers offer this, but Gmail will not work)
 
 # Installation and Setup
@@ -76,7 +96,7 @@ remind -m cabinet --config
     "mongodb_enabled": true, # optional if using mongodb - default false
     "subject_prefix": "Reminder ", # optional - custom prefix for email subjects (default: "📌 ")
     "path": {
-        "file": "/path/to/remind.md"
+        "file": "/path/to/remindmail.yml"
     }
   },
   "email": {
@@ -108,7 +128,7 @@ remind -m cabinet --config
 - your setup may require `remind` to be replaced with something like:
   - `0 4 * * * python3 /path/to/site-packages/remind/remind.py --generate`
 
-- this function requires use of SMTP; please ensure you've configured this correctly.
+- this function requires use of SMTP through Cabinet; please ensure you've configured this correctly.
 
 # Usage
 
@@ -123,13 +143,17 @@ remind -m cabinet --config
 - `remind -h` (or `--help`): Displays usage information.
 - `remind -g` (or `--generate`): Generates all reminders scheduled for today.
   - use `--dry-run` to see what would be sent without actually sending anything.
-  - `remind -g --file=/path/to/special/remind.md` will use the specified file instead of the default.
+  - `remind -g --file=/path/to/special/remindmail.yml` will use the specified file instead of the default.
   - I recommend setting up a crontab.
 - `remind --later`: Emails reminders that are marked with `[later]`
-- `remind --st` (or `--show-tomorrow`): Lists reminders in remind.md that target tomorrow's date
+- `remind --st` (or `--show-tomorrow`): Lists reminders in remindmail.yml that target tomorrow's date
 - `remind --sw` (or `--show-week`): Lists reminders for the next 7 days
-- `remind -e` (or `--edit`): Opens `remind.md` in your configured editor
-- `remind --list-all`: Lists all reminders in `remind.md`. Useful for debugging.
+- `remind -e` (or `--edit`): Opens `remindmail.yml` in your configured editor
+- `remind --list-all`: Lists all reminders in `remindmail.yml`. Useful for debugging.
+- `remind --find 'search text'`: Displays reminders containing the given text in title, date, or day fields.
+  - Text search examples: `remind --find laundry`, `remind --find monday`
+  - Date search examples: `remind --find 2025-04-24`, `remind --find 04/24`
+  - If search text is a valid date, displays reminders that would send on that date.
 - `cabinet --config`: Configures [cabinet](https://pypi.org/project/cabinet/)
 
 ## Scheduling Reminders With TUI
@@ -148,93 +172,128 @@ remind -m cabinet --config
 - use `i` to exit VI mode.
 - use `q` to cancel the reminder.
 
-## Scheduling Reminders With remind.md
+## Scheduling Reminders With remindmail.yml
 
-- The `remind.md` file is a simple Markdown file that contains your reminders.
-- Syntax: `[tag,frequency,offset]modifier Title`
+- The `remindmail.yml` file is a YAML configuration file that contains your reminders.
+- Each reminder is defined as an object under the `reminders` key.
 
-### Tags
-| Tag | Description |
-| --- | --- |
-| d   | day |
-| w   | week |
-| m   | month |
-| YYYY-MM-DD   | date |
-| MM-DD   | date |
-| dom | day of month |
-| sun | Sunday |
-| mon | Monday |
-| tue | Tuesday |
-| wed | Wednesday |
-| thu | Thursday |
-| fri | Friday |
-| sat | Saturday |
-| later | for later |
+### YAML Key Reference
 
-### Frequency
-- a number indicating how often the reminder should be sent (e.g., every 2 weeks, every 3 months, etc.)
-- not valid for date or later tags
+#### `name`
+- **Type:** `string`
+- **Description:** The description or title of the reminder.
 
-### Offset
-- when scheduling a reminder, you can adjust the `offset` field to shift reminder schedules.
-- For instance, one reminder may be "every 2 weeks", and the other can be every 2 weeks with an offset of 1, resulting in alternating reminders.
+#### `every`
+- **Type:** `int`
+- **Description:** How often the reminder recurs (e.g. every `2` units of time).
+- **Default unit:** `days` (unless `unit` is specified).
 
-The offset is determined by the epoch date.
-- The Epoch time is the number of seconds since January 1, 1970, UTC.
-- For example, if the current time is `1619394350`, then today is Sunday, April 25, 2021 at 11:45:50PM UTC.
-- The "week number" is calculated by `epochTime`/60/60/24/7.
-  - `1619394350 /60/60/24/7 ~= 2677`
-  - `2677 % 3 == 1`, meaning scheduling a reminder for `[W,3]` would be sent last week, but not this week (or next week or the week after).
+#### `unit`
+- **Type:** `string` (`days`, `weeks`, `months`)
+- **Description:** Time unit for `every`. Only needed for non-day intervals.
 
-### Modifiers
-| Modifier | Description |
-| --- | --- |
-| d | delete after sending (one-time reminder) |
-| c | execute title as command; do not send email |
+#### `offset`
+- **Type:** `int`
+- **Description:** Delay (in same units as `every`) before the first occurrence.
+
+#### `day`
+- **Type:** `string` (`mon`, `tue`, ..., `sun`)
+- **Description:** Specifies a day of the week for weekly reminders.
+
+#### `dom`
+- **Type:** `int` (1–31)
+- **Description:** Day of the month when the reminder occurs.
+
+#### `date`
+- **Type:** `string` (`YYYY-MM-DD` or `MM-DD`)
+- **Description:** A specific one-time or annual date for the reminder.
+
+#### `later`
+- **Type:** `bool`
+- **Description:** Marks the reminder as unscheduled or saved for later.
+
+#### `delete`
+- **Type:** `bool`
+- **Description:** If `true`, the reminder should be deleted after it's triggered.
+
+#### `notes`
+- **Type:** `string`
+- **Description:** If set, sends within the body of the email and marks the subject with 📝. Basic HTML is supported.
+
+#### `command`
+- **Type:** `string`
+- **Description:** If set, runs the command and outputs the results to the body of the email.
+
+#### `tags`
+Optional list of tags to categorize and filter reminders. Tags can be used to group related reminders and filter which reminders are sent when using the `--generate` command.
+
+Example:
+```yaml
+reminders:
+  - name: "Weekly team meeting"
+    day: "mon"
+    tags: ["work", "meeting"]
+    notes: "Don't forget to prepare the agenda"
+    
+  - name: "Grocery shopping"
+    every: 7
+    tags: ["personal", "shopping"]
+    notes: "Buy milk and eggs"
+```
+
+You can then filter reminders by tags when generating:
+```bash
+remindmail --generate --tags work,meeting  # Only sends reminders with work or meeting tags
+remindmail --generate --tags personal      # Only sends reminders with personal tag
+remindmail --generate                      # Sends all reminders (default behavior)
+```
+
+Tags can be specified by a string or list in the YAML file:
+```yaml
+tags: "meeting"
+```
+or
+```yaml
+tags: ["work", "meeting"]
+```
 
 ### Good Examples
-- These are some examples of how your remind.md file could look.
+Here are some examples of how your remindmail.yml file could look:
 
-```markdown
-[w,1] Laundry
-- this will send each week on Sunday. 
-
-[w,2] Sheets
-- This will be sent every 2 weeks on Sunday.
-
-[m,3] Review Budget # comments will be ignored in titles
-- This will be sent on the 1st of every 3 months.
-
-[m,3,2] Change AC filter
-- every 3 months, with an offset of 2
-(see notes about Offset below)
-
-[2024-05-03]d send report
-- send on May 3
-- This will be deleted after it's sent, as indicated by `]d`.
-
-[09-20,1] Get a Flu Shot
-This will be sent on September 20.
-Anything underneath a reminder tag is considered a note and will
-be sent in the body of the email.
-
-[fri] Submit Timesheet
-<b>Will be sent every Friday. Reminder notes support HTML.</b>
-
-[fri,2] Payday!
-- This will send every other Friday.
-
-[thu,1]c ls > /home/tyler/directory.log
-- Reminders ending with `]c` will be executed as commands, rather than
-sent as emails.
-
-[d,1] 40 Daily Pushups
-This is sent each day.
-
-[later] play diplomacy board game
-This isn't sent, but it is saved for later and can be sent using
-`remind --later`.
+```yaml
+reminders:
+  - name: Workout and Stretch
+    day: mon,wed,fri
+    delete: false
+  - name: Try Cursor IDE
+    date: 2025-03-31
+    delete: true
+    notes: This will be <u>VERY</u> useful! <b>WOW</b>
+  - name: Laundry and Sheets
+    every: 6
+    offset: 5
+    delete: false
+  - name: Monthly Budget
+    unit: months
+  - name: Change Toothbrush Head
+    every: 3
+    unit: months
+    offset: 2
+    delete: false
+  - name: Try Umbrell OS
+    later: true
+  - name: Update Team Spreadsheet
+    day: wed
+    every: 2
+    offset: 1
+  - name: Homework File Count
+    day: fri
+    command: find ~/homework -maxdepth 1 -type f | wc -l
+    notes: This is how many files are in ~/homework.
+    
 ```
+
+⚠️ Comments and extraneous spacing will NOT be saved after reminders are generated.
 
 # Contributing
 - Contributions to RemindMail are welcome! Please feel free to fork the repository, make your changes, and submit a pull request.
