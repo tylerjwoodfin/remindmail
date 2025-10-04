@@ -261,8 +261,10 @@ class ReminderManager:
 
             # Display each reminder scheduled for this day
             for r in self.parsed_reminders:
-                # Hide past warning if we're looking at a future date (not today)
-                hide_past_warning: bool = day > date.today() + timedelta(days=1)
+                # Hide past warning if:
+                # - We're looking at a future date (not today), OR
+                # - We're looking at today but it's before 4AM (reminders not sent yet)
+                hide_past_warning: bool = (day > date.today()) or (day == date.today() and current_time.hour < 4)
                 if r.get_should_send_today(day, hide_past_warning = hide_past_warning):
                     reminder_style = f"bold {'purple' if r.command else 'green'}"
                     reminder_title = f"{r.title}"
