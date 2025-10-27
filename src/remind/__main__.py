@@ -7,20 +7,21 @@ from importlib.metadata import version
 from . import reminder_manager
 from . import query_manager
 
-def handle_args(manager_r: reminder_manager.ReminderManager,
-                manager_q: query_manager.QueryManager) -> None:
+
+def handle_args(
+    manager_r: reminder_manager.ReminderManager, manager_q: query_manager.QueryManager
+) -> None:
     """
     Parse arguments passed to RemindMail
     """
 
-    parser = argparse.ArgumentParser(description="A tool to schedule and organize reminders")
+    parser = argparse.ArgumentParser(
+        description="A tool to schedule and organize reminders"
+    )
 
     # parameter arguments
     parser.add_argument(
-        "--title",
-        help="the title of your reminder",
-        nargs="+",
-        default=None
+        "--title", help="the title of your reminder", nargs="+", default=None
     )
 
     parser.add_argument(
@@ -28,40 +29,33 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         "--d",
         help="when the reminder should send, as natural language",
         nargs="?",
-        const="")
+        const="",
+    )
 
     parser.add_argument(
-        "--notes",
-        "--n",
-        help="notes for the body of the email",
-        nargs="?",
-        const=""
+        "--notes", "--n", help="notes for the body of the email", nargs="?", const=""
     )
 
     parser.add_argument(
         "--starts-on",
         help="the date on which the reminder should start",
         nargs="?",
-        const=""
+        const="",
     )
 
     parser.add_argument(
         "--file",
         help="path to a specific, potentially non-default reminder file",
         nargs="?",
-        const=""
+        const="",
     )
 
     parser.add_argument(
-        "--later",
-        action="store_true",
-        help="show reminders scheduled for later"
+        "--later", action="store_true", help="show reminders scheduled for later"
     )
 
     parser.add_argument(
-        "--save",
-        action="store_true",
-        help="save reminder without confirmation"
+        "--save", action="store_true", help="save reminder without confirmation"
     )
 
     # action arguments
@@ -76,20 +70,14 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         "--tags",
         help="comma-separated list of tags to filter reminders by",
         nargs="?",
-        const=""
+        const="",
     )
 
     parser.add_argument(
-        "-v",
-        "--version",
-        action="version",
-        version=version('remindmail')
+        "-v", "--version", action="version", version=version("remindmail")
     )
 
-    parser.add_argument(
-        "--edit",
-        action="store_true",
-        help="edit the remindmail file")
+    parser.add_argument("--edit", action="store_true", help="edit the remindmail file")
 
     parser.add_argument(
         "--show-tomorrow",
@@ -102,7 +90,7 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         "--send-later",
         "--sl",
         action="store_true",
-        help="sends a list of reminders scheduled for `later`"
+        help="sends a list of reminders scheduled for `later`",
     )
 
     parser.add_argument(
@@ -128,19 +116,21 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
         "--find",
         help="search for reminders containing the given text in title, date, or day fields",
         nargs="?",
-        const=""
+        const="",
     )
 
     try:
         args = parser.parse_args()
 
         # set manager_r props
-        manager_r.remind_path_file = args.file if args.file else manager_r.remind_path_file
+        manager_r.remind_path_file = (
+            args.file if args.file else manager_r.remind_path_file
+        )
 
         # Handle tags
         tags = None
         if args.tags:
-            tags = [tag.strip() for tag in args.tags.split(',')]
+            tags = [tag.strip() for tag in args.tags.split(",")]
 
         if args.generate:
             manager_r.generate(is_dry_run=args.dry_run, tags=tags)
@@ -162,7 +152,7 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
             # handle title
             title = args.title
             if isinstance(title, list):
-                title = ' '.join(title)
+                title = " ".join(title)
             elif isinstance(title, str):
                 title = title.strip()
 
@@ -172,11 +162,12 @@ def handle_args(manager_r: reminder_manager.ReminderManager,
                 notes=args.notes,
                 starts_on=args.starts_on,
                 save=args.save,
-                tags=tags
+                tags=tags,
             )
 
     except KeyboardInterrupt as exc:
         raise KeyboardInterrupt from exc
+
 
 def main():
     """
@@ -190,6 +181,7 @@ def main():
         handle_args(manager_remind, manager_query)
     except KeyboardInterrupt:
         print("\n")
+
 
 if __name__ == "__main__":
     main()

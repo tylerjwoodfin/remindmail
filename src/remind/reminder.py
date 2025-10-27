@@ -3,18 +3,31 @@ The main class
 """
 
 import calendar
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 import os
 from pathlib import Path
 import subprocess
 from typing import Optional, List
 from enum import Enum
-from cabinet import Cabinet, Mail
 import yaml
 from remind.error_handler import ErrorHandler
+from cabinet import Cabinet, Mail
 
 
 class ReminderKeyType(Enum):
+    """
+    Enumeration of reminder types and their associated values.
+
+    Each enum member represents a different type of reminder with two values:
+    - db_value: The string value stored in the database/YAML (first tuple element)
+    - label: Human readable label for display (second tuple element)
+
+    The enum provides helper methods to:
+    - Convert database values to enum members
+    - Parse comma-separated day strings into enum members
+    - Check if a reminder type represents a day of the week
+    """
+
     DATE = ("date", "Date")
     DAY = ("d", "Day")
     WEEK = ("w", "Week")
@@ -32,6 +45,7 @@ class ReminderKeyType(Enum):
 
     @classmethod
     def from_db_value(cls, db_value):
+        """Returns the enum member matching the given database value."""
         for member in cls:
             if member.db_value == db_value:
                 return member
@@ -103,6 +117,8 @@ class Reminder:
         title (str): The title or main content of the reminder.
         notes (str): Additional notes associated with the reminder.
         tags (List[str]): Optional list of tags associated with the reminder.
+        email (Optional[str]): Optional email address to send this reminder to.
+            If not set, uses default from Cabinet config (`email -> to`).
         index (int): The index of the actual line in which this reminder starts in remindmail.yml
         cabinet (Cabinet): instance of Cabinet, a file management tool
         mail (Mail): The instance in which to send reminders as emails
@@ -125,6 +141,7 @@ class Reminder:
         mail: Mail,
         path_remind_file: str,
         tags: Optional[List[str]] = None,
+        email: Optional[str] = None,
     ) -> None:
         self.key = key
         self.value = value
@@ -140,6 +157,7 @@ class Reminder:
         self.mail = mail
         self.path_remind_file = path_remind_file
         self.tags = tags or []
+        self.email = email
         self.should_send_today = False
         self.canceled = False  # set to True if user cancels reminder in confirmation
         self.error_handler = ErrorHandler()
@@ -159,6 +177,7 @@ class Reminder:
             f"command='{self.command}',\n"
             f"notes='{self.notes}',\n"
             f"tags={self.tags},\n"
+            f"email={self.email},\n"
             f"canceled={self.canceled},\n"
             f"should_send_today={self.should_send_today})"
         )
@@ -230,7 +249,7 @@ class Reminder:
         elif self.key == ReminderKeyType.DAY_OF_MONTH:
             if not self.value or not str(self.value).isdigit():
                 raise ValueError(
-                    "Reminder day of month cannot be empty and must be an integer for day of month reminders."
+                    "Day of month reminders require a non-empty integer value."
                 )
             return target_date.day == self.value
 
@@ -372,7 +391,18 @@ class Reminder:
         email_title = f"{subject_prefix}{email_icons} {self.title}"
 
         self.cabinet.logdb(self.title, collection_name="reminders")
-        self.mail.send(email_title, self.notes or "", is_quiet=is_quiet)
+
+        # Use custom email if specified, otherwise use default
+        # Cabinet expects to_addr as a list when provided
+        if self.email:
+            # Ensure email is passed as a list
+            custom_to = [self.email] if isinstance(self.email, str) else self.email
+            self.mail.send(
+                email_title, self.notes or "", is_quiet=is_quiet, to_addr=custom_to
+            )
+        else:
+            # Let Cabinet use the default from config
+            self.mail.send(email_title, self.notes or "", is_quiet=is_quiet)
 
     def write_to_file(self, is_quiet: bool = True) -> None:
         """
@@ -399,7 +429,8 @@ class Reminder:
         elif self.key == ReminderKeyType.DAY_OF_MONTH:
             if not self.value or not self.error_handler.is_valid_date(str(self.value)):
                 raise ValueError(
-                    "Reminder day of month cannot be empty and must be an integer for day of month reminders."
+                    "Reminder day of month cannot be empty and must be an "
+                    "integer for day of month reminders."
                 )
             reminder_dict["dom"] = self.value
         elif self.key in {
@@ -434,6 +465,8 @@ class Reminder:
             reminder_dict["tags"] = self.tags
         if self.command:
             reminder_dict["command"] = self.command
+        if self.email:
+            reminder_dict["email"] = self.email
 
         # Load existing file (if any)
         path_remind_file = (
@@ -444,7 +477,7 @@ class Reminder:
         remind_path = Path(path_remind_file)
 
         if remind_path.exists():
-            with open(remind_path, "r") as f:
+            with open(remind_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
         else:
             data = {}
@@ -453,7 +486,7 @@ class Reminder:
         data.setdefault("reminders", []).append(reminder_dict)
 
         # Write it back
-        with open(remind_path, "w") as f:
+        with open(remind_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=False)
 
         if not is_quiet:
