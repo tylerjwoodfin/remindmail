@@ -227,7 +227,7 @@ remind -m cabinet --config
 
 #### `email`
 - **Type:** `string`
-- **Description:** Optional email address to send this specific reminder to. If not set, uses the default email configured in Cabinet's `email.to` setting.
+- **Description:** Optional email address to send this specific reminder to. If not set, uses the default email configured in Cabinet's `email -> to` setting.
 
 #### `tags`
 Optional list of tags to categorize and filter reminders. Tags can be used to group related reminders and filter which reminders are sent when using the `--generate` command.
