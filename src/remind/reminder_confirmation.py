@@ -1,6 +1,7 @@
 """
 The confirmation before saving a reminder through the manual reminder wizard
 """
+
 import datetime
 import textwrap
 from typing import List
@@ -13,6 +14,7 @@ from prompt_toolkit.widgets import TextArea, Box, Label
 from prompt_toolkit.layout.containers import WindowAlign, ConditionalContainer
 from prompt_toolkit.filters import has_focus, Condition
 from remind.reminder import Reminder, ReminderKeyType
+
 
 class ReminderConfirmation:
     """
@@ -38,37 +40,53 @@ class ReminderConfirmation:
         self.reminder.title = self.title_text_area.text
         # self.reminder.key is saved dynamically
         self.reminder.value = self.value_text_area.text
-        self.reminder.frequency = int(self.frequency_text_area.text) \
-            if self.frequency_text_area.text.isdigit() else 0
+        self.reminder.frequency = (
+            int(self.frequency_text_area.text)
+            if self.frequency_text_area.text.isdigit()
+            else 0
+        )
         self.reminder.starts_on = self.starts_on_text_area.text or None
         self.reminder.notes = self.notes_text_area.text
-        self.reminder.offset = int(self.offset_input_text_area.text) \
-            if self.offset_input_text_area.text.isdigit() else 0
+        self.reminder.offset = (
+            int(self.offset_input_text_area.text)
+            if self.offset_input_text_area.text.isdigit()
+            else 0
+        )
         self.reminder.command = self.command_text_area.text
         self.reminder.delete = self.delete_checkbox_checked
-        
+
         # Handle tags
         tags_text = self.tags_text_area.text.strip()
         if tags_text:
-            self.reminder.tags = [tag.strip() for tag in tags_text.split(',')]
+            self.reminder.tags = [tag.strip() for tag in tags_text.split(",")]
         else:
             self.reminder.tags = []
-        
+
         # Handle email
         email_text = self.email_text_area.text.strip()
         self.reminder.email = email_text if email_text else None
-        
-        # warn if reminder is in the past
-        if self.reminder.key == ReminderKeyType.DATE and self.reminder.value and \
-            datetime.datetime.strptime(self.reminder.value, '%Y-%m-%d') < datetime.datetime.now():
-            print_formatted_text(HTML(
-                f'<ansired><b>Warning: Reminder date is in the past.\nReminder will be sent next time `generate` is run.</b></ansired>'))
 
-        confirmation_text = f"Saved"
+        # warn if reminder is in the past
+        if (
+            self.reminder.key == ReminderKeyType.DATE
+            and self.reminder.value
+            and datetime.datetime.strptime(self.reminder.value, "%Y-%m-%d")
+            < datetime.datetime.now()
+        ):
+            print_formatted_text(
+                HTML(
+                    "<ansired><b>Warning: Reminder date is in the past.\n"
+                    "Reminder will be sent next time `generate` is run.</b></ansired>"
+                )
+            )
+
+        confirmation_text = "Saved"
         if self.reminder.key == ReminderKeyType.NOW:
             confirmation_text = "Sent"
 
-        print_formatted_text(HTML(f'<ansigreen><b>{confirmation_text}.</b></ansigreen>'))
+        print_formatted_text(
+            HTML(f"<ansigreen><b>{confirmation_text}.</b></ansigreen>")
+        )
 
         self.application.exit(result="cancel")
         # save logic is handled in query manager
@@ -78,14 +96,19 @@ class ReminderConfirmation:
         self.toolbar_text: str = ""
         self.is_vi_mode: bool = False
         self.key_value_cache: dict = {}
-        self.delete_checkbox_checked: bool = getattr(reminder, 'delete', False)  # Initialize delete checkbox state
+        self.delete_checkbox_checked: bool = getattr(
+            reminder, "delete", False
+        )  # Initialize delete checkbox state
         self.default_frequency()
         self.bindings = KeyBindings()
         self.initialize_ui_components()
         self.setup_key_bindings()
         self.main_container = self.build_main_container()
-        self.application = Application(layout=Layout(self.main_container),
-                                       key_bindings=self.bindings, full_screen=True)
+        self.application = Application(
+            layout=Layout(self.main_container),
+            key_bindings=self.bindings,
+            full_screen=True,
+        )
 
     def default_frequency(self):
         """
@@ -115,16 +138,17 @@ class ReminderConfirmation:
     def initialize_ui_components(self):
         """
         Initializes and configures the UI components for the confirmation interface.
-        
-        This method sets up various text areas, buttons, and containers necessary for the user 
-        to interact with and manage reminders. It leverages a mixture of conditional containers 
-        and static text areas to provide a dynamic and responsive user experience. Each component 
-        is configured to display specific attributes of a reminder and may be read-only or editable 
+
+        This method sets up various text areas, buttons, and containers necessary for the user
+        to interact with and manage reminders. It leverages a mixture of conditional containers
+        and static text areas to provide a dynamic and responsive user experience. Each component
+        is configured to display specific attributes of a reminder and may be read-only or editable
         based on the context.
         """
 
-        def generate_textarea(text: str | None, prompt: str,
-                            read_only: bool = False) -> TextArea:
+        def generate_textarea(
+            text: str | None, prompt: str, read_only: bool = False
+        ) -> TextArea:
             """
             Creates a configured TextArea widget for user input or display,
             wrapping long single-line input.
@@ -141,15 +165,17 @@ class ReminderConfirmation:
             """
 
             initial_text: str = text or ""
-            wrapped_text: str = '\n'.join(textwrap.wrap(initial_text, replace_whitespace=False))
+            wrapped_text: str = "\n".join(
+                textwrap.wrap(initial_text, replace_whitespace=False)
+            )
 
             text_area = TextArea(
                 text=wrapped_text,
                 multiline=True,
                 read_only=read_only,
-                prompt=HTML(f'<b><ansiblue>{prompt}: </ansiblue></b>'),
-                height=Dimension(min=1, max=int(len(text or "")/40) + 1),
-                wrap_lines=True
+                prompt=HTML(f"<b><ansiblue>{prompt}: </ansiblue></b>"),
+                height=Dimension(min=1, max=int(len(text or "") / 40) + 1),
+                wrap_lines=True,
             )
 
             # Set cursor at the end of the text
@@ -160,29 +186,36 @@ class ReminderConfirmation:
         self.reminder_types: List[ReminderKeyType] = list(ReminderKeyType)
 
         # text areas
-        self.title_text_area = generate_textarea(self.reminder.title, 'Title')
-        self.type_text_area = generate_textarea(self.reminder.key.label, 'Type ', True)
-        self.value_text_area = generate_textarea(str(self.reminder.value), 'Value', True)
-        self.frequency_text_area = generate_textarea(str(self.reminder.frequency),
-                                                     'Frequency', True)
-        self.starts_on_text_area = generate_textarea(self.reminder.starts_on, 'Starts On')
-        self.offset_input_text_area = generate_textarea(str(self.reminder.offset), 'Offset', True)
-        
+        self.title_text_area = generate_textarea(self.reminder.title, "Title")
+        self.type_text_area = generate_textarea(self.reminder.key.label, "Type ", True)
+        self.value_text_area = generate_textarea(
+            str(self.reminder.value), "Value", True
+        )
+        self.frequency_text_area = generate_textarea(
+            str(self.reminder.frequency), "Frequency", True
+        )
+        self.starts_on_text_area = generate_textarea(
+            self.reminder.starts_on, "Starts On"
+        )
+        self.offset_input_text_area = generate_textarea(
+            str(self.reminder.offset), "Offset", True
+        )
+
         # Add tags text area (optional)
         self.tags_text_area = generate_textarea(
-            ','.join(self.reminder.tags) if self.reminder.tags else None,
-            'Tags (comma-separated)', False)
+            ",".join(self.reminder.tags) if self.reminder.tags else None,
+            "Tags (comma-separated)",
+            False,
+        )
 
         # Add command text area (optional)
         self.command_text_area = generate_textarea(
-            getattr(self.reminder, 'command', ''), 
-            'Command (optional)'
+            getattr(self.reminder, "command", ""), "Command (optional)"
         )
 
         # Add email text area (optional)
         self.email_text_area = generate_textarea(
-            getattr(self.reminder, 'email', ''), 
-            'Custom Email (optional)'
+            getattr(self.reminder, "email", ""), "Custom Email (optional)"
         )
 
         # Create delete checkbox
@@ -190,73 +223,69 @@ class ReminderConfirmation:
             text=self.get_checkbox_text(),
             multiline=False,
             read_only=True,
-            prompt=HTML('<b><ansiblue>Delete After Sending: </ansiblue></b>'),
-            height=1
+            prompt=HTML("<b><ansiblue>Delete After Sending: </ansiblue></b>"),
+            height=1,
         )
 
         self.value_input = ConditionalContainer(
-            content=self.value_text_area,
-            filter=Condition(self.is_value_enabled)
+            content=self.value_text_area, filter=Condition(self.is_value_enabled)
         )
 
         # frequency
         self.frequency_input = ConditionalContainer(
             content=self.frequency_text_area,
-            filter=Condition(self.is_frequency_enabled)
+            filter=Condition(self.is_frequency_enabled),
         )
 
         # starts on
         self.starts_on_input = ConditionalContainer(
             content=self.starts_on_text_area,
-            filter=Condition(self.is_frequency_enabled)
+            filter=Condition(self.is_frequency_enabled),
         )
 
         # offset
         self.offset_input = ConditionalContainer(
             content=self.offset_input_text_area,
-            filter=Condition(self.is_offset_enabled)
+            filter=Condition(self.is_offset_enabled),
         )
 
         # tags
         self.tags_input = ConditionalContainer(
-            content=self.tags_text_area,
-            filter=Condition(self.is_tags_enabled)
+            content=self.tags_text_area, filter=Condition(self.is_tags_enabled)
         )
 
         # command
         self.command_input = ConditionalContainer(
-            content=self.command_text_area,
-            filter=Condition(self.is_command_enabled)
+            content=self.command_text_area, filter=Condition(self.is_command_enabled)
         )
 
         # email
         self.email_input = ConditionalContainer(
-            content=self.email_text_area,
-            filter=Condition(self.is_email_enabled)
+            content=self.email_text_area, filter=Condition(self.is_email_enabled)
         )
 
         # delete
         self.delete_input = ConditionalContainer(
-            content=self.delete_checkbox,
-            filter=Condition(self.is_delete_enabled)
+            content=self.delete_checkbox, filter=Condition(self.is_delete_enabled)
         )
 
         # notes
-        self.notes_text_area = TextArea(text=self.reminder.notes or "",
-                                    multiline=True, prompt='Notes: ')
+        self.notes_text_area = TextArea(
+            text=self.reminder.notes or "", multiline=True, prompt="Notes: "
+        )
 
         # save
         self.save_button = TextArea(
-            text='Send' if self.reminder.key == ReminderKeyType.NOW else 'Save',
+            text="Send" if self.reminder.key == ReminderKeyType.NOW else "Save",
             read_only=True,
             multiline=False,
-            style='fg:ansigreen')
+            style="fg:ansigreen",
+        )
 
         # cancel
-        self.cancel_button = TextArea(text='Cancel',
-                                    read_only=True,
-                                    multiline=False,
-                                    style='fg:ansired')
+        self.cancel_button = TextArea(
+            text="Cancel", read_only=True, multiline=False, style="fg:ansired"
+        )
 
         # toolbar
         self.toolbar = Box(
@@ -264,18 +293,18 @@ class ReminderConfirmation:
             style="reverse",
             height=1,
             padding_left=1,
-            padding_right=0
+            padding_right=0,
         )
 
     def get_checkbox_text(self) -> str:
         """
         Generate checkbox display text based on current state.
-        
+
         Returns:
             str: ✅ if checked, ❌ if unchecked
         """
         return "✅" if self.delete_checkbox_checked else "❌"
-        
+
     def toggle_delete_checkbox(self) -> None:
         """
         Toggle the state of the delete checkbox.
@@ -287,11 +316,12 @@ class ReminderConfirmation:
         """
         Set up key bindings for toggling the delete checkbox state.
         """
-        @self.bindings.add('enter', filter=has_focus(self.delete_checkbox))
-        @self.bindings.add(' ', filter=has_focus(self.delete_checkbox))
-        @self.bindings.add('y', filter=has_focus(self.delete_checkbox))
-        @self.bindings.add('n', filter=has_focus(self.delete_checkbox))
-        def _(event): # pylint: disable=unused-argument
+
+        @self.bindings.add("enter", filter=has_focus(self.delete_checkbox))
+        @self.bindings.add(" ", filter=has_focus(self.delete_checkbox))
+        @self.bindings.add("y", filter=has_focus(self.delete_checkbox))
+        @self.bindings.add("n", filter=has_focus(self.delete_checkbox))
+        def _(event):  # pylint: disable=unused-argument
             self.toggle_delete_checkbox()
             self.update_toolbar_text()
 
@@ -308,30 +338,32 @@ class ReminderConfirmation:
             HSplit: The root container that holds all other UI components,
             structured in a vertical layout.
         """
-        return HSplit([
-            self.title_text_area,
-            self.type_text_area,
-            self.value_input,
-            self.frequency_input,
-            self.starts_on_input,
-            self.offset_input,
-            self.command_input,
-            self.email_input,
-            self.tags_input,
-            self.delete_input,
-            HSplit(children=[
-                self.notes_text_area
-            ], height=3,
-                   style="bg:ansiyellow fg:ansiblack"),
-            Window(height=1),  # button separator
-            HSplit([
-                Window(width=1)
-            ], padding=1),
-            self.save_button,
-            self.cancel_button,
-            Window(height=1),  # toolbar separator
-            self.toolbar
-        ], padding=0)
+        return HSplit(
+            [
+                self.title_text_area,
+                self.type_text_area,
+                self.value_input,
+                self.frequency_input,
+                self.starts_on_input,
+                self.offset_input,
+                self.command_input,
+                self.email_input,
+                self.tags_input,
+                self.delete_input,
+                HSplit(
+                    children=[self.notes_text_area],
+                    height=3,
+                    style="bg:ansiyellow fg:ansiblack",
+                ),
+                Window(height=1),  # button separator
+                HSplit([Window(width=1)], padding=1),
+                self.save_button,
+                self.cancel_button,
+                Window(height=1),  # toolbar separator
+                self.toolbar,
+            ],
+            padding=0,
+        )
 
     def setup_key_handlers(self):
         """
@@ -340,10 +372,14 @@ class ReminderConfirmation:
 
         # custom helper functions, necessary because prompt_toolkit needs a function to bind to
         def _is_vi_mode_or_save():
-            return self.is_vi_mode or self.application.layout.has_focus(self.save_button)
+            return self.is_vi_mode or self.application.layout.has_focus(
+                self.save_button
+            )
 
         def _is_vi_mode_and_type_input():
-            return self.is_vi_mode and self.application.layout.has_focus(self.type_text_area)
+            return self.is_vi_mode and self.application.layout.has_focus(
+                self.type_text_area
+            )
 
         def _is_not_vi_mode():
             return not self.is_vi_mode
@@ -354,69 +390,76 @@ class ReminderConfirmation:
         def make_nav_handler(key):
             def nav_handler(event):
                 self.handle_navigation(event, key)
+
             return nav_handler
 
-        nav_keys: List[str] = ['up', 'down']
-        nav_keys_vi_mode: List[str] = ['j', 'k']
+        nav_keys: List[str] = ["up", "down"]
+        nav_keys_vi_mode: List[str] = ["j", "k"]
 
         # handle navigation keys
         for nav_key in nav_keys_vi_mode + nav_keys:
             handler = make_nav_handler(nav_key)
             if nav_key in nav_keys_vi_mode:
-                self.bindings.add(nav_key, filter=Condition(_is_vi_mode_or_save))(handler)
+                self.bindings.add(nav_key, filter=Condition(_is_vi_mode_or_save))(
+                    handler
+                )
             else:
                 self.bindings.add(nav_key)(handler)
 
         # handle left and right arrow keys
-        @self.bindings.add('right', filter=has_focus(self.type_text_area))
-        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+        @self.bindings.add("right", filter=has_focus(self.type_text_area))
+        def _(event: KeyPressEvent):  # pylint: disable=unused-argument
             self.cycle_types(1)
 
-        @self.bindings.add('left', filter=has_focus(self.type_text_area))
-        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+        @self.bindings.add("left", filter=has_focus(self.type_text_area))
+        def _(event: KeyPressEvent):  # pylint: disable=unused-argument
             self.cycle_types(-1)
 
         # 'i' to exit vi mode
-        @self.bindings.add('i', filter=Condition(_is_vi_mode_or_save))
-        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+        @self.bindings.add("i", filter=Condition(_is_vi_mode_or_save))
+        def _(event: KeyPressEvent):  # pylint: disable=unused-argument
             self.is_vi_mode = False
             self.update_toolbar_text()
 
         # 'esc' to enter vi mode
-        @self.bindings.add('escape', filter=Condition(_is_not_vi_mode))
-        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+        @self.bindings.add("escape", filter=Condition(_is_not_vi_mode))
+        def _(event: KeyPressEvent):  # pylint: disable=unused-argument
             self.is_vi_mode = True
             self.update_toolbar_text()
 
         # Handle other keys in vi mode
-        @self.bindings.add('<any>', filter=Condition(_is_vi_mode_or_save))
+        @self.bindings.add("<any>", filter=Condition(_is_vi_mode_or_save))
         def block_other_keys(event: KeyPressEvent):  # pylint: disable=unused-argument
             # Optionally log or handle any blocked keys
             pass
 
-        @self.bindings.add('l', filter=Condition(_is_vi_mode_and_type_input))
-        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+        @self.bindings.add("l", filter=Condition(_is_vi_mode_and_type_input))
+        def _(event: KeyPressEvent):  # pylint: disable=unused-argument
             self.cycle_types(1)
             self.update_toolbar_text()
 
-        @self.bindings.add('h', filter=Condition(_is_vi_mode_and_type_input))
-        def _(event: KeyPressEvent): # pylint: disable=unused-argument
+        @self.bindings.add("h", filter=Condition(_is_vi_mode_and_type_input))
+        def _(event: KeyPressEvent):  # pylint: disable=unused-argument
             self.cycle_types(-1)
             self.update_toolbar_text()
 
         text_areas: List[TextArea] = [
             self.title_text_area,
             self.notes_text_area,
-            self.command_text_area  # Add command text area for VI navigation
+            self.command_text_area,  # Add command text area for VI navigation
         ]
 
         def create_vi_binding(text_area: TextArea):
-            @self.bindings.add('l', filter=Condition(lambda: _is_vi_mode_and_text_area(text_area)))
-            def _(event: KeyPressEvent): # pylint: disable=unused-argument
+            @self.bindings.add(
+                "l", filter=Condition(lambda: _is_vi_mode_and_text_area(text_area))
+            )
+            def _(event: KeyPressEvent):  # pylint: disable=unused-argument
                 text_area.buffer.cursor_position += 1
 
-            @self.bindings.add('h', filter=Condition(lambda: _is_vi_mode_and_text_area(text_area)))
-            def _(event: KeyPressEvent): # pylint: disable=unused-argument
+            @self.bindings.add(
+                "h", filter=Condition(lambda: _is_vi_mode_and_text_area(text_area))
+            )
+            def _(event: KeyPressEvent):  # pylint: disable=unused-argument
                 text_area.buffer.cursor_position -= 1
 
         for text_area in text_areas:
@@ -437,10 +480,19 @@ class ReminderConfirmation:
         The bindings are set up for both increasing and decreasing the values with 'right', 'left',
         'l', and 'h' keys.
         """
+
         def create_handler(property_attr, text_area, increment=True):
-            days_of_week = ["Sunday", "Monday", "Tuesday", "Wednesday",
-                            "Thursday", "Friday", "Saturday"]
-            def handler(event): # pylint: disable=unused-argument
+            days_of_week = [
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+            ]
+
+            def handler(event):  # pylint: disable=unused-argument
                 current_value = getattr(self.reminder, property_attr)
 
                 if ReminderKeyType.is_key_day_of_week(self.reminder.key):
@@ -450,10 +502,12 @@ class ReminderConfirmation:
                     new_value = days_of_week[new_index]
                 elif self.reminder.key == ReminderKeyType.DATE:
                     # Handle date increment/decrement
-                    current_date = datetime.datetime.strptime(current_value, '%Y-%m-%d').date()
+                    current_date = datetime.datetime.strptime(
+                        current_value, "%Y-%m-%d"
+                    ).date()
                     delta = datetime.timedelta(days=1 if increment else -1)
                     new_value = current_date + delta
-                    new_value = new_value.strftime('%Y-%m-%d')
+                    new_value = new_value.strftime("%Y-%m-%d")
                 else:
                     # Handle numeric increments/decrements
                     current_value = int(current_value)
@@ -468,64 +522,80 @@ class ReminderConfirmation:
         # Bind handlers for frequency, offset, and value
 
         # Frequency handlers
-        self.bindings.add('right', filter=has_focus(self.frequency_input))(
-            create_handler('frequency', self.frequency_text_area, True))
-        self.bindings.add('l', filter=has_focus(self.frequency_input))(
-            create_handler('frequency', self.frequency_text_area, True))
-        self.bindings.add('left', filter=has_focus(self.frequency_input))(
-            create_handler('frequency', self.frequency_text_area, False))
-        self.bindings.add('h', filter=has_focus(self.frequency_input))(
-            create_handler('frequency', self.frequency_text_area, False))
+        self.bindings.add("right", filter=has_focus(self.frequency_input))(
+            create_handler("frequency", self.frequency_text_area, True)
+        )
+        self.bindings.add("l", filter=has_focus(self.frequency_input))(
+            create_handler("frequency", self.frequency_text_area, True)
+        )
+        self.bindings.add("left", filter=has_focus(self.frequency_input))(
+            create_handler("frequency", self.frequency_text_area, False)
+        )
+        self.bindings.add("h", filter=has_focus(self.frequency_input))(
+            create_handler("frequency", self.frequency_text_area, False)
+        )
 
         # Offset handlers
-        self.bindings.add('right', filter=has_focus(self.offset_input))(
-            create_handler('offset', self.offset_input_text_area, True))
-        self.bindings.add('l', filter=has_focus(self.offset_input))(
-            create_handler('offset', self.offset_input_text_area, True))
-        self.bindings.add('left', filter=has_focus(self.offset_input))(
-            create_handler('offset', self.offset_input_text_area, False))
-        self.bindings.add('h', filter=has_focus(self.offset_input))(
-            create_handler('offset', self.offset_input_text_area, False))
+        self.bindings.add("right", filter=has_focus(self.offset_input))(
+            create_handler("offset", self.offset_input_text_area, True)
+        )
+        self.bindings.add("l", filter=has_focus(self.offset_input))(
+            create_handler("offset", self.offset_input_text_area, True)
+        )
+        self.bindings.add("left", filter=has_focus(self.offset_input))(
+            create_handler("offset", self.offset_input_text_area, False)
+        )
+        self.bindings.add("h", filter=has_focus(self.offset_input))(
+            create_handler("offset", self.offset_input_text_area, False)
+        )
 
         # Value handlers
-        if self.reminder.key == ReminderKeyType.DATE or \
-            self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
+        if (
+            self.reminder.key == ReminderKeyType.DATE
+            or self.reminder.key == ReminderKeyType.DAY_OF_MONTH
+        ):
 
-            self.bindings.add('right', filter=has_focus(self.value_input))(
-                create_handler('value', self.value_text_area, True))
-            self.bindings.add('l', filter=has_focus(self.value_input))(
-                create_handler('value', self.value_text_area, True))
-            self.bindings.add('left', filter=has_focus(self.value_input))(
-                create_handler('value', self.value_text_area, False))
-            self.bindings.add('h', filter=has_focus(self.value_input))(
-                create_handler('value', self.value_text_area, False))
+            self.bindings.add("right", filter=has_focus(self.value_input))(
+                create_handler("value", self.value_text_area, True)
+            )
+            self.bindings.add("l", filter=has_focus(self.value_input))(
+                create_handler("value", self.value_text_area, True)
+            )
+            self.bindings.add("left", filter=has_focus(self.value_input))(
+                create_handler("value", self.value_text_area, False)
+            )
+            self.bindings.add("h", filter=has_focus(self.value_input))(
+                create_handler("value", self.value_text_area, False)
+            )
 
     def setup_save_and_cancel_handlers(self):
         """
         Configures key bindings for save and cancel actions within the application.
 
         This method sets up handlers that trigger on specific key presses when focus is on the save
-        or cancel buttons. It defines actions for saving changes, updating the interface, and 
-        exiting the application. These handlers enhance user interaction by providing quick 
+        or cancel buttons. It defines actions for saving changes, updating the interface, and
+        exiting the application. These handlers enhance user interaction by providing quick
         keyboard shortcuts for common actions.
         """
 
         # custom helper functions to accommodate prompt_toolkit's Conditions
         def _is_vi_mode_or_save_button():
-            return self.is_vi_mode or self.application.layout.has_focus(self.save_button)
+            return self.is_vi_mode or self.application.layout.has_focus(
+                self.save_button
+            )
 
-        @self.bindings.add('enter', filter=has_focus(self.save_button))
-        @self.bindings.add(' ', filter=has_focus(self.save_button))
+        @self.bindings.add("enter", filter=has_focus(self.save_button))
+        @self.bindings.add(" ", filter=has_focus(self.save_button))
         def _(event):  # pylint: disable=unused-argument
             self.save_reminder()
             self.update_toolbar_text()
 
         # cancel
-        @self.bindings.add('enter', filter=has_focus(self.cancel_button))
-        @self.bindings.add(' ', filter=has_focus(self.cancel_button))
-        @self.bindings.add('q', filter=Condition(_is_vi_mode_or_save_button))
-        def _(event): #pylint: disable=unused-argument
-            print_formatted_text(HTML('<ansired><b>Cancelled.</b></ansired>'))
+        @self.bindings.add("enter", filter=has_focus(self.cancel_button))
+        @self.bindings.add(" ", filter=has_focus(self.cancel_button))
+        @self.bindings.add("q", filter=Condition(_is_vi_mode_or_save_button))
+        def _(event):  # pylint: disable=unused-argument
+            print_formatted_text(HTML("<ansired><b>Cancelled.</b></ansired>"))
             self.reminder.canceled = True
             self.application.exit()
 
@@ -541,7 +611,8 @@ class ReminderConfirmation:
         # Find current index based on current reminder type
         # Create a generator to find the index of the current reminder type
         index_generator = (
-            i for i, t in enumerate(self.reminder_types)
+            i
+            for i, t in enumerate(self.reminder_types)
             if t.db_value == self.reminder.key.db_value
         )
 
@@ -558,8 +629,9 @@ class ReminderConfirmation:
 
         # handle invalid values for dates - default to tomorrow
         if self.reminder_types[new_index] == ReminderKeyType.DATE:
-            self.value_text_area.text = (datetime.datetime.now()
-                                         + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+            self.value_text_area.text = (
+                datetime.datetime.now() + datetime.timedelta(days=1)
+            ).strftime("%Y-%m-%d")
             self.reminder.value = self.value_text_area.text
 
         # set cache
@@ -582,7 +654,9 @@ class ReminderConfirmation:
         # get cache
         try:
             if self.key_value_cache[self.reminder.key.label]:
-                self.value_text_area.text = self.key_value_cache[self.reminder.key.label]
+                self.value_text_area.text = self.key_value_cache[
+                    self.reminder.key.label
+                ]
                 self.reminder.value = self.key_value_cache[self.reminder.key.label]
         except KeyError:
             if self.reminder.key == ReminderKeyType.DAY_OF_MONTH:
@@ -595,7 +669,7 @@ class ReminderConfirmation:
         Handles keyboard navigation within the confirmation's UI.
 
         This method manages the focus transitions between UI components based on arrow keys or
-        'j' and 'k' inputs, mimicking VI-style navigation. It updates the toolbar text to reflect 
+        'j' and 'k' inputs, mimicking VI-style navigation. It updates the toolbar text to reflect
         the current mode or focused item.
 
         Args:
@@ -604,15 +678,17 @@ class ReminderConfirmation:
         """
 
         # handle VI mode
-        if (key == 'j' or key == 'k') and self.application.layout.has_focus(self.save_button):
+        if (key == "j" or key == "k") and self.application.layout.has_focus(
+            self.save_button
+        ):
             self.is_vi_mode = True
 
-        if (key == 'j' and self.is_vi_mode) or key == 'down':
+        if (key == "j" and self.is_vi_mode) or key == "down":
             event.app.layout.focus_next()
             self.update_toolbar_text()
             return
 
-        if (key == 'k' and self.is_vi_mode) or key == 'up':
+        if (key == "k" and self.is_vi_mode) or key == "up":
             event.app.layout.focus_previous()
             self.update_toolbar_text()
             return
@@ -628,7 +704,8 @@ class ReminderConfirmation:
         information related to the input field currently in focus. It constructs a
         frequency text string that varies based on the selected reminder type and its
         frequency, and then updates the toolbar text to reflect the current interaction context,
-        such as editing the title, type, value, frequency, or whether to delete or execute the reminder as a command.
+        such as editing the title, type, value, frequency, email,
+        or whether to delete or execute the reminder as a command.
         """
 
         rtype = self.reminder.key.label
@@ -660,19 +737,20 @@ class ReminderConfirmation:
             if self.type_text_area.text == ReminderKeyType.DATE.label:
                 self.toolbar_text = "Send on a specific date (YYYY-MM-DD)"
             elif self.reminder.key == ReminderKeyType.LATER:
-                self.toolbar_text = 'Save for Later'
+                self.toolbar_text = "Save for Later"
             elif self.reminder.key == ReminderKeyType.NOW:
-                self.toolbar_text = 'Send immediately'
+                self.toolbar_text = "Send immediately"
             else:
                 self.toolbar_text = f"Send every {frequency_text}"
         elif self.application.layout.has_focus(self.value_input):
             if rtype == ReminderKeyType.DAY_OF_MONTH.label:
-                self.toolbar_text = 'Enter a number 1-31'
+                self.toolbar_text = "Enter a number 1-31"
             elif rtype == ReminderKeyType.DATE.label:
                 self.toolbar_text = value_text
         elif self.application.layout.has_focus(self.frequency_input):
-            self.toolbar_text = \
+            self.toolbar_text = (
                 f"How often the reminder should occur (every {frequency_text})"
+            )
         elif self.application.layout.has_focus(self.starts_on_input):
             self.toolbar_text = "When the reminder should start (YYYY-MM-DD)"
         elif self.application.layout.has_focus(self.offset_input_text_area):
@@ -699,8 +777,10 @@ class ReminderConfirmation:
             bool: True if the reminder type requires a value, False otherwise.
         """
 
-        return self.type_text_area.text in [ReminderKeyType.DAY_OF_MONTH.label,
-                                            ReminderKeyType.DATE.label]
+        return self.type_text_area.text in [
+            ReminderKeyType.DAY_OF_MONTH.label,
+            ReminderKeyType.DATE.label,
+        ]
 
     def is_frequency_enabled(self) -> bool:
         """
@@ -710,9 +790,11 @@ class ReminderConfirmation:
             bool: True if the frequency setting is applicable, False otherwise.
         """
 
-        return self.type_text_area.text not in [ReminderKeyType.DATE.label,
-                                            ReminderKeyType.LATER.label,
-                                            ReminderKeyType.NOW.label]
+        return self.type_text_area.text not in [
+            ReminderKeyType.DATE.label,
+            ReminderKeyType.LATER.label,
+            ReminderKeyType.NOW.label,
+        ]
 
     def is_offset_enabled(self) -> bool:
         """
@@ -722,10 +804,12 @@ class ReminderConfirmation:
             bool: True if offsets can be set for the type, False if not.
         """
 
-        return self.type_text_area.text not in [ReminderKeyType.DATE.label,
-                                            ReminderKeyType.LATER.label,
-                                            ReminderKeyType.NOW.label]
-    
+        return self.type_text_area.text not in [
+            ReminderKeyType.DATE.label,
+            ReminderKeyType.LATER.label,
+            ReminderKeyType.NOW.label,
+        ]
+
     def is_tags_enabled(self) -> bool:
         """
         Determines if the 'Tags' field should be enabled based on the selected reminder type.
@@ -734,9 +818,11 @@ class ReminderConfirmation:
             bool: True if the reminder type allows for tags, False otherwise.
         """
 
-        return self.type_text_area.text not in [ReminderKeyType.LATER.label,
-                                            ReminderKeyType.NOW.label]
-    
+        return self.type_text_area.text not in [
+            ReminderKeyType.LATER.label,
+            ReminderKeyType.NOW.label,
+        ]
+
     def is_command_enabled(self) -> bool:
         """
         Determines if the 'Command' field should be enabled based on the selected reminder type.
@@ -746,7 +832,7 @@ class ReminderConfirmation:
         """
 
         return self.type_text_area.text not in [ReminderKeyType.LATER.label]
-    
+
     def is_email_enabled(self) -> bool:
         """
         Determines if the 'Email' field should be enabled based on the selected reminder type.
@@ -765,8 +851,10 @@ class ReminderConfirmation:
             bool: True if the reminder type allows for deletion, False otherwise.
         """
 
-        return self.type_text_area.text not in [ReminderKeyType.LATER.label,
-                                            ReminderKeyType.NOW.label]
+        return self.type_text_area.text not in [
+            ReminderKeyType.LATER.label,
+            ReminderKeyType.NOW.label,
+        ]
 
     def run(self):
         """

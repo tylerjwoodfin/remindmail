@@ -7,6 +7,8 @@ from typing import Callable
 from functools import wraps
 import sys
 from datetime import datetime
+
+
 class ErrorHandler:
     """
     Handles and tries to resolve errors
@@ -17,13 +19,16 @@ class ErrorHandler:
         """
         A decorator to handle exceptions raised by the function it wraps
         """
+
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             try:
                 return func(self, *args, **kwargs)
             except FileNotFoundError as e:
-                filename = getattr(e, 'filename', 'Unknown file')
-                self.cabinet.log(f"'{filename}' was not found in {func.__name__}.", level="error")
+                filename = getattr(e, "filename", "Unknown file")
+                self.cabinet.log(
+                    f"'{filename}' was not found in {func.__name__}.", level="error"
+                )
 
                 resolved = self.help_set_path_remindmd()
                 if resolved:
@@ -44,7 +49,7 @@ class ErrorHandler:
         Checks if a date string is valid
         """
         try:
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            datetime.strptime(date_str, "%Y-%m-%d")
             return True
         except ValueError:
             return False
