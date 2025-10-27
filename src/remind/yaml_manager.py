@@ -62,6 +62,10 @@ class YAMLManager:
         # Add tags if present
         if reminder.tags:
             reminder_dict['tags'] = reminder.tags
+        
+        # Add email if present
+        if reminder.email:
+            reminder_dict['email'] = reminder.email
 
         # Handle different reminder types
         if reminder.key == ReminderKeyType.LATER:
@@ -121,6 +125,9 @@ class YAMLManager:
         if isinstance(tags, str):
             tags = [tag.strip() for tag in tags.split(',')]
         
+        # Get email if present
+        email = reminder_dict.get('email', None)
+        
         # Create reminder based on type
         if 'later' in reminder_dict:
             reminders.append(Reminder(
@@ -137,7 +144,8 @@ class YAMLManager:
                 cabinet=cabinet,
                 mail=mail,
                 path_remind_file=path_remind_file,
-                tags=tags
+                tags=tags,
+                email=email
             ))
         elif 'date' in reminder_dict:
             reminders.append(Reminder(
@@ -154,7 +162,8 @@ class YAMLManager:
                 cabinet=cabinet,
                 mail=mail,
                 path_remind_file=path_remind_file,
-                tags=tags
+                tags=tags,
+                email=email
             ))
         elif 'dom' in reminder_dict:
             reminders.append(Reminder(
@@ -171,7 +180,8 @@ class YAMLManager:
                 cabinet=cabinet,
                 mail=mail,
                 path_remind_file=path_remind_file,
-                tags=tags
+                tags=tags,
+                email=email
             ))
         elif 'day' in reminder_dict:
             day = reminder_dict['day']
@@ -196,7 +206,8 @@ class YAMLManager:
                     cabinet=cabinet,
                     mail=mail,
                     path_remind_file=path_remind_file,
-                    tags=tags
+                    tags=tags,
+                    email=email
                 ))
         elif 'every' in reminder_dict:
             unit = reminder_dict.get('unit', 'days')
@@ -221,7 +232,8 @@ class YAMLManager:
                 cabinet=cabinet,
                 mail=mail,
                 path_remind_file=path_remind_file,
-                tags=tags
+                tags=tags,
+                email=email
             ))
             
         return reminders

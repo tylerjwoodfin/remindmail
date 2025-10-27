@@ -54,6 +54,10 @@ class ReminderConfirmation:
         else:
             self.reminder.tags = []
         
+        # Handle email
+        email_text = self.email_text_area.text.strip()
+        self.reminder.email = email_text if email_text else None
+        
         # warn if reminder is in the past
         if self.reminder.key == ReminderKeyType.DATE and self.reminder.value and \
             datetime.datetime.strptime(self.reminder.value, '%Y-%m-%d') < datetime.datetime.now():
@@ -157,7 +161,7 @@ class ReminderConfirmation:
 
         # text areas
         self.title_text_area = generate_textarea(self.reminder.title, 'Title')
-        self.type_text_area = generate_textarea(self.reminder.key.label, 'Type', True)
+        self.type_text_area = generate_textarea(self.reminder.key.label, 'Type ', True)
         self.value_text_area = generate_textarea(str(self.reminder.value), 'Value', True)
         self.frequency_text_area = generate_textarea(str(self.reminder.frequency),
                                                      'Frequency', True)
@@ -173,6 +177,12 @@ class ReminderConfirmation:
         self.command_text_area = generate_textarea(
             getattr(self.reminder, 'command', ''), 
             'Command (optional)'
+        )
+
+        # Add email text area (optional)
+        self.email_text_area = generate_textarea(
+            getattr(self.reminder, 'email', ''), 
+            'Custom Email (optional)'
         )
 
         # Create delete checkbox
@@ -217,6 +227,12 @@ class ReminderConfirmation:
         self.command_input = ConditionalContainer(
             content=self.command_text_area,
             filter=Condition(self.is_command_enabled)
+        )
+
+        # email
+        self.email_input = ConditionalContainer(
+            content=self.email_text_area,
+            filter=Condition(self.is_email_enabled)
         )
 
         # delete
@@ -300,6 +316,7 @@ class ReminderConfirmation:
             self.starts_on_input,
             self.offset_input,
             self.command_input,
+            self.email_input,
             self.tags_input,
             self.delete_input,
             HSplit(children=[
@@ -730,6 +747,16 @@ class ReminderConfirmation:
 
         return self.type_text_area.text not in [ReminderKeyType.LATER.label]
     
+    def is_email_enabled(self) -> bool:
+        """
+        Determines if the 'Email' field should be enabled based on the selected reminder type.
+
+        Returns:
+            bool: True if the reminder type allows for an email, False otherwise.
+        """
+
+        return self.type_text_area.text not in [ReminderKeyType.LATER.label]
+
     def is_delete_enabled(self) -> bool:
         """
         Determines if the 'Delete' checkbox should be enabled based on the selected reminder type.
