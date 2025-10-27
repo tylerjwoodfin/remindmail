@@ -30,6 +30,7 @@ Easily manage your To Do list, schedule one-time or recurring reminders, add not
       - [`delete`](#delete)
       - [`notes`](#notes)
       - [`command`](#command)
+      - [`email`](#email)
       - [`tags`](#tags)
     - [Good Examples](#good-examples)
 - [Contributing](#contributing)
@@ -224,6 +225,10 @@ remind -m cabinet --config
 - **Type:** `string`
 - **Description:** If set, runs the command and outputs the results to the body of the email.
 
+#### `email`
+- **Type:** `string`
+- **Description:** Optional email address to send this specific reminder to. If not set, uses the default email configured in Cabinet's `email -> to` setting.
+
 #### `tags`
 Optional list of tags to categorize and filter reminders. Tags can be used to group related reminders and filter which reminders are sent when using the `--generate` command.
 
@@ -290,6 +295,10 @@ reminders:
     day: fri
     command: find ~/homework -maxdepth 1 -type f | wc -l
     notes: This is how many files are in ~/homework.
+  - name: Send to spouse
+    date: 2025-11-15
+    email: spouse@protonmail.com
+    notes: This reminder will be sent to a different email address
     
 ```
 
