@@ -184,11 +184,24 @@ class ReminderManager:
             f"{len(self.parsed_reminders)} with tags in: {tags}", level="info"
         )
 
+        # Log the current date being used for reminder evaluation
+        current_date = date.today()
+        self.cabinet.log(
+            f"Checking reminders for date: {current_date}", level="debug"
+        )
+
         # Track which reminders need to be deleted
         reminders_to_delete = []
+        reminders_checked = 0
+        reminders_to_send = 0
 
         for _reminder in self.parsed_reminders:
-            if _reminder.should_send_today:
+            reminders_checked += 1
+            # Re-check should_send_today at send time to ensure we use the current date
+            # This prevents issues where date.today() might have been different during parsing
+            should_send = _reminder.get_should_send_today()
+            if should_send:
+                reminders_to_send += 1
                 if is_dry_run:
                     reminder_output = "\n[yellow]Would send reminder[/yellow]"
                     if _reminder.delete:
@@ -197,12 +210,29 @@ class ReminderManager:
                     self.console.print(reminder_output)
                     self.cabinet.log(reminder_output, level="info", is_quiet=True)
                 else:
-                    _reminder.send()
-                    if _reminder.delete:
-                        reminders_to_delete.append(_reminder)
+                    try:
+                        _reminder.send()
+                        if _reminder.delete:
+                            reminders_to_delete.append(_reminder)
+                            self.cabinet.log(
+                                f"Marked for deletion: {_reminder}", level="info"
+                            )
+                    except Exception as e:
+                        # Log the error but continue processing other reminders
                         self.cabinet.log(
-                            f"Marked for deletion: {_reminder}", level="info"
+                            f"Failed to send reminder '{_reminder.title}': {e}",
+                            level="error",
                         )
+                        import traceback
+                        self.cabinet.log(
+                            f"Traceback: {traceback.format_exc()}", level="debug"
+                        )
+
+        # Log summary of reminder processing
+        self.cabinet.log(
+            f"Processed {reminders_checked} reminders, {reminders_to_send} matched today's date",
+            level="info",
+        )
 
         # If any reminders need to be deleted, parse the file again with deletion enabled
         if reminders_to_delete and not is_dry_run:
