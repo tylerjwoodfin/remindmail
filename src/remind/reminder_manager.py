@@ -160,9 +160,16 @@ class ReminderManager:
         the appropriate reminders. If a reminder is marked for deletion and should be
         sent today, it will be removed from the file after sending.
 
+        Tag filtering behavior:
+        - If tags is None: only send reminders with no tags (untagged reminders).
+        - If tags is ["__ALL__"]: send all reminders regardless of tags (failsafe).
+        - If tags is a list of tag names: only send reminders that have at least one
+          matching tag.
+
         Args:
             is_dry_run (bool): If True, only show what would be sent without actually sending.
             tags (Optional[List[str]]): Optional list of tags to filter reminders by.
+                Pass ["__ALL__"] to send all reminders, even unmatched tagged ones.
 
         Raises:
             FileNotFoundError: If the reminders file cannot be found.
@@ -172,8 +179,16 @@ class ReminderManager:
         self.parse_reminders_file(is_delete=False)
         self.cabinet.log(f"Parsed {len(self.parsed_reminders)} reminders", level="info")
 
-        # Filter reminders by tags if specified
-        if tags:
+        # Filter reminders by tags
+        if tags is None:
+            # Default: only send reminders with no tags
+            self.cabinet.log("Sending untagged reminders only", level="info")
+            self.parsed_reminders = [r for r in self.parsed_reminders if not r.tags]
+        elif tags == ["__ALL__"]:
+            # Failsafe: send all reminders regardless of tags
+            self.cabinet.log("Sending all reminders (__ALL__)", level="info")
+        else:
+            # Explicit tags: only send reminders matching at least one tag
             self.cabinet.log(f"Filtering by tags: {tags}", level="info")
             self.parsed_reminders = [
                 r for r in self.parsed_reminders if any(tag in r.tags for tag in tags)
@@ -181,7 +196,7 @@ class ReminderManager:
 
         # Send reminders and handle deletion
         self.cabinet.log(
-            f"{len(self.parsed_reminders)} with tags in: {tags}", level="info"
+            f"{len(self.parsed_reminders)} reminders to process", level="info"
         )
 
         # Log the current date being used for reminder evaluation
