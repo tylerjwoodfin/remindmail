@@ -123,7 +123,7 @@ remind -m cabinet --config
 ## Scheduling Reminder Emails
 
 - type "crontab -e" in the terminal and add something like:
-  - `0 4 * * * remind --generate` (sends matching reminders at 4AM)
+  - `0 4 * * * remind --generate` (sends untagged reminders for today at 4AM; use `--tags blah` to send reminders tagged with 'blah')
   - `0 4 * * * remind --later` (sends emails scheduled for later)
 
 - your setup may require `remind` to be replaced with something like:
@@ -142,8 +142,11 @@ remind -m cabinet --config
 - `remind --title 'reminder title' --when 'every 2 Mondays'`: Schedule a new reminder programatically
 - `remind --title 'reminder title' --when 'now'`: Sends an email immediately
 - `remind -h` (or `--help`): Displays usage information.
-- `remind -g` (or `--generate`): Generates all reminders scheduled for today.
-  - use `--dry-run` to see what would be sent without actually sending anything.
+- `remind -g` (or `--generate`): Generates reminders scheduled for today.
+  - Without `--tags`: only sends reminders that have no tags (untagged reminders).
+  - With `--tags tag1,tag2`: only sends reminders that have at least one of the specified tags.
+  - With `--tags __ALL__`: sends all reminders for today regardless of tags (failsafe; not recommended for regular use).
+  - Use `--dry-run` to see what would be sent without actually sending anything.
   - `remind -g --file=/path/to/special/remindmail.yml` will use the specified file instead of the default.
   - I recommend setting up a crontab.
 - `remind --later`: Emails reminders that are marked with `[later]`
@@ -232,6 +235,17 @@ remind -m cabinet --config
 #### `tags`
 Optional list of tags to categorize and filter reminders. Tags can be used to group related reminders and filter which reminders are sent when using the `--generate` command.
 
+**Tag filtering when generating:**
+- **No `--tags`:** Only reminders with *no* tags are sent. Use this for your default morning cron so that tagged reminders (e.g., `evening`) are held for their dedicated runs.
+- **`--tags tag1,tag2`:** Only reminders that have at least one of the specified tags are sent.
+- **`--tags __ALL__`:** Sends all reminders for today regardless of tags. Use as a failsafe only, not for regular use.
+
+Example crontab setup for morning and evening runs:
+```bash
+0 4 * * * remind --generate                    # Morning: sends untagged reminders only
+0 18 * * * remind --generate --tags evening    # Evening: sends reminders tagged "evening"
+```
+
 Example:
 ```yaml
 reminders:
@@ -246,11 +260,12 @@ reminders:
     notes: "Buy milk and eggs"
 ```
 
-You can then filter reminders by tags when generating:
+You can filter reminders by tags when generating:
 ```bash
-remindmail --generate --tags work,meeting  # Only sends reminders with work or meeting tags
-remindmail --generate --tags personal      # Only sends reminders with personal tag
-remindmail --generate                      # Sends all reminders (default behavior)
+remind --generate --tags work,meeting   # Only sends reminders with work or meeting tags
+remind --generate --tags evening        # Only sends reminders with evening tag
+remind --generate                       # Only sends reminders with no tags (default)
+remind --generate --tags __ALL__        # Sends all reminders for today regardless of tags (failsafe)
 ```
 
 Tags can be specified by a string or list in the YAML file:
