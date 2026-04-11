@@ -1,4 +1,4 @@
-cabinet>=0.1.0
+cabinet>=1!2.4.0
 rich>=10.0.0
 prompt_toolkit>=3.0.0
 python-dateutil>=2.8.0

@@ -119,13 +119,15 @@ class ReminderManager:
         reminders: List[reminder.Reminder] = []
         new_reminders: List[Dict[str, Any]] = []
 
-        for reminder_dict in reminder_dicts:
+        for reminder_index, reminder_dict in enumerate(reminder_dicts):
             parsed_reminders = YAMLManager.dict_to_reminders(
                 reminder_dict, self.cabinet, self.mail, filename
             )
 
             should_keep = False
             for r in parsed_reminders:
+                # Keep track of the source YAML entry index for targeted deletion later.
+                r.index = reminder_index
                 r.should_send_today = r.get_should_send_today()
                 if is_delete and r.should_send_today and r.delete:
                     self.cabinet.log(f"Will Delete: {r}")
@@ -201,12 +203,10 @@ class ReminderManager:
 
         # Log the current date being used for reminder evaluation
         current_date = date.today()
-        self.cabinet.log(
-            f"Checking reminders for date: {current_date}", level="debug"
-        )
+        self.cabinet.log(f"Checking reminders for date: {current_date}", level="debug")
 
         # Track which reminders need to be deleted
-        reminders_to_delete = []
+        reminder_indexes_to_delete: set[int] = set()
         reminders_checked = 0
         reminders_to_send = 0
 
@@ -228,7 +228,7 @@ class ReminderManager:
                     try:
                         _reminder.send()
                         if _reminder.delete:
-                            reminders_to_delete.append(_reminder)
+                            reminder_indexes_to_delete.add(_reminder.index)
                             self.cabinet.log(
                                 f"Marked for deletion: {_reminder}", level="info"
                             )
@@ -239,6 +239,7 @@ class ReminderManager:
                             level="error",
                         )
                         import traceback
+
                         self.cabinet.log(
                             f"Traceback: {traceback.format_exc()}", level="debug"
                         )
@@ -250,12 +251,21 @@ class ReminderManager:
         )
 
         # If any reminders need to be deleted, parse the file again with deletion enabled
-        if reminders_to_delete and not is_dry_run:
+        if reminder_indexes_to_delete and not is_dry_run:
             self.cabinet.log(
-                f"Deleting {len(reminders_to_delete)} reminders after sending",
+                f"Deleting {len(reminder_indexes_to_delete)} reminders after sending",
                 level="info",
             )
-            self.parse_reminders_file(is_delete=True)
+            if self.remind_path_file is None:
+                raise FileNotFoundError
+
+            reminder_dicts = YAMLManager.parse_yaml_file(self.remind_path_file)
+            filtered_reminder_dicts = [
+                reminder_dict
+                for index, reminder_dict in enumerate(reminder_dicts)
+                if index not in reminder_indexes_to_delete
+            ]
+            YAMLManager.write_yaml_file(self.remind_path_file, filtered_reminder_dicts)
 
     def show_later(self) -> None:
         """
