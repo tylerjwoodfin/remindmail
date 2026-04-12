@@ -251,7 +251,10 @@ class Reminder:
                 raise ValueError(
                     "Day of month reminders require a non-empty integer value."
                 )
-            return target_date.day == self.value
+            day_of_month = int(str(self.value))
+            if day_of_month < 1 or day_of_month > 31:
+                raise ValueError("Day of month reminders require a value from 1 to 31.")
+            return target_date.day == day_of_month
 
         elif self.key in [
             ReminderKeyType.MONDAY,
@@ -427,12 +430,17 @@ class Reminder:
                 str(self.value), "%Y-%m-%d"
             ).date()
         elif self.key == ReminderKeyType.DAY_OF_MONTH:
-            if not self.value or not self.error_handler.is_valid_date(str(self.value)):
+            if not self.value or not str(self.value).isdigit():
                 raise ValueError(
                     "Reminder day of month cannot be empty and must be an "
                     "integer for day of month reminders."
                 )
-            reminder_dict["dom"] = self.value
+            day_of_month = int(str(self.value))
+            if day_of_month < 1 or day_of_month > 31:
+                raise ValueError(
+                    "Reminder day of month must be between 1 and 31."
+                )
+            reminder_dict["dom"] = day_of_month
         elif self.key in {
             ReminderKeyType.SUNDAY,
             ReminderKeyType.MONDAY,
