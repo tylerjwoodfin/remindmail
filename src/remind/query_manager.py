@@ -13,6 +13,34 @@ from remind.reminder_manager import ReminderManager
 from prompt_toolkit import print_formatted_text, HTML
 from cabinet import Cabinet, Mail
 
+# English month names / abbreviations → month number (avoids locale-dependent strptime %b).
+_MONTH_NAME_TO_NUM: dict[str, int] = {
+    "january": 1,
+    "jan": 1,
+    "february": 2,
+    "feb": 2,
+    "march": 3,
+    "mar": 3,
+    "april": 4,
+    "apr": 4,
+    "may": 5,
+    "june": 6,
+    "jun": 6,
+    "july": 7,
+    "jul": 7,
+    "august": 8,
+    "aug": 8,
+    "september": 9,
+    "sept": 9,
+    "sep": 9,
+    "october": 10,
+    "oct": 10,
+    "november": 11,
+    "nov": 11,
+    "december": 12,
+    "dec": 12,
+}
+
 
 class QueryManager:
     """
@@ -99,10 +127,11 @@ class QueryManager:
             ),
             "every_weeks": re.compile(r"every (\d+) weeks?", re.IGNORECASE),
             "specific_date": re.compile(
-                r"(?i)\b(january|february|march|april|may|june|july|august|"
-                r"september|october|november|december) (\d{1,2})"
-                r"(?:,? (\d{4}))?\b",
-                re.IGNORECASE,
+                r"(?i)\b("
+                r"january|february|march|april|may|june|july|august|"
+                r"september|october|november|december|"
+                r"jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec"
+                r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?\b",
             ),
             "mm_dd": re.compile(r"(\d{1,2})/(\d{1,2})"),
             "mm_dd_yyyy": re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})"),
@@ -119,6 +148,7 @@ class QueryManager:
 
         # common replacements
         input_str = input_str.replace("every week", "every sunday")
+        input_str = input_str.strip()
 
         now = datetime.now()
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -176,6 +206,30 @@ class QueryManager:
                 key = ReminderKeyType.DAY_OF_MONTH
                 value = match.group(1)
 
+            # Month + day (e.g. april 21, April 21st, apr 21) — before weekday substring
+            # checks so month names like "may" / "mar" are not confused with DOW tokens.
+            elif match := regex_patterns["specific_date"].search(input_str):
+                month_word = match.group(1).lower().rstrip(".")
+                month_num = _MONTH_NAME_TO_NUM.get(month_word)
+                if month_num is None:
+                    self.cabinet.log(
+                        f"Unrecognized month in date: {month_word!r}",
+                        level="warn",
+                        is_quiet=True,
+                    )
+                    raise ValueError("Sorry, I didn't understand that.")
+                day = int(match.group(2))
+                year = (
+                    int(match.group(3))
+                    if match.group(3)
+                    else start_date.year
+                )
+                try:
+                    date_formatted = datetime(year, month_num, day)
+                except ValueError as exc:
+                    raise ValueError("Sorry, I didn't understand that.") from exc
+                key, value = set_date_key_value(date_formatted, value, key)
+
             # specific weekday
             elif any(day in input_str.lower() for day in weekdays):
                 day_str = input_str.lower()
@@ -187,15 +241,6 @@ class QueryManager:
                         key = ReminderKeyType.DATE
                         value = next_weekday.strftime("%Y-%m-%d")
                         break
-
-            # specific date
-            elif match := regex_patterns["specific_date"].search(input_str):
-                year = match.group(3) or start_date.year
-                date_str = (
-                    f"{year}-{match.group(1)[:3].title()}-{match.group(2).zfill(2)}"
-                )
-                date_formatted = datetime.strptime(date_str, "%Y-%b-%d")
-                key, value = set_date_key_value(date_formatted, value, key)
 
             # tomorrow
             elif input_str == "tomorrow":
