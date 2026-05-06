@@ -393,7 +393,9 @@ class Reminder:
         )
         email_title = f"{subject_prefix}{email_icons} {self.title}"
 
-        self.cabinet.logdb(self.title, collection_name="reminders")
+        self.cabinet.log(
+            self.title, level="info", tags=["reminders"], is_quiet=is_quiet
+        )
 
         # Use custom email if specified, otherwise use default
         # Cabinet expects to_addr as a list when provided
