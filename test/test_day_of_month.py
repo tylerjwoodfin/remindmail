@@ -14,9 +14,6 @@ class _FakeCabinet:
     def get(self, *args, **kwargs):
         return None
 
-    def logdb(self, *args, **kwargs):
-        return None
-
 
 class _FakeMail:
     def send(self, *args, **kwargs):
