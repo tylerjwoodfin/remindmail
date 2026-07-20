@@ -144,6 +144,14 @@ class QueryManager:
                 r"|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)s?",
                 re.IGNORECASE,
             ),
+            # e.g. "every december 1", "every Dec 1st"
+            "every_month_day": re.compile(
+                r"(?i)^every\s+("
+                r"january|february|march|april|may|june|july|august|"
+                r"september|october|november|december|"
+                r"jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec"
+                r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?$"
+            ),
         }
 
         # common replacements
@@ -259,8 +267,28 @@ class QueryManager:
                 delete = False
         else:
             delete = False
+            # every <month> <day> (annual, e.g. "every december 1")
+            if match := regex_patterns["every_month_day"].match(input_str):
+                month_word = match.group(1).lower().rstrip(".")
+                month_num = _MONTH_NAME_TO_NUM.get(month_word)
+                if month_num is None:
+                    self.cabinet.log(
+                        f"Unrecognized month in date: {month_word!r}",
+                        level="warn",
+                        is_quiet=True,
+                    )
+                    raise ValueError("Sorry, I didn't understand that.")
+                day = int(match.group(2))
+                try:
+                    # Validate month/day combo (use leap year so Feb 29 is allowed)
+                    datetime(2024, month_num, day)
+                except ValueError as exc:
+                    raise ValueError("Sorry, I didn't understand that.") from exc
+                key = ReminderKeyType.DATE
+                value = f"{month_num:02d}-{day:02d}"
+
             # every n days
-            if match := regex_patterns["every_n_days"].match(input_str):
+            elif match := regex_patterns["every_n_days"].match(input_str):
                 key = ReminderKeyType.DAY
                 frequency = int(match.group(1) or 1)
 
