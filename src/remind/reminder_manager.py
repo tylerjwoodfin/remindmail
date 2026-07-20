@@ -17,6 +17,7 @@ from remind.yaml_manager import YAMLManager
 import yaml
 from cabinet import Cabinet, Mail
 from . import reminder, error_handler
+from .update_checker import UpdateChecker
 
 
 def complete_file_input(text: str, state: int) -> str:
@@ -177,6 +178,8 @@ class ReminderManager:
             FileNotFoundError: If the reminders file cannot be found.
             yaml.YAMLError: If there is an error parsing the YAML file.
         """
+        UpdateChecker(self.cabinet, self.mail).check_and_notify(is_dry_run=is_dry_run)
+
         # First parse without deletion to get all reminders
         self.parse_reminders_file(is_delete=False)
         self.cabinet.log(f"Parsed {len(self.parsed_reminders)} reminders", level="info")
