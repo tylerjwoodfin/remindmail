@@ -96,6 +96,7 @@ remind -m cabinet --config
   "remindmail": {
     "mongodb_enabled": true, # optional if using mongodb - default false
     "subject_prefix": "Reminder ", # optional - custom prefix for email subjects (default: "📌 ")
+    "update-checks": true, # optional - email once per new release during --generate (default: true)
     "path": {
         "file": "/path/to/remindmail.yml"
     }
@@ -115,6 +116,8 @@ remind -m cabinet --config
 - Gmail will _not_ work due to their security restrictions.
 
 - it's very bad practice to store your password in plaintext; take appropriate precautions.
+
+- When `update-checks` is `true` (the default), `remind --generate` checks PyPI for a newer RemindMail version. If one is available, you get a single email per release (subject like `🎉 RemindMail 4.0.0 Released`) with upgrade instructions. Set `"update-checks": false` to disable. RemindMail stores `last_notified_version` automatically so each version is only emailed once.
 
 ### MongoDB Configuration
 - MongoDB is used to log reminders when `mongodb_enabled` is set to `true`.
@@ -148,6 +151,7 @@ remind -m cabinet --config
   - With `--tags tag1,tag2`: only sends reminders that have at least one of the specified tags.
   - With `--tags __ALL__`: sends all reminders for today regardless of tags (failsafe; not recommended for regular use).
   - Use `--dry-run` to see what would be sent without actually sending anything.
+  - Also checks PyPI for a newer RemindMail release and emails once per version when `remindmail → update-checks` is enabled (default).
   - `remind -g --file=/path/to/special/remindmail.yml` will use the specified file instead of the default.
   - I recommend setting up a crontab.
 - `remind --later`: Emails reminders that are marked with `[later]`
