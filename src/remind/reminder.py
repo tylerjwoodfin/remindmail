@@ -218,12 +218,25 @@ class Reminder:
                 return False
 
             try:
-                if len(date_parts) == 2:  # MM-DD format
-                    month, day = map(int, date_parts)
+                if len(date_parts) == 2:  # MM-DD format (annual)
+                    month, stored_day = map(int, date_parts)
+
+                    def _annual_day_for_year(year: int) -> int:
+                        # Feb 29 in non-leap years fires on Feb 28
+                        if (
+                            month == 2
+                            and stored_day == 29
+                            and not calendar.isleap(year)
+                        ):
+                            return 28
+                        return stored_day
+
                     year = target_date.year
+                    day = _annual_day_for_year(year)
                     # If the date has already passed this year, use next year
                     if (month, day) < (target_date.month, target_date.day):
                         year += 1
+                        day = _annual_day_for_year(year)
                 else:  # YYYY-MM-DD format
                     year, month, day = map(int, date_parts)
             except ValueError:

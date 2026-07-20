@@ -14,6 +14,7 @@ from prompt_toolkit.widgets import TextArea, Box, Label
 from prompt_toolkit.layout.containers import WindowAlign, ConditionalContainer
 from prompt_toolkit.filters import has_focus, Condition
 from remind.reminder import Reminder, ReminderKeyType
+from remind.error_handler import ErrorHandler
 
 
 class ReminderConfirmation:
@@ -506,9 +507,12 @@ class ReminderConfirmation:
                     date_str = str(current_value)
                     is_annual = len(date_str.split("-")) == 2
                     if is_annual:
-                        current_date = datetime.datetime.strptime(
-                            date_str, "%m-%d"
-                        ).replace(year=datetime.datetime.now().year).date()
+                        parsed = ErrorHandler.parse_mm_dd(date_str)
+                        if parsed is None:
+                            return
+                        month, day = parsed
+                        # Use a leap year so Feb 29 can be represented
+                        current_date = datetime.date(2024, month, day)
                     else:
                         current_date = datetime.datetime.strptime(
                             date_str, "%Y-%m-%d"
@@ -734,9 +738,12 @@ class ReminderConfirmation:
                 try:
                     date = datetime.datetime.strptime(value_text, "%Y-%m-%d")
                 except ValueError:
-                    date = datetime.datetime.strptime(value_text, "%m-%d").replace(
-                        year=datetime.datetime.now().year
-                    )
+                    parsed = ErrorHandler.parse_mm_dd(value_text)
+                    if parsed is None:
+                        raise ValueError("invalid annual date")
+                    month, day = parsed
+                    # Leap year so Feb 29 can be formatted for weekday label
+                    date = datetime.datetime(2024, month, day)
                 value_text = date.strftime("%A")
             except ValueError:
                 # Set default text if parsing fails
