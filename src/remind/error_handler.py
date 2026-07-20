@@ -46,10 +46,14 @@ class ErrorHandler:
 
     def is_valid_date(self, date_str: str) -> bool:
         """
-        Checks if a date string is valid
+        Checks if a date string is valid.
+
+        Accepts one-time ``YYYY-MM-DD`` and annual ``MM-DD`` formats.
         """
-        try:
-            datetime.strptime(date_str, "%Y-%m-%d")
-            return True
-        except ValueError:
-            return False
+        for fmt in ("%Y-%m-%d", "%m-%d"):
+            try:
+                datetime.strptime(date_str, fmt)
+                return True
+            except ValueError:
+                continue
+        return False

@@ -140,6 +140,7 @@ remind -m cabinet --config
 - `remind --title 'reminder title' --when 'friday'`: Schedule a new reminder programatically
 - `remind --title 'reminder title' --when friday --save`: Schedule a new reminder programatically, saves without confirmation
 - `remind --title 'reminder title' --when 'every 2 Mondays'`: Schedule a new reminder programatically
+- `remind --title 'Donate to Wikipedia' --when 'every december 1'`: Schedule an annual reminder (stored as `MM-DD`)
 - `remind --title 'reminder title' --when 'now'`: Sends an email immediately
 - `remind -h` (or `--help`): Displays usage information.
 - `remind -g` (or `--generate`): Generates reminders scheduled for today.
@@ -210,7 +211,8 @@ remind -m cabinet --config
 
 #### `date`
 - **Type:** `string` (`YYYY-MM-DD` or `MM-DD`)
-- **Description:** A specific one-time or annual date for the reminder.
+- **Description:** A specific one-time (`YYYY-MM-DD`) or annual (`MM-DD`) date for the reminder.
+- **CLI:** `every december 1` (and month-name variants) creates an annual `MM-DD` reminder.
 
 #### `later`
 - **Type:** `bool`
@@ -289,6 +291,8 @@ reminders:
     date: 2025-03-31
     delete: true
     notes: This will be <u>VERY</u> useful! <b>WOW</b>
+  - name: Donate to Wikipedia
+    date: 12-01
   - name: Laundry and Sheets
     every: 6
     offset: 5

@@ -66,11 +66,12 @@ class ReminderConfirmation:
         email_text = self.email_text_area.text.strip()
         self.reminder.email = email_text if email_text else None
 
-        # warn if reminder is in the past
+        # warn if one-time reminder is in the past (skip annual MM-DD)
         if (
             self.reminder.key == ReminderKeyType.DATE
             and self.reminder.value
-            and datetime.datetime.strptime(self.reminder.value, "%Y-%m-%d")
+            and len(str(self.reminder.value).split("-")) == 3
+            and datetime.datetime.strptime(str(self.reminder.value), "%Y-%m-%d")
             < datetime.datetime.now()
         ):
             print_formatted_text(
@@ -501,13 +502,24 @@ class ReminderConfirmation:
                     new_index = (index + 1) % 7 if increment else (index - 1 + 7) % 7
                     new_value = days_of_week[new_index]
                 elif self.reminder.key == ReminderKeyType.DATE:
-                    # Handle date increment/decrement
-                    current_date = datetime.datetime.strptime(
-                        current_value, "%Y-%m-%d"
-                    ).date()
+                    # Handle date increment/decrement (YYYY-MM-DD or annual MM-DD)
+                    date_str = str(current_value)
+                    is_annual = len(date_str.split("-")) == 2
+                    if is_annual:
+                        current_date = datetime.datetime.strptime(
+                            date_str, "%m-%d"
+                        ).replace(year=datetime.datetime.now().year).date()
+                    else:
+                        current_date = datetime.datetime.strptime(
+                            date_str, "%Y-%m-%d"
+                        ).date()
                     delta = datetime.timedelta(days=1 if increment else -1)
-                    new_value = current_date + delta
-                    new_value = new_value.strftime("%Y-%m-%d")
+                    new_date = current_date + delta
+                    new_value = (
+                        new_date.strftime("%m-%d")
+                        if is_annual
+                        else new_date.strftime("%Y-%m-%d")
+                    )
                 else:
                     # Handle numeric increments/decrements
                     current_value = int(current_value)
@@ -718,12 +730,17 @@ class ReminderConfirmation:
         value_text = f"{self.value_text_area.text}"
         if rtype == ReminderKeyType.DATE.label:
             try:
-                # attempt to parse dow from the text
-                date = datetime.datetime.strptime(value_text, "%Y-%m-%d")
+                # attempt to parse dow from the text (YYYY-MM-DD or annual MM-DD)
+                try:
+                    date = datetime.datetime.strptime(value_text, "%Y-%m-%d")
+                except ValueError:
+                    date = datetime.datetime.strptime(value_text, "%m-%d").replace(
+                        year=datetime.datetime.now().year
+                    )
                 value_text = date.strftime("%A")
             except ValueError:
                 # Set default text if parsing fails
-                value_text = "Enter a Date (YYYY-MM-DD)"
+                value_text = "Enter a Date (YYYY-MM-DD or MM-DD)"
 
         # handle different verbiage based on frequency
         if self.frequency_text_area.text == "0":
@@ -735,7 +752,9 @@ class ReminderConfirmation:
             self.toolbar_text = "The title for your reminder"
         elif self.application.layout.has_focus(self.type_text_area):
             if self.type_text_area.text == ReminderKeyType.DATE.label:
-                self.toolbar_text = "Send on a specific date (YYYY-MM-DD)"
+                self.toolbar_text = (
+                    "Send on a specific date (YYYY-MM-DD or annual MM-DD)"
+                )
             elif self.reminder.key == ReminderKeyType.LATER:
                 self.toolbar_text = "Save for Later"
             elif self.reminder.key == ReminderKeyType.NOW:
