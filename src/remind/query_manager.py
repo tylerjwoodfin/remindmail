@@ -42,6 +42,19 @@ _MONTH_NAME_TO_NUM: dict[str, int] = {
 }
 
 
+def _match_weekday_token(text: str, weekday_tokens: dict) -> str | None:
+    """
+    Return the longest weekday token found as a whole word in ``text``.
+
+    Uses word boundaries so ``mon`` does not match inside ``months``.
+    Longer tokens are preferred (``monday`` before ``mon``).
+    """
+    for day in sorted(weekday_tokens.keys(), key=len, reverse=True):
+        if re.search(rf"\b{re.escape(day)}\b", text, flags=re.IGNORECASE):
+            return day.lower()
+    return None
+
+
 class QueryManager:
     """
     handles reminder requests
@@ -125,7 +138,7 @@ class QueryManager:
             "day_of_month": re.compile(
                 r"\b(?:the )?(\d{1,2})(st|nd|rd|th)?\b", re.IGNORECASE
             ),
-            "every_weeks": re.compile(r"every (\d+) weeks?", re.IGNORECASE),
+            "every_weeks": re.compile(r"^every (\d+) weeks?$", re.IGNORECASE),
             "specific_date": re.compile(
                 r"(?i)\b("
                 r"january|february|march|april|may|june|july|august|"
@@ -136,13 +149,21 @@ class QueryManager:
             "mm_dd": re.compile(r"(\d{1,2})/(\d{1,2})"),
             "mm_dd_yyyy": re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})"),
             "yyyy_mm_dd": re.compile(r"(\d{4})-(\d{1,2})-(\d{1,2})"),
-            "every_n_days": re.compile(r"every (\d+ )?day?s?", re.IGNORECASE),
-            "every_n_weeks": re.compile(r"every (\d+ )?week?s?", re.IGNORECASE),
-            "every_n_months": re.compile(r"every (\d+ )?month?s?", re.IGNORECASE),
+            "every_n_days": re.compile(r"^every (\d+ )?days?$", re.IGNORECASE),
+            "every_n_weeks": re.compile(r"^every (\d+ )?weeks?$", re.IGNORECASE),
+            "every_n_months": re.compile(r"^every (\d+ )?months?$", re.IGNORECASE),
             "every_n_dows": re.compile(
-                r"every (\d+) (monday|mon|tuesday|tue|wednesday"
-                r"|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)s?",
+                r"^every (\d+) (monday|mon|tuesday|tue|wednesday"
+                r"|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)s?$",
                 re.IGNORECASE,
+            ),
+            # e.g. "every december 1", "every Dec 1st"
+            "every_month_day": re.compile(
+                r"(?i)^every\s+("
+                r"january|february|march|april|may|june|july|august|"
+                r"september|october|november|december|"
+                r"jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec"
+                r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?$"
             ),
         }
 
@@ -230,17 +251,13 @@ class QueryManager:
                     raise ValueError("Sorry, I didn't understand that.") from exc
                 key, value = set_date_key_value(date_formatted, value, key)
 
-            # specific weekday
-            elif any(day in input_str.lower() for day in weekdays):
-                day_str = input_str.lower()
-                for day, rel_day in weekdays.items():
-                    if day in day_str:
-                        next_weekday = start_date + relativedelta(
-                            days=1, weekday=rel_day
-                        )
-                        key = ReminderKeyType.DATE
-                        value = next_weekday.strftime("%Y-%m-%d")
-                        break
+            # specific weekday (word-boundary match; avoid "mon" inside "months")
+            elif weekday_token := _match_weekday_token(input_str, weekdays):
+                next_weekday = start_date + relativedelta(
+                    days=1, weekday=weekdays[weekday_token]
+                )
+                key = ReminderKeyType.DATE
+                value = next_weekday.strftime("%Y-%m-%d")
 
             # tomorrow
             elif input_str == "tomorrow":
@@ -259,21 +276,6 @@ class QueryManager:
                 delete = False
         else:
             delete = False
-            # every n days
-            if match := regex_patterns["every_n_days"].match(input_str):
-                key = ReminderKeyType.DAY
-                frequency = int(match.group(1) or 1)
-
-            # every n weeks
-            elif match := regex_patterns["every_n_weeks"].match(input_str):
-                key = ReminderKeyType.WEEK
-                frequency = int(match.group(1) or 1)
-
-            # every n months
-            elif match := regex_patterns["every_n_months"].match(input_str):
-                key = ReminderKeyType.MONTH
-                frequency = int(match.group(1) or 1)
-
             # Helper: Map full and abbreviated weekday names to ReminderKeyType
             weekday_to_keytype = {
                 "monday": ReminderKeyType.MONDAY,
@@ -292,28 +294,57 @@ class QueryManager:
                 "sun": ReminderKeyType.SUNDAY,
             }
 
+            # every <month> <day> (annual, e.g. "every december 1")
+            if match := regex_patterns["every_month_day"].match(input_str):
+                month_word = match.group(1).lower().rstrip(".")
+                month_num = _MONTH_NAME_TO_NUM.get(month_word)
+                if month_num is None:
+                    self.cabinet.log(
+                        f"Unrecognized month in date: {month_word!r}",
+                        level="warn",
+                        is_quiet=True,
+                    )
+                    raise ValueError("Sorry, I didn't understand that.")
+                day = int(match.group(2))
+                try:
+                    # Validate month/day combo (use leap year so Feb 29 is allowed)
+                    datetime(2024, month_num, day)
+                except ValueError as exc:
+                    raise ValueError("Sorry, I didn't understand that.") from exc
+                key = ReminderKeyType.DATE
+                value = f"{month_num:02d}-{day:02d}"
+
+            # every n days
+            elif match := regex_patterns["every_n_days"].match(input_str):
+                key = ReminderKeyType.DAY
+                frequency = int(match.group(1) or 1)
+
+            # every n weeks
+            elif match := regex_patterns["every_n_weeks"].match(input_str):
+                key = ReminderKeyType.WEEK
+                frequency = int(match.group(1) or 1)
+
+            # every n months
+            elif match := regex_patterns["every_n_months"].match(input_str):
+                key = ReminderKeyType.MONTH
+                frequency = int(match.group(1) or 1)
+
             # every n {dow}s (e.g., 'every 3 mondays')
-            if match := regex_patterns["every_n_dows"].match(input_str):
+            elif match := regex_patterns["every_n_dows"].match(input_str):
                 dow = match.group(2).lower()
                 if dow in weekdays:
-                    key = weekday_to_keytype[
-                        dow
-                    ]  # Get the corresponding ReminderKeyType
+                    key = weekday_to_keytype[dow]
                     value = dow
                     frequency = int(match.group(1))
 
-            # every {dow} (e.g., 'every friday')
-            elif any(day in input_str.lower() for day in weekdays):
-                day_str = input_str.lower()
-                for day, rel_day in weekdays.items():
-                    if day in day_str:
-                        next_weekday = start_date + relativedelta(weekday=rel_day(0))
-                        key = weekday_to_keytype[day]  # Use the same mapping
-                        value = day
-                        frequency = 1
-                        break
+            # every {dow} (e.g., 'every friday') — word-boundary match
+            elif weekday_token := _match_weekday_token(input_str, weekdays):
+                key = weekday_to_keytype[weekday_token]
+                value = weekday_token
+                frequency = 1
 
-            # every n weeks
+            # every n weeks (explicit "every N weeks" already handled above;
+            # keep for "every 2 week" singular edge via every_weeks pattern)
             elif match := regex_patterns["every_weeks"].match(input_str):
                 key = ReminderKeyType.WEEK
                 frequency = int(match.group(1))

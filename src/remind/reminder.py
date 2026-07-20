@@ -106,7 +106,7 @@ class Reminder:
         key (ReminderKeyType).
         - This is the type of reminder, such as on a certain day, date, or month.
         value (Optional[str]): Specific value, depending on the `key`.
-            - if key is "date", expect YYYY-MM-DD str
+            - if key is "date", expect YYYY-MM-DD (one-time) or MM-DD (annual) str
             - if key is "dow", expect "sun" - "sat"
             - if key is "dom", expect 1-30 as string
             - otherwise, value is ignored
@@ -218,12 +218,25 @@ class Reminder:
                 return False
 
             try:
-                if len(date_parts) == 2:  # MM-DD format
-                    month, day = map(int, date_parts)
+                if len(date_parts) == 2:  # MM-DD format (annual)
+                    month, stored_day = map(int, date_parts)
+
+                    def _annual_day_for_year(year: int) -> int:
+                        # Feb 29 in non-leap years fires on Feb 28
+                        if (
+                            month == 2
+                            and stored_day == 29
+                            and not calendar.isleap(year)
+                        ):
+                            return 28
+                        return stored_day
+
                     year = target_date.year
+                    day = _annual_day_for_year(year)
                     # If the date has already passed this year, use next year
                     if (month, day) < (target_date.month, target_date.day):
                         year += 1
+                        day = _annual_day_for_year(year)
                 else:  # YYYY-MM-DD format
                     year, month, day = map(int, date_parts)
             except ValueError:
@@ -428,9 +441,12 @@ class Reminder:
                 raise ValueError(
                     "Reminder date cannot be empty and must be a date for date reminders."
                 )
-            reminder_dict["date"] = datetime.strptime(
-                str(self.value), "%Y-%m-%d"
-            ).date()
+            date_str = str(self.value)
+            # Annual MM-DD stays a string; one-time YYYY-MM-DD becomes a date
+            if len(date_str.split("-")) == 2:
+                reminder_dict["date"] = date_str
+            else:
+                reminder_dict["date"] = datetime.strptime(date_str, "%Y-%m-%d").date()
         elif self.key == ReminderKeyType.DAY_OF_MONTH:
             if not self.value or not str(self.value).isdigit():
                 raise ValueError(
