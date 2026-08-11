@@ -483,7 +483,7 @@ class ReminderManager:
         if reminders:
             email_body = f"Here are your reminders for later:<br>{reminders}"
 
-            self.mail.send(f"Reminders for Later, {today}", email_body)
+            self.mail.send(f"Reminders for Later, {today}", email_body, logging_enabled=False)
         else:
             self.cabinet.log("No reminders were found for 'later'.")
 

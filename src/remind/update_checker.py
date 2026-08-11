@@ -178,7 +178,7 @@ class UpdateChecker:
             return True
 
         try:
-            self.mail.send(subject, body)
+            self.mail.send(subject, body, logging_enabled=False)
             self.cabinet.put("remindmail", "last_notified_version", value=latest)
             self.cabinet.log(
                 f"Sent update email for RemindMail {_display_version(latest)}",

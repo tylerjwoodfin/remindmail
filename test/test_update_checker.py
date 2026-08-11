@@ -80,6 +80,9 @@ class UpdateCheckerTests(unittest.TestCase):
         self.mail.send.assert_called_once()
         subject = self.mail.send.call_args[0][0]
         self.assertEqual(subject, "🎉 RemindMail 4.0.0 Released")
+        self.assertEqual(
+            self.mail.send.call_args.kwargs.get("logging_enabled"), False
+        )
         self.assertEqual(self.store["remindmail.last_notified_version"], "1!4.0.0")
 
         self.mail.send.reset_mock()

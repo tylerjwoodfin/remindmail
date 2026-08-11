@@ -416,11 +416,20 @@ class Reminder:
             # Ensure email is passed as a list
             custom_to = [self.email] if isinstance(self.email, str) else self.email
             self.mail.send(
-                email_title, self.notes or "", is_quiet=is_quiet, to_addr=custom_to
+                email_title,
+                self.notes or "",
+                is_quiet=is_quiet,
+                to_addr=custom_to,
+                logging_enabled=False,
             )
         else:
             # Let Cabinet use the default from config
-            self.mail.send(email_title, self.notes or "", is_quiet=is_quiet)
+            self.mail.send(
+                email_title,
+                self.notes or "",
+                is_quiet=is_quiet,
+                logging_enabled=False,
+            )
 
     def write_to_file(self, is_quiet: bool = True) -> None:
         """
