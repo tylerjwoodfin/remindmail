@@ -1,6 +1,6 @@
 # Agent / LLM guide for remindmail
 
-Use this when implementing Taiga tickets or other changes in `~/git/remindmail`.
+Use this when implementing Vikunja tickets or other changes in `~/git/remindmail`.
 
 ## Branching workflow
 
