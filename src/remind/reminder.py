@@ -356,9 +356,12 @@ class Reminder:
 
         return False
 
-    def send(self, is_quiet: bool = False) -> None:
+    def send(self, is_quiet: bool = False) -> bool:
         """
         Sends the reminder via email or executes it as a command.
+
+        Returns:
+            bool: False if the email failed to send, otherwise True.
         """
 
         if self.command:
@@ -385,15 +388,18 @@ class Reminder:
                 )
                 self.cabinet.log(f"Error output: {error.output}", level="error")
 
-        self.send_email(is_quiet=is_quiet)
+        return self.send_email(is_quiet=is_quiet)
 
-    def send_email(self, is_quiet: bool = False) -> None:
+    def send_email(self, is_quiet: bool = False) -> bool:
         """
         Sends the reminder as an email using Cabinet's `Mail()` module
 
         Args:
             is_quiet (bool, optional): whether to print cabinet log.
             Defaults to False.
+
+        Returns:
+            bool: False if Cabinet reported a failed send, otherwise True.
         """
 
         email_icons = "🗒️" if self.notes else ""
@@ -415,12 +421,16 @@ class Reminder:
         if self.email:
             # Ensure email is passed as a list
             custom_to = [self.email] if isinstance(self.email, str) else self.email
-            self.mail.send(
+            result = self.mail.send(
                 email_title, self.notes or "", is_quiet=is_quiet, to_addr=custom_to
             )
         else:
             # Let Cabinet use the default from config
-            self.mail.send(email_title, self.notes or "", is_quiet=is_quiet)
+            result = self.mail.send(email_title, self.notes or "", is_quiet=is_quiet)
+
+        # Cabinet's Mail.send() logs failures and returns False instead of raising.
+        # Older Cabinet versions return None, so only an explicit False is a failure.
+        return result is not False
 
     def write_to_file(self, is_quiet: bool = True) -> None:
         """
