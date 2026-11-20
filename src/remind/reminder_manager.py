@@ -229,8 +229,14 @@ class ReminderManager:
                     self.cabinet.log(reminder_output, level="info", is_quiet=True)
                 else:
                     try:
-                        _reminder.send()
-                        if _reminder.delete:
+                        is_sent = _reminder.send()
+                        if not is_sent:
+                            self.cabinet.log(
+                                f"Failed to send reminder '{_reminder.title}'"
+                                + ("; keeping it in the file" if _reminder.delete else ""),
+                                level="error",
+                            )
+                        elif _reminder.delete:
                             reminder_indexes_to_delete.add(_reminder.index)
                             self.cabinet.log(
                                 f"Marked for deletion: {_reminder}", level="info"
